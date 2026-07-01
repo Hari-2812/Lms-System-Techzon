@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-inter bg-bg-light text-slate-800 transition-colors duration-200;
+  }
+  
+  body.dark {
+    @apply bg-bg-dark text-slate-200;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-poppins font-semibold;
+  }
+}
+
+@layer components {
+  /* Glassmorphism Card Style */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+  }
+
+  .dark .glass-card {
+    background: rgba(21, 13, 45, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  /* Glassmorphism Input Field */
+  .glass-input {
+    @apply w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-md outline-none focus:border-accent transition duration-200;
+  }
+
+  .dark .glass-input {
+    @apply border-border-dark bg-secondary-dark/30 focus:border-accent text-white;
+  }
+
+  /* Glassmorphism Buttons */
+  .btn-primary {
+    @apply px-6 py-3 rounded-xl bg-primary text-white font-poppins font-medium hover:bg-primary-light transition-all duration-300 shadow-lg shadow-primary/10 hover:shadow-primary/20 transform hover:-translate-y-[2px];
+  }
+
+  .btn-accent {
+    @apply px-6 py-3 rounded-xl bg-accent text-white font-poppins font-medium hover:bg-accent-hover transition-all duration-300 shadow-lg shadow-accent/20 hover:shadow-accent/30 transform hover:-translate-y-[2px];
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-poppins font-medium hover:bg-slate-50 transition-all duration-300 transform hover:-translate-y-[2px];
+  }
+
+  .dark .btn-secondary {
+    @apply bg-card-dark border-border-dark text-slate-200 hover:bg-secondary-dark/50;
+  }
+}
+
+/* Animations */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300/80 rounded-full hover:bg-slate-400;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-border-dark rounded-full hover:bg-secondary-light;
+}
