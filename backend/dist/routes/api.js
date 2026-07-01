@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const mongoose_1 = __importDefault(require("mongoose"));
 const User_1 = __importDefault(require("../models/User"));
 const authController_1 = require("../controllers/authController");
 const planController_1 = require("../controllers/planController");
@@ -28,6 +29,15 @@ router.post('/payments/webhook', paymentController_1.razorpayWebhook);
 router.post('/payments/simulate-webhook', paymentController_1.simulatePaymentWebhook);
 router.get('/certificates/verify/:key', certificateController_1.verifyCertificate);
 router.get('/plans', planController_1.getPlans);
+router.get('/health', (req, res) => {
+    const dbStatus = mongoose_1.default.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+    res.status(200).json({
+        status: 'OK',
+        database: dbStatus,
+        server: 'Running',
+        version: '1.0.0',
+    });
+});
 // ==========================================
 // 2. PROTECTED LOGGED IN USER ROUTES
 // ==========================================

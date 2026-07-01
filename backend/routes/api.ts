@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import User from '../models/User';
 import {
   sendOTP,
@@ -88,6 +89,15 @@ router.post('/payments/webhook', razorpayWebhook);
 router.post('/payments/simulate-webhook', simulatePaymentWebhook);
 router.get('/certificates/verify/:key', verifyCertificate);
 router.get('/plans', getPlans);
+router.get('/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+  res.status(200).json({
+    status: 'OK',
+    database: dbStatus,
+    server: 'Running',
+    version: '1.0.0',
+  });
+});
 
 // ==========================================
 // 2. PROTECTED LOGGED IN USER ROUTES

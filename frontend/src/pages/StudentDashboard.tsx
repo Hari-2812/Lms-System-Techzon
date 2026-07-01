@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
-import { BookOpen, Award, CheckCircle, Clock, Video, Loader2, ArrowRight } from 'lucide-react';
+import { BookOpen, Award, CheckCircle, Clock, Video, Loader2, ArrowRight, Calendar, AlertCircle } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
 
@@ -27,19 +27,24 @@ interface Enrollment {
 const StudentDashboard: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [stats, setStats] = useState<any>(null);
 
+  const fetchStats = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await api.get('/analytics/student');
+      setStats(res.data.data);
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await api.get('/analytics/student');
-        setStats(res.data.data);
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
   }, []);
 
@@ -47,6 +52,19 @@ const StudentDashboard: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4 font-poppins">
+        <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
+        <h3 className="text-lg font-bold text-slate-800 dark:text-white">Unable to load dashboard</h3>
+        <p className="text-xs text-slate-500 max-w-sm">Please verify the connection to the backend system and try again.</p>
+        <button onClick={fetchStats} className="btn-accent py-2 px-6 rounded-lg text-xs font-semibold">
+          Retry
+        </button>
       </div>
     );
   }

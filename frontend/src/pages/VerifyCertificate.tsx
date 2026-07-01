@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Award, ShieldCheck, HelpCircle, Loader2 } from 'lucide-react';
 
 interface VerifyData {
@@ -21,8 +21,7 @@ const VerifyCertificate: React.FC = () => {
   useEffect(() => {
     const checkVerification = async () => {
       try {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-        const res = await axios.get(`${baseUrl}/certificates/verify/${key}`);
+        const res = await api.get(`/certificates/verify/${key}`);
         setData(res.data.data);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Invalid certificate verification link');
