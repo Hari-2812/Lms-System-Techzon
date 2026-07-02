@@ -89,8 +89,14 @@ const GoogleFormSync: React.FC = () => {
   const fetchMentorsAndCourses = async () => {
     try {
       const [mentorsRes, coursesRes] = await Promise.all([
-        api.get('/auth/users?role=mentor'),
-        api.get('/courses')
+        api.get('/users?role=Mentor').catch((err) => {
+          console.error('Failed to load mentors:', err);
+          return { data: { data: [] } };
+        }),
+        api.get('/courses').catch((err) => {
+          console.error('Failed to load courses:', err);
+          return { data: { data: [] } };
+        })
       ]);
       setMentors(mentorsRes.data.data || []);
       setCourses(coursesRes.data.data || []);

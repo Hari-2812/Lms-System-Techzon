@@ -321,3 +321,18 @@ export const logoutFromAllDevices = async (req: any, res: Response): Promise<voi
 export const getMe = async (req: any, res: Response): Promise<void> => {
   res.status(200).json({ success: true, data: req.user });
 };
+
+export const getUsers = async (req: Request, res: Response): Promise<void> => {
+  const { role } = req.query;
+  const filter: any = {};
+  if (role) {
+    filter.role = new RegExp(`^${role}$`, 'i');
+  }
+
+  try {
+    const users = await User.find(filter, 'name email role status');
+    res.status(200).json({ success: true, data: users });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

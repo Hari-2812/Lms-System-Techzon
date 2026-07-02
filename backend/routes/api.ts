@@ -10,6 +10,7 @@ import {
   logout,
   logoutFromAllDevices,
   getMe,
+  getUsers,
 } from '../controllers/authController';
 import {
   getPlans,
@@ -120,6 +121,18 @@ router.post('/logs/runtime-error', postRuntimeError);
 router.use(protect);
 
 router.get('/auth/me', getMe);
+router.get('/users', getUsers);
+router.get('/auth/users', getUsers);
+router.get('/batches', (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: [
+      { _id: 'Batch A', name: 'Batch A (Weekdays morning)' },
+      { _id: 'Batch B', name: 'Batch B (Weekdays evening)' },
+      { _id: 'Batch C', name: 'Batch C (Weekends batch)' },
+    ],
+  });
+});
 router.post('/auth/logout', logout);
 router.post('/auth/logout-all', logoutFromAllDevices);
 router.put('/auth/update-password', updatePassword);
