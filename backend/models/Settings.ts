@@ -18,6 +18,13 @@ export interface ISettings extends Document {
     clientId?: string;
     clientSecret?: string;
   };
+  googleSheetsSettings?: {
+    spreadsheetId?: string;
+    worksheetName?: string;
+    serviceAccountJson?: string;
+    syncIntervalMinutes?: number;
+    autoImport?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +47,13 @@ const SettingsSchema: Schema<ISettings> = new Schema(
     googleMeetSettings: {
       clientId: { type: String },
       clientSecret: { type: String },
+    },
+    googleSheetsSettings: {
+      spreadsheetId: { type: String, default: '' },
+      worksheetName: { type: String, default: 'Sheet1' },
+      serviceAccountJson: { type: String, default: '' },
+      syncIntervalMinutes: { type: Number, default: 15 },
+      autoImport: { type: Boolean, default: false },
     },
   },
   { timestamps: true }

@@ -16,6 +16,8 @@ export interface IOnboarding extends Document {
   remarks?: string;
   approvedBy?: mongoose.Types.ObjectId;
   approvedAt?: Date;
+  source: 'direct' | 'google-sheets';
+  googleRowId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +44,8 @@ const OnboardingSchema: Schema<IOnboarding> = new Schema(
     remarks: { type: String },
     approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     approvedAt: { type: Date },
+    source: { type: String, enum: ['direct', 'google-sheets'], default: 'direct', index: true },
+    googleRowId: { type: String, index: true, sparse: true },
   },
   { timestamps: true }
 );

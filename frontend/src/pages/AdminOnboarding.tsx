@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { 
   ClipboardList, Check, X, Search, Trash2, Loader2, Sparkles, 
-  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock 
+  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock, Layers, RefreshCw
 } from 'lucide-react';
 
 interface OnboardingRequest {
@@ -65,6 +65,20 @@ const AdminOnboarding: React.FC = () => {
   // Form submission indicators
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncSheets = async () => {
+    setSyncing(true);
+    try {
+      const res = await api.post('/onboarding/sync');
+      alert(res.data.message || 'Sync completed successfully!');
+      fetchOnboardings();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to sync Google Sheets');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const fetchOnboardings = async () => {
     setLoading(true);
@@ -197,6 +211,14 @@ const AdminOnboarding: React.FC = () => {
           <h2 className="text-xl font-bold tracking-tight">Onboarding Requests</h2>
           <p className="text-slate-500 text-xs mt-1">Review student applications, assign batches, and activate LMS credentials</p>
         </div>
+        <button
+          onClick={handleSyncSheets}
+          disabled={syncing}
+          className="btn-accent py-2 px-4 flex items-center gap-1.5"
+        >
+          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Sync Google Sheets
+        </button>
       </div>
 
       {/* Filter and search bar row */}

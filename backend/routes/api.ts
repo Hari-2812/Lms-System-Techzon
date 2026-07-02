@@ -30,6 +30,7 @@ import {
   deleteOnboarding,
   rejectOnboarding,
   approveOnboarding,
+  syncGoogleSheets,
 } from '../controllers/onboardingController';
 import {
   getCourses,
@@ -168,6 +169,7 @@ router.use(authorize('SuperAdmin', 'Admin'));
 
 // Onboarding Management Operations
 router.get('/onboarding', getOnboardings);
+router.post('/onboarding/sync', syncGoogleSheets);
 router.get('/onboarding/:id', getOnboardingDetails);
 router.put('/onboarding/:id', updateOnboarding);
 router.delete('/onboarding/:id', deleteOnboarding);

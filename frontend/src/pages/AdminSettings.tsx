@@ -13,6 +13,13 @@ const AdminSettings: React.FC = () => {
   const [supportNumber, setSupportNumber] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
 
+  // Google Sheets state
+  const [spreadsheetId, setSpreadsheetId] = useState('');
+  const [worksheetName, setWorksheetName] = useState('Sheet1');
+  const [serviceAccountJson, setServiceAccountJson] = useState('');
+  const [syncIntervalMinutes, setSyncIntervalMinutes] = useState(15);
+  const [autoImport, setAutoImport] = useState(false);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -26,6 +33,13 @@ const AdminSettings: React.FC = () => {
       setSupportEmail(data.supportEmail || 'support@techzonwide.com');
       setSupportNumber(data.supportNumber || '+91 6374191654');
       setMaintenanceMode(data.maintenanceMode || false);
+
+      const gs = data.googleSheetsSettings || {};
+      setSpreadsheetId(gs.spreadsheetId || '');
+      setWorksheetName(gs.worksheetName || 'Sheet1');
+      setServiceAccountJson(gs.serviceAccountJson || '');
+      setSyncIntervalMinutes(gs.syncIntervalMinutes || 15);
+      setAutoImport(gs.autoImport || false);
     } catch (error) {
       console.error(error);
     } finally {
@@ -44,6 +58,13 @@ const AdminSettings: React.FC = () => {
         supportEmail,
         supportNumber,
         maintenanceMode,
+        googleSheetsSettings: {
+          spreadsheetId,
+          worksheetName,
+          serviceAccountJson,
+          syncIntervalMinutes: Number(syncIntervalMinutes) || 15,
+          autoImport,
+        }
       });
 
       alert('Global configurations updated successfully!');
@@ -130,6 +151,72 @@ const AdminSettings: React.FC = () => {
                   onChange={(e) => setSupportNumber(e.target.value)}
                   className="glass-input py-2 text-xs"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Google Sheets Integration settings */}
+          <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-border-dark">
+            <h3 className="font-extrabold text-sm text-slate-800 dark:text-white flex items-center gap-1">
+              Google Forms & Sheets Onboarding Sync Settings
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className="text-slate-500">Google Spreadsheet ID</label>
+                <input
+                  type="text"
+                  placeholder="1uQ8V_bB-Y...etc"
+                  value={spreadsheetId}
+                  onChange={(e) => setSpreadsheetId(e.target.value)}
+                  className="glass-input py-2 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-500">Worksheet / Tab Name</label>
+                <input
+                  type="text"
+                  placeholder="Form Responses 1"
+                  value={worksheetName}
+                  onChange={(e) => setWorksheetName(e.target.value)}
+                  className="glass-input py-2 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1 col-span-2">
+                <label className="text-slate-500">Service Account Credentials JSON</label>
+                <textarea
+                  placeholder='{ "type": "service_account", "project_id": "techzon-lms", ... }'
+                  value={serviceAccountJson}
+                  onChange={(e) => setServiceAccountJson(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs h-24 resize-none font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-500">Automatic Sync Interval (Minutes)</label>
+                <input
+                  type="number"
+                  value={syncIntervalMinutes}
+                  onChange={(e) => setSyncIntervalMinutes(Number(e.target.value) || 15)}
+                  className="glass-input py-2 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1 pt-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoImport}
+                    onChange={() => setAutoImport(!autoImport)}
+                    className="w-5 h-5 rounded text-accent focus:ring-accent accent-accent"
+                  />
+                  <div>
+                    <h4 className="font-bold text-slate-800 dark:text-white text-xs">Enable Auto-Import Mode</h4>
+                    <p className="text-[10px] text-slate-400 font-medium">Poll Google Sheets and import new rows automatically in background.</p>
+                  </div>
+                </label>
               </div>
             </div>
           </div>

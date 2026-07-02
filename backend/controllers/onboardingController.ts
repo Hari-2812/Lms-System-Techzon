@@ -7,6 +7,7 @@ import LearningPlan from '../models/LearningPlan';
 import Course from '../models/Course';
 import AuditLog from '../models/AuditLog';
 import { sendWelcomeEmail } from '../services/email';
+import { syncGoogleSheetsOnboardings } from '../services/googleSheets';
 import logger from '../config/logger';
 
 // Helper to generate a random temporary password
@@ -270,5 +271,26 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
   } catch (error: any) {
     logger.error('Error during onboarding approval:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const syncGoogleSheets = async (req: any, res: Response): Promise<void> => {
+  try {
+    const result = await syncGoogleSheetsOnboardings();
+    
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'SYNC_GOOGLE_SHEETS',
+      details: `Manually synchronized Google Sheets. Synced ${result.synced} items, skipped ${result.skipped}.`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Google Sheets synced successfully! Added ${result.synced} new records, skipped ${result.skipped} duplicates.`,
+      data: result,
+    });
+  } catch (error: any) {
+    logger.error('Error syncing Google Sheets:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
