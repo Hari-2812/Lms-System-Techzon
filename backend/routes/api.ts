@@ -75,6 +75,7 @@ import {
   addMessageToTicket,
   updateTicketStatus,
 } from '../controllers/ticketController';
+import { syncGoogleSheetsOnboardings } from '../controllers/googleSheetsController';
 import {
   getSettings,
   updateSettings,
@@ -170,6 +171,7 @@ router.use(authorize('SuperAdmin', 'Admin'));
 // Onboarding Management Operations
 router.get('/onboarding', getOnboardings);
 router.post('/onboarding/sync', syncGoogleSheets);
+router.post('/google/sync', syncGoogleSheetsOnboardings);
 router.get('/onboarding/:id', getOnboardingDetails);
 router.put('/onboarding/:id', updateOnboarding);
 router.delete('/onboarding/:id', deleteOnboarding);

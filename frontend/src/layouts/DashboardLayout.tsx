@@ -53,6 +53,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
     // Admins
     { name: 'Onboarding Requests', path: '/admin/onboarding', icon: <ClipboardList className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'Google Form Sync', path: '/admin/google-sync', icon: <RefreshCw className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
     { name: 'LMS Overview', path: '/admin/overview', icon: <Activity className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
     { name: 'Manage Courses', path: '/admin/courses', icon: <GraduationCap className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
     { name: 'Learning Plans', path: '/admin/plans', icon: <Layers className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },

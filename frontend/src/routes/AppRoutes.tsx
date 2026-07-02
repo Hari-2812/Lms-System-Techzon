@@ -22,6 +22,7 @@ import AdminPlans from '../pages/AdminPlans';
 import AdminStudents from '../pages/AdminStudents';
 import AdminSettings from '../pages/AdminSettings';
 import AdminOnboarding from '../pages/AdminOnboarding';
+import GoogleFormSync from '../pages/GoogleFormSync';
 
 // Onboarding student public page
 import Onboard from '../pages/Onboard';
@@ -162,6 +163,14 @@ const AppRoutes: React.FC = () => {
                   element={
                     <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                       <AdminSettings />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="/admin/google-sync"
+                  element={
+                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                      <GoogleFormSync />
                     </RoleGuard>
                   }
                 />
