@@ -40,25 +40,25 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   const sidebarItems: SidebarItem[] = [
     // Students
-    { name: 'My Courses', path: '/dashboard', icon: <BookOpen className="w-5 h-5" />, roles: ['student'] },
-    { name: 'Live Classes', path: '/live-classes', icon: <Calendar className="w-5 h-5" />, roles: ['student', 'mentor', 'admin', 'super-admin'] },
-    { name: 'My Certificates', path: '/certificates', icon: <Award className="w-5 h-5" />, roles: ['student'] },
+    { name: 'My Courses', path: '/dashboard', icon: <BookOpen className="w-5 h-5" />, roles: ['Student'] },
+    { name: 'Live Classes', path: '/live-classes', icon: <Calendar className="w-5 h-5" />, roles: ['Student', 'Mentor', 'Admin', 'SuperAdmin'] },
+    { name: 'My Certificates', path: '/certificates', icon: <Award className="w-5 h-5" />, roles: ['Student'] },
     
     // Mentors
-    { name: 'Assigned Courses', path: '/mentor/courses', icon: <BookOpen className="w-5 h-5" />, roles: ['mentor'] },
-    { name: 'Grade Assignments', path: '/mentor/submissions', icon: <FileText className="w-5 h-5" />, roles: ['mentor', 'admin', 'super-admin'] },
+    { name: 'Assigned Courses', path: '/mentor/courses', icon: <BookOpen className="w-5 h-5" />, roles: ['Mentor'] },
+    { name: 'Grade Assignments', path: '/mentor/submissions', icon: <FileText className="w-5 h-5" />, roles: ['Mentor', 'Admin', 'SuperAdmin'] },
 
     // Support
-    { name: 'Support Tickets', path: '/tickets', icon: <LifeBuoy className="w-5 h-5" />, roles: ['student', 'support', 'admin', 'super-admin'] },
+    { name: 'Support Tickets', path: '/tickets', icon: <LifeBuoy className="w-5 h-5" />, roles: ['Student', 'Support', 'Admin', 'SuperAdmin'] },
 
     // Admins
-    { name: 'Onboarding Requests', path: '/admin/onboarding', icon: <ClipboardList className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
-    { name: 'LMS Overview', path: '/admin/overview', icon: <Activity className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
-    { name: 'Manage Courses', path: '/admin/courses', icon: <GraduationCap className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
-    { name: 'Learning Plans', path: '/admin/plans', icon: <Layers className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
-    { name: 'Student Directory', path: '/admin/students', icon: <Users className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
-    { name: 'Audit Logs', path: '/admin/audit', icon: <Shield className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
-    { name: 'System Settings', path: '/admin/settings', icon: <SettingsIcon className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
+    { name: 'Onboarding Requests', path: '/admin/onboarding', icon: <ClipboardList className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'LMS Overview', path: '/admin/overview', icon: <Activity className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'Manage Courses', path: '/admin/courses', icon: <GraduationCap className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'Learning Plans', path: '/admin/plans', icon: <Layers className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'Student Directory', path: '/admin/students', icon: <Users className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'Audit Logs', path: '/admin/audit', icon: <Shield className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'System Settings', path: '/admin/settings', icon: <SettingsIcon className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
   ];
 
   const handleLogout = () => {

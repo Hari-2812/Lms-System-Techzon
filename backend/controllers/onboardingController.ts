@@ -199,7 +199,7 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
         name: request.fullName,
         email: request.email.toLowerCase(),
         password: tempPassword,
-        role: 'student',
+        role: 'Student',
         status: 'active',
         isEmailVerified: true,
       });

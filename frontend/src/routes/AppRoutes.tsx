@@ -53,10 +53,10 @@ const DashboardRedirector: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   if (!user) return <Navigate to="/login" replace />;
 
-  if (['admin', 'super-admin', 'SuperAdmin'].includes(user.role)) {
+  if (['Admin', 'SuperAdmin'].includes(user.role)) {
     return <Navigate to="/admin/overview" replace />;
   }
-  if (user.role === 'mentor') {
+  if (user.role === 'Mentor') {
     return <Navigate to="/mentor/courses" replace />;
   }
   return <StudentDashboard />;
@@ -67,7 +67,6 @@ const AppRoutes: React.FC = () => {
     <Routes>
       {/* 1. PUBLIC PATHS */}
       <Route path="/login" element={<Login />} />
-      <Route path="/onboard" element={<Onboard />} />
       <Route path="/certificates/verify/:key" element={<VerifyCertificate />} />
 
       {/* 2. PROTECTED PRIVATE ROUTES */}
@@ -93,7 +92,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/certificates"
                   element={
-                    <RoleGuard allowedRoles={['student']}>
+                    <RoleGuard allowedRoles={['Student']}>
                       <Certificates />
                     </RoleGuard>
                   }
@@ -103,7 +102,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/mentor/courses"
                   element={
-                    <RoleGuard allowedRoles={['mentor']}>
+                    <RoleGuard allowedRoles={['Mentor']}>
                       <MentorCourses />
                     </RoleGuard>
                   }
@@ -111,7 +110,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/mentor/submissions"
                   element={
-                    <RoleGuard allowedRoles={['mentor', 'admin', 'super-admin', 'SuperAdmin']}>
+                    <RoleGuard allowedRoles={['Mentor', 'Admin', 'SuperAdmin']}>
                       <MentorSubmissions />
                     </RoleGuard>
                   }
@@ -121,7 +120,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/admin/overview"
                   element={
-                    <RoleGuard allowedRoles={['admin', 'super-admin', 'SuperAdmin']}>
+                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                       <AdminOverview />
                     </RoleGuard>
                   }
@@ -129,7 +128,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/admin/courses"
                   element={
-                    <RoleGuard allowedRoles={['admin', 'super-admin', 'SuperAdmin']}>
+                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                       <AdminCourses />
                     </RoleGuard>
                   }
@@ -137,7 +136,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/admin/plans"
                   element={
-                    <RoleGuard allowedRoles={['admin', 'super-admin', 'SuperAdmin']}>
+                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                       <AdminPlans />
                     </RoleGuard>
                   }
@@ -145,7 +144,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/admin/students"
                   element={
-                    <RoleGuard allowedRoles={['admin', 'super-admin', 'SuperAdmin']}>
+                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                       <AdminStudents />
                     </RoleGuard>
                   }
@@ -153,7 +152,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/admin/onboarding"
                   element={
-                    <RoleGuard allowedRoles={['admin', 'super-admin', 'SuperAdmin']}>
+                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                       <AdminOnboarding />
                     </RoleGuard>
                   }
@@ -161,7 +160,7 @@ const AppRoutes: React.FC = () => {
                 <Route
                   path="/admin/settings"
                   element={
-                    <RoleGuard allowedRoles={['admin', 'super-admin', 'SuperAdmin']}>
+                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                       <AdminSettings />
                     </RoleGuard>
                   }

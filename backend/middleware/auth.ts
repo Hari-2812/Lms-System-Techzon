@@ -74,13 +74,13 @@ export const checkPlanFeature = (featureName: string) => {
     }
 
     // Admins, Super Admins, and Support Executives bypass features controls
-    if (['super-admin', 'admin', 'support'].includes(user.role)) {
+    if (['SuperAdmin', 'Admin', 'Support'].includes(user.role)) {
       next();
       return;
     }
 
     // Mentors can access course-related pages
-    if (user.role === 'mentor') {
+    if (user.role === 'Mentor') {
       next();
       return;
     }
@@ -94,38 +94,12 @@ export const checkPlanFeature = (featureName: string) => {
     }
 
     try {
-      let enrollment = await Enrollment.findOne({
+      const enrollment = await Enrollment.findOne({
         studentId: user._id,
         courseId: courseId,
         status: 'active',
         expiryDate: { $gt: new Date() },
       }).populate('learningPlanId');
-
-      if (!enrollment) {
-        if (process.env.NODE_ENV === 'development') {
-          const devPlan = await LearningPlan.findOne({ code: 'self-paced' });
-          if (devPlan) {
-            const startDate = new Date();
-            const expiryDate = new Date();
-            expiryDate.setMonth(startDate.getMonth() + devPlan.durationMonths);
-
-            const newEnrollment = new Enrollment({
-              studentId: user._id,
-              courseId,
-              learningPlanId: devPlan._id,
-              startDate,
-              expiryDate,
-              status: 'active',
-              progress: { completedLessons: [], percentComplete: 0 },
-            });
-            await newEnrollment.save();
-            logger.info(`Development Bypass: Automatically created active Self-Paced enrollment for ${user.email}`);
-            
-            // Re-fetch populated enrollment to proceed
-            enrollment = await Enrollment.findById(newEnrollment._id).populate('learningPlanId');
-          }
-        }
-      }
 
       if (!enrollment) {
         res.status(403).json({

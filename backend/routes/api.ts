@@ -120,9 +120,9 @@ router.post('/auth/logout-all', logoutFromAllDevices);
 router.put('/auth/update-password', updatePassword);
 
 // Dashboards Analytics
-router.get('/analytics/student', authorize('student'), getStudentStats);
-router.get('/analytics/mentor', authorize('mentor'), getMentorStats);
-router.get('/analytics/admin', authorize('super-admin', 'admin'), getAdminStats);
+router.get('/analytics/student', authorize('Student'), getStudentStats);
+router.get('/analytics/mentor', authorize('Mentor'), getMentorStats);
+router.get('/analytics/admin', authorize('SuperAdmin', 'Admin'), getAdminStats);
 
 // Settings Check
 router.get('/settings', getSettings);
@@ -135,36 +135,36 @@ router.post('/tickets/:id/messages', addMessageToTicket);
 // Course Details & Progress Checks
 router.get('/courses', getCourses);
 router.get('/courses/:id', getCourseDetails);
-router.post('/courses/track-progress', authorize('student'), trackLessonProgress);
+router.post('/courses/track-progress', authorize('Student'), trackLessonProgress);
 
 // Quiz Execution
 router.get('/quizzes', getQuizzes);
-router.post('/quizzes/submit', authorize('student'), checkPlanFeature('quizzes'), submitQuizAnswers);
+router.post('/quizzes/submit', authorize('Student'), checkPlanFeature('quizzes'), submitQuizAnswers);
 router.get('/quizzes/:quizId/leaderboard', getQuizLeaderboard);
 
 // Assignments Submission
 router.get('/assignments', getAssignments);
-router.post('/assignments/submit', authorize('student'), checkPlanFeature('assignments'), submitAssignment);
+router.post('/assignments/submit', authorize('Student'), checkPlanFeature('assignments'), submitAssignment);
 
 // Certifications
-router.get('/certificates/student', authorize('student'), getStudentCertificates);
+router.get('/certificates/student', authorize('Student'), getStudentCertificates);
 
 // Live Classes joining
 router.get('/live-classes', getLiveClasses);
-router.post('/live-classes/:id/join', authorize('student'), checkPlanFeature('liveClasses'), joinLiveClass);
+router.post('/live-classes/:id/join', authorize('Student'), checkPlanFeature('liveClasses'), joinLiveClass);
 
 // ==========================================
 // 3. MENTOR & INSTRUCTOR ROUTES
 // ==========================================
-router.post('/live-classes', authorize('mentor', 'admin', 'super-admin'), createLiveClass);
-router.put('/live-classes/:id', authorize('mentor', 'admin', 'super-admin'), updateLiveClass);
-router.get('/assignments/submissions', authorize('mentor', 'admin', 'super-admin'), getSubmissionsForGrading);
-router.put('/assignments/submissions/:id/grade', authorize('mentor', 'admin', 'super-admin'), gradeSubmission);
+router.post('/live-classes', authorize('Mentor', 'Admin', 'SuperAdmin'), createLiveClass);
+router.put('/live-classes/:id', authorize('Mentor', 'Admin', 'SuperAdmin'), updateLiveClass);
+router.get('/assignments/submissions', authorize('Mentor', 'Admin', 'SuperAdmin'), getSubmissionsForGrading);
+router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'SuperAdmin'), gradeSubmission);
 
 // ==========================================
 // 4. ADMIN & MANAGEMENT ROUTES
 // ==========================================
-router.use(authorize('super-admin', 'admin'));
+router.use(authorize('SuperAdmin', 'Admin'));
 
 // Onboarding Management Operations
 router.get('/onboarding', getOnboardings);

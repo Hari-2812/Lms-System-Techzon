@@ -184,7 +184,7 @@ const approveOnboarding = async (req, res) => {
                 name: request.fullName,
                 email: request.email.toLowerCase(),
                 password: tempPassword,
-                role: 'student',
+                role: 'Student',
                 status: 'active',
                 isEmailVerified: true,
             });

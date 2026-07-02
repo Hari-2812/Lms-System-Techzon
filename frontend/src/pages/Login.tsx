@@ -27,9 +27,6 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  // Check Dev mode flag
-  const isDevLoginEnabled = import.meta.env.DEV || import.meta.env.VITE_DEV_LOGIN === 'true';
-
   useEffect(() => {
     // If remember me email exists, autofill it
     const savedEmail = localStorage.getItem('remember_email');
@@ -65,47 +62,6 @@ const Login: React.FC = () => {
     }
 
     return true;
-  };
-
-  // Dev Quick Fill helper
-  const handleQuickDevLogin = async (role: 'admin' | 'mentor' | 'student') => {
-    setError('');
-    setMessage('');
-    setLoading(true);
-
-    const emailMap = {
-      admin: 'admin@techzonwide.com',
-      mentor: 'mentor@techzonwide.com',
-      student: 'student@techzonwide.com',
-    };
-    const passMap = {
-      admin: 'Admin@123',
-      mentor: 'Mentor@123',
-      student: 'Student@123',
-    };
-
-    const targetEmail = emailMap[role];
-    const targetPass = passMap[role];
-
-    try {
-      const res = await api.post('/auth/login', {
-        email: targetEmail,
-        password: targetPass,
-        userAgent: navigator.userAgent,
-      });
-
-      dispatch(setCredentials({
-        user: res.data.user,
-        token: res.data.token,
-        deviceId: res.data.deviceId,
-      }));
-
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || `Development login failed for ${role}`);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Handle OTP request
@@ -219,38 +175,6 @@ const Login: React.FC = () => {
         {message && (
           <div className="p-3.5 rounded-xl bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-xs font-semibold leading-relaxed">
             {message}
-          </div>
-        )}
-
-        {/* Development Quick Actions Banner */}
-        {isDevLoginEnabled && (
-          <div className="p-4 rounded-2xl border border-accent/20 bg-accent/5 space-y-3">
-            <div className="flex items-center gap-1.5 text-accent text-xs font-bold">
-              <Info className="w-4 h-4" /> Quick Dev Login Bypass
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDevLogin('admin')}
-                className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
-              >
-                Super Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDevLogin('mentor')}
-                className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
-              >
-                Mentor
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDevLogin('student')}
-                className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
-              >
-                Student
-              </button>
-            </div>
           </div>
         )}
 

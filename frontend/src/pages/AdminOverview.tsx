@@ -123,15 +123,6 @@ const AdminOverview: React.FC = () => {
             >
               Go to Review Board <ArrowRight className="w-4 h-4" />
             </Link>
-
-            <a 
-              href="/onboard" 
-              target="_blank" 
-              rel="noreferrer" 
-              className="w-full py-3 px-4 rounded-xl border border-slate-200 text-slate-700 dark:border-border-dark dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-center gap-1.5 transition"
-            >
-              Open Public Onboard Form <ExternalLink className="w-4 h-4" />
-            </a>
           </div>
         </div>
 

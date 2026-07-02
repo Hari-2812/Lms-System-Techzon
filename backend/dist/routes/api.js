@@ -49,9 +49,9 @@ router.post('/auth/logout', authController_1.logout);
 router.post('/auth/logout-all', authController_1.logoutFromAllDevices);
 router.put('/auth/update-password', authController_1.updatePassword);
 // Dashboards Analytics
-router.get('/analytics/student', (0, auth_1.authorize)('student'), analyticsController_1.getStudentStats);
-router.get('/analytics/mentor', (0, auth_1.authorize)('mentor'), analyticsController_1.getMentorStats);
-router.get('/analytics/admin', (0, auth_1.authorize)('super-admin', 'admin'), analyticsController_1.getAdminStats);
+router.get('/analytics/student', (0, auth_1.authorize)('Student'), analyticsController_1.getStudentStats);
+router.get('/analytics/mentor', (0, auth_1.authorize)('Mentor'), analyticsController_1.getMentorStats);
+router.get('/analytics/admin', (0, auth_1.authorize)('SuperAdmin', 'Admin'), analyticsController_1.getAdminStats);
 // Settings Check
 router.get('/settings', analyticsController_1.getSettings);
 // Tickets Messaging
@@ -61,30 +61,30 @@ router.post('/tickets/:id/messages', ticketController_1.addMessageToTicket);
 // Course Details & Progress Checks
 router.get('/courses', courseController_1.getCourses);
 router.get('/courses/:id', courseController_1.getCourseDetails);
-router.post('/courses/track-progress', (0, auth_1.authorize)('student'), courseController_1.trackLessonProgress);
+router.post('/courses/track-progress', (0, auth_1.authorize)('Student'), courseController_1.trackLessonProgress);
 // Quiz Execution
 router.get('/quizzes', quizController_1.getQuizzes);
-router.post('/quizzes/submit', (0, auth_1.authorize)('student'), (0, auth_1.checkPlanFeature)('quizzes'), quizController_1.submitQuizAnswers);
+router.post('/quizzes/submit', (0, auth_1.authorize)('Student'), (0, auth_1.checkPlanFeature)('quizzes'), quizController_1.submitQuizAnswers);
 router.get('/quizzes/:quizId/leaderboard', quizController_1.getQuizLeaderboard);
 // Assignments Submission
 router.get('/assignments', assignmentController_1.getAssignments);
-router.post('/assignments/submit', (0, auth_1.authorize)('student'), (0, auth_1.checkPlanFeature)('assignments'), assignmentController_1.submitAssignment);
+router.post('/assignments/submit', (0, auth_1.authorize)('Student'), (0, auth_1.checkPlanFeature)('assignments'), assignmentController_1.submitAssignment);
 // Certifications
-router.get('/certificates/student', (0, auth_1.authorize)('student'), certificateController_1.getStudentCertificates);
+router.get('/certificates/student', (0, auth_1.authorize)('Student'), certificateController_1.getStudentCertificates);
 // Live Classes joining
 router.get('/live-classes', liveClassController_1.getLiveClasses);
-router.post('/live-classes/:id/join', (0, auth_1.authorize)('student'), (0, auth_1.checkPlanFeature)('liveClasses'), liveClassController_1.joinLiveClass);
+router.post('/live-classes/:id/join', (0, auth_1.authorize)('Student'), (0, auth_1.checkPlanFeature)('liveClasses'), liveClassController_1.joinLiveClass);
 // ==========================================
 // 3. MENTOR & INSTRUCTOR ROUTES
 // ==========================================
-router.post('/live-classes', (0, auth_1.authorize)('mentor', 'admin', 'super-admin'), liveClassController_1.createLiveClass);
-router.put('/live-classes/:id', (0, auth_1.authorize)('mentor', 'admin', 'super-admin'), liveClassController_1.updateLiveClass);
-router.get('/assignments/submissions', (0, auth_1.authorize)('mentor', 'admin', 'super-admin'), assignmentController_1.getSubmissionsForGrading);
-router.put('/assignments/submissions/:id/grade', (0, auth_1.authorize)('mentor', 'admin', 'super-admin'), assignmentController_1.gradeSubmission);
+router.post('/live-classes', (0, auth_1.authorize)('Mentor', 'Admin', 'SuperAdmin'), liveClassController_1.createLiveClass);
+router.put('/live-classes/:id', (0, auth_1.authorize)('Mentor', 'Admin', 'SuperAdmin'), liveClassController_1.updateLiveClass);
+router.get('/assignments/submissions', (0, auth_1.authorize)('Mentor', 'Admin', 'SuperAdmin'), assignmentController_1.getSubmissionsForGrading);
+router.put('/assignments/submissions/:id/grade', (0, auth_1.authorize)('Mentor', 'Admin', 'SuperAdmin'), assignmentController_1.gradeSubmission);
 // ==========================================
 // 4. ADMIN & MANAGEMENT ROUTES
 // ==========================================
-router.use((0, auth_1.authorize)('super-admin', 'admin'));
+router.use((0, auth_1.authorize)('SuperAdmin', 'Admin'));
 // Onboarding Management Operations
 router.get('/onboarding', onboardingController_1.getOnboardings);
 router.get('/onboarding/:id', onboardingController_1.getOnboardingDetails);
