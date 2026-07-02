@@ -108,10 +108,11 @@ router.post('/onboarding', submitOnboarding);
 router.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   res.status(200).json({
-    status: 'OK',
-    database: dbStatus,
-    server: 'Running',
-    version: '1.0.0',
+    success: true,
+    status: 'healthy',
+    database: dbStatus === 'Connected' ? 'connected' : 'disconnected',
+    uptime: process.uptime(),
+    timestamp: new Date(),
   });
 });
 
