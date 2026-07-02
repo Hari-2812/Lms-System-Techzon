@@ -23,6 +23,15 @@ import {
   simulatePaymentWebhook,
 } from '../controllers/paymentController';
 import {
+  submitOnboarding,
+  getOnboardings,
+  getOnboardingDetails,
+  updateOnboarding,
+  deleteOnboarding,
+  rejectOnboarding,
+  approveOnboarding,
+} from '../controllers/onboardingController';
+import {
   getCourses,
   getCourseDetails,
   createCourse,
@@ -89,6 +98,7 @@ router.post('/payments/webhook', razorpayWebhook);
 router.post('/payments/simulate-webhook', simulatePaymentWebhook);
 router.get('/certificates/verify/:key', verifyCertificate);
 router.get('/plans', getPlans);
+router.post('/onboarding', submitOnboarding);
 router.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   res.status(200).json({
@@ -155,6 +165,14 @@ router.put('/assignments/submissions/:id/grade', authorize('mentor', 'admin', 's
 // 4. ADMIN & MANAGEMENT ROUTES
 // ==========================================
 router.use(authorize('super-admin', 'admin'));
+
+// Onboarding Management Operations
+router.get('/onboarding', getOnboardings);
+router.get('/onboarding/:id', getOnboardingDetails);
+router.put('/onboarding/:id', updateOnboarding);
+router.delete('/onboarding/:id', deleteOnboarding);
+router.post('/onboarding/:id/approve', approveOnboarding);
+router.post('/onboarding/:id/reject', rejectOnboarding);
 
 // System Settings Edits
 router.put('/settings', updateSettings);

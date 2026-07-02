@@ -9,6 +9,7 @@ const User_1 = __importDefault(require("../models/User"));
 const authController_1 = require("../controllers/authController");
 const planController_1 = require("../controllers/planController");
 const paymentController_1 = require("../controllers/paymentController");
+const onboardingController_1 = require("../controllers/onboardingController");
 const courseController_1 = require("../controllers/courseController");
 const liveClassController_1 = require("../controllers/liveClassController");
 const assignmentController_1 = require("../controllers/assignmentController");
@@ -29,6 +30,7 @@ router.post('/payments/webhook', paymentController_1.razorpayWebhook);
 router.post('/payments/simulate-webhook', paymentController_1.simulatePaymentWebhook);
 router.get('/certificates/verify/:key', certificateController_1.verifyCertificate);
 router.get('/plans', planController_1.getPlans);
+router.post('/onboarding', onboardingController_1.submitOnboarding);
 router.get('/health', (req, res) => {
     const dbStatus = mongoose_1.default.connection.readyState === 1 ? 'Connected' : 'Disconnected';
     res.status(200).json({
@@ -83,6 +85,13 @@ router.put('/assignments/submissions/:id/grade', (0, auth_1.authorize)('mentor',
 // 4. ADMIN & MANAGEMENT ROUTES
 // ==========================================
 router.use((0, auth_1.authorize)('super-admin', 'admin'));
+// Onboarding Management Operations
+router.get('/onboarding', onboardingController_1.getOnboardings);
+router.get('/onboarding/:id', onboardingController_1.getOnboardingDetails);
+router.put('/onboarding/:id', onboardingController_1.updateOnboarding);
+router.delete('/onboarding/:id', onboardingController_1.deleteOnboarding);
+router.post('/onboarding/:id/approve', onboardingController_1.approveOnboarding);
+router.post('/onboarding/:id/reject', onboardingController_1.rejectOnboarding);
 // System Settings Edits
 router.put('/settings', analyticsController_1.updateSettings);
 router.get('/analytics/audit-logs', analyticsController_1.getAuditLogs);

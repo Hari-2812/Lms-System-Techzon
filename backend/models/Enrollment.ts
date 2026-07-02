@@ -4,6 +4,9 @@ export interface IEnrollment extends Document {
   studentId: mongoose.Types.ObjectId;
   courseId: mongoose.Types.ObjectId;
   learningPlanId: mongoose.Types.ObjectId;
+  batch?: string;
+  mentorId?: mongoose.Types.ObjectId;
+  createdBy?: mongoose.Types.ObjectId;
   startDate: Date;
   expiryDate: Date;
   progress: {
@@ -22,6 +25,9 @@ const EnrollmentSchema: Schema<IEnrollment> = new Schema(
     studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
     learningPlanId: { type: Schema.Types.ObjectId, ref: 'LearningPlan', required: true, index: true },
+    batch: { type: String, default: 'Batch A' },
+    mentorId: { type: Schema.Types.ObjectId, ref: 'User' },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     startDate: { type: Date, required: true, default: Date.now },
     expiryDate: { type: Date, required: true },
     progress: {

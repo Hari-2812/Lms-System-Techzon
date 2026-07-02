@@ -34,28 +34,26 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const EnrollmentSchema = new mongoose_1.Schema({
-    studentId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    courseId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
-    learningPlanId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'LearningPlan', required: true, index: true },
-    batch: { type: String, default: 'Batch A' },
-    mentorId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
-    createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
-    startDate: { type: Date, required: true, default: Date.now },
-    expiryDate: { type: Date, required: true },
-    progress: {
-        completedLessons: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'Lesson' }],
-        percentComplete: { type: Number, default: 0 },
-    },
+const OnboardingSchema = new mongoose_1.Schema({
+    fullName: { type: String, required: true, trim: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+    college: { type: String, required: true, trim: true },
+    degree: { type: String, required: true, trim: true },
+    city: { type: String, required: true, trim: true },
+    state: { type: String, required: true, trim: true },
+    courses: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'Course', required: true }],
+    learningPlan: { type: mongoose_1.Schema.Types.ObjectId, ref: 'LearningPlan', required: true },
+    preferredBatch: { type: String },
+    preferredMentor: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
     status: {
         type: String,
-        enum: ['active', 'expired', 'suspended'],
-        default: 'active',
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending',
         index: true,
     },
-    certificateIssued: { type: Boolean, default: false },
-    certificateId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Certificate' },
+    remarks: { type: String },
+    approvedBy: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: { type: Date },
 }, { timestamps: true });
-// Create compound index for single student-course enrollment
-EnrollmentSchema.index({ studentId: 1, courseId: 1 }, { unique: true });
-exports.default = mongoose_1.default.model('Enrollment', EnrollmentSchema);
+exports.default = mongoose_1.default.model('Onboarding', OnboardingSchema);

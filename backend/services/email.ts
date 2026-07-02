@@ -53,7 +53,7 @@ export const sendWelcomeEmail = async (
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
       <h2 style="color: #241252; text-align: center;">Welcome to Techzon LMS!</h2>
       <p>Hello ${name},</p>
-      <p>Thank you for enrolling in Techzon LMS. Your payment was processed successfully, and your account has been set up.</p>
+      <p>Thank you for onboarding at Techzon LMS. Your application has been approved by the Administrator and your account is now ready.</p>
       ${passwordSection}
       ${otpSection}
       <div style="text-align: center; margin: 30px 0;">

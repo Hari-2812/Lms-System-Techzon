@@ -7,13 +7,13 @@ exports.exportReport = exports.getMentorStats = exports.getStudentStats = export
 const User_1 = __importDefault(require("../models/User"));
 const Course_1 = __importDefault(require("../models/Course"));
 const Enrollment_1 = __importDefault(require("../models/Enrollment"));
-const Payment_1 = __importDefault(require("../models/Payment"));
 const LiveClass_1 = __importDefault(require("../models/LiveClass"));
 const SupportTicket_1 = __importDefault(require("../models/SupportTicket"));
 const AuditLog_1 = __importDefault(require("../models/AuditLog"));
 const Settings_1 = __importDefault(require("../models/Settings"));
 const Submission_1 = __importDefault(require("../models/Submission"));
 const QuizResult_1 = __importDefault(require("../models/QuizResult"));
+const Onboarding_1 = __importDefault(require("../models/Onboarding"));
 const logger_1 = __importDefault(require("../config/logger"));
 // Seed default settings if they do not exist
 const seedDefaultSettings = async () => {
@@ -89,12 +89,14 @@ const getAdminStats = async (req, res) => {
         const totalMentors = await User_1.default.countDocuments({ role: 'mentor' });
         const totalCourses = await Course_1.default.countDocuments();
         const activeEnrollments = await Enrollment_1.default.countDocuments({ status: 'active' });
-        // Revenue summation
-        const payments = await Payment_1.default.find({ status: 'captured' });
-        const totalRevenue = payments.reduce((acc, curr) => acc + curr.amount, 0);
+        // Onboarding summation instead of payments
+        const pendingOnboardingRequests = await Onboarding_1.default.countDocuments({ status: 'pending' });
+        const totalOnboardingRequests = await Onboarding_1.default.countDocuments();
         const pendingTickets = await SupportTicket_1.default.countDocuments({ status: { $ne: 'closed' } });
-        // Recent Payments
-        const recentPayments = await Payment_1.default.find()
+        // Recent Onboarding Requests instead of payments
+        const recentOnboardings = await Onboarding_1.default.find()
+            .populate('courses', 'title')
+            .populate('learningPlan', 'name')
             .sort('-createdAt')
             .limit(5);
         // Recent Activity Logs
@@ -109,9 +111,10 @@ const getAdminStats = async (req, res) => {
                 totalMentors,
                 totalCourses,
                 activeEnrollments,
-                totalRevenue,
+                pendingOnboardingRequests,
+                totalOnboardingRequests,
                 pendingTickets,
-                recentPayments,
+                recentOnboardings,
                 recentAuditLogs,
             },
         });
@@ -127,6 +130,13 @@ const getStudentStats = async (req, res) => {
         const studentId = req.user._id;
         const enrollments = await Enrollment_1.default.find({ studentId }).populate('courseId', 'title category thumbnailUrl');
         const coursesCount = enrollments.length;
+        if (coursesCount === 0) {
+            res.status(403).json({
+                success: false,
+                message: 'Your LMS access has not been activated. Please contact Techzon Wide Support.',
+            });
+            return;
+        }
         // Completed courses count (percentComplete === 100)
         const completedCoursesCount = enrollments.filter((e) => e.progress?.percentComplete === 100).length;
         // Completed quiz count
@@ -209,14 +219,15 @@ const exportReport = async (req, res) => {
     const { type } = req.query; // 'payments', 'enrollments', 'students'
     try {
         let csvData = '';
-        if (type === 'payments') {
-            const payments = await Payment_1.default.find().sort('-createdAt');
-            csvData = 'Payment ID,Order ID,Student Name,Student Email,Amount,Status,Date\n';
-            payments.forEach((p) => {
-                csvData += `"${p.paymentId || ''}","${p.orderId}","${p.studentName}","${p.studentEmail}",${p.amount},"${p.status}","${p.createdAt.toISOString()}"\n`;
+        if (type === 'onboardings') {
+            const onboardings = await Onboarding_1.default.find().populate('courses', 'title').populate('learningPlan', 'name');
+            csvData = 'Student Name,Student Email,Phone,College,Degree,City,State,Courses,Plan,Status,Date\n';
+            onboardings.forEach((o) => {
+                const courseTitles = o.courses ? o.courses.map((c) => c.title).join(' | ') : '';
+                csvData += `"${o.fullName}","${o.email}","${o.phone}","${o.college}","${o.degree}","${o.city}","${o.state}","${courseTitles}","${o.learningPlan?.name || ''}","${o.status}","${o.createdAt.toISOString()}"\n`;
             });
             res.setHeader('Content-Type', 'text/csv');
-            res.attachment('payments_report.csv');
+            res.attachment('onboarding_requests_report.csv');
             res.status(200).send(csvData);
             return;
         }
@@ -234,7 +245,7 @@ const exportReport = async (req, res) => {
             res.status(200).send(csvData);
             return;
         }
-        res.status(400).json({ success: false, message: 'Invalid or missing report type. Use type=payments or type=enrollments.' });
+        res.status(400).json({ success: false, message: 'Invalid or missing report type. Use type=onboardings or type=enrollments.' });
     }
     catch (error) {
         res.status(500).json({ success: false, error: error.message });

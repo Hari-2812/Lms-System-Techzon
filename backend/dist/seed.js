@@ -17,6 +17,7 @@ const Enrollment_1 = __importDefault(require("./models/Enrollment"));
 const LiveClass_1 = __importDefault(require("./models/LiveClass"));
 const Settings_1 = __importDefault(require("./models/Settings"));
 const AuditLog_1 = __importDefault(require("./models/AuditLog"));
+const Onboarding_1 = __importDefault(require("./models/Onboarding"));
 const seedDatabase = async () => {
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
@@ -39,6 +40,7 @@ const seedDatabase = async () => {
             LiveClass_1.default.deleteMany({}),
             Settings_1.default.deleteMany({}),
             AuditLog_1.default.deleteMany({}),
+            Onboarding_1.default.deleteMany({}),
         ]);
         console.log('Database wiped clean.');
         // 2. Seed Settings
@@ -196,6 +198,8 @@ const seedDatabase = async () => {
             studentId: studentUser._id,
             courseId: course._id,
             learningPlanId: selfPacedPlan._id,
+            batch: 'Batch A',
+            mentorId: mentorUser._id,
             startDate,
             expiryDate,
             progress: { completedLessons: [], percentComplete: 0 },
@@ -218,6 +222,53 @@ const seedDatabase = async () => {
             status: 'scheduled',
         });
         await liveClass.save();
+        // 9. Seed Sample Onboarding Requests
+        console.log('Seeding sample onboarding requests...');
+        await Onboarding_1.default.insertMany([
+            {
+                fullName: 'Jane Doe',
+                email: 'jane.doe@example.com',
+                phone: '+919988776655',
+                college: 'PSG College of Technology',
+                degree: 'B.E. Computer Science',
+                city: 'Coimbatore',
+                state: 'Tamil Nadu',
+                courses: [course._id],
+                learningPlan: selfPacedPlan._id,
+                preferredBatch: 'Batch A',
+                status: 'pending',
+            },
+            {
+                fullName: 'Arun Kumar',
+                email: 'arun@example.com',
+                phone: '+918877665544',
+                college: 'IIT Madras',
+                degree: 'B.Tech Electrical',
+                city: 'Chennai',
+                state: 'Tamil Nadu',
+                courses: [course._id],
+                learningPlan: mentorPlan._id,
+                preferredBatch: 'Batch B',
+                status: 'pending',
+                preferredMentor: mentorUser._id,
+            },
+            {
+                fullName: 'Rahul Sharma',
+                email: 'rahul@example.com',
+                phone: '+917766554433',
+                college: 'BITS Pilani',
+                degree: 'M.Sc Physics',
+                city: 'Hyderabad',
+                state: 'Telangana',
+                courses: [course._id],
+                learningPlan: selfPacedPlan._id,
+                preferredBatch: 'Batch A',
+                status: 'rejected',
+                remarks: 'Incomplete application forms data.',
+                approvedBy: adminUser._id,
+                approvedAt: new Date(),
+            },
+        ]);
         console.log('Database seeded successfully with test records!');
         process.exit(0);
     }

@@ -9,6 +9,7 @@ import AuditLog from '../models/AuditLog';
 import Settings from '../models/Settings';
 import Submission from '../models/Submission';
 import QuizResult from '../models/QuizResult';
+import Onboarding from '../models/Onboarding';
 import logger from '../config/logger';
 
 // Seed default settings if they do not exist
@@ -85,14 +86,16 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
     const totalCourses = await Course.countDocuments();
     const activeEnrollments = await Enrollment.countDocuments({ status: 'active' });
 
-    // Revenue summation
-    const payments = await Payment.find({ status: 'captured' });
-    const totalRevenue = payments.reduce((acc, curr) => acc + curr.amount, 0);
+    // Onboarding summation instead of payments
+    const pendingOnboardingRequests = await Onboarding.countDocuments({ status: 'pending' });
+    const totalOnboardingRequests = await Onboarding.countDocuments();
 
     const pendingTickets = await SupportTicket.countDocuments({ status: { $ne: 'closed' } });
 
-    // Recent Payments
-    const recentPayments = await Payment.find()
+    // Recent Onboarding Requests instead of payments
+    const recentOnboardings = await Onboarding.find()
+      .populate('courses', 'title')
+      .populate('learningPlan', 'name')
       .sort('-createdAt')
       .limit(5);
 
@@ -109,9 +112,10 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
         totalMentors,
         totalCourses,
         activeEnrollments,
-        totalRevenue,
+        pendingOnboardingRequests,
+        totalOnboardingRequests,
         pendingTickets,
-        recentPayments,
+        recentOnboardings,
         recentAuditLogs,
       },
     });
@@ -127,6 +131,14 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
 
     const enrollments = await Enrollment.find({ studentId }).populate('courseId', 'title category thumbnailUrl');
     const coursesCount = enrollments.length;
+
+    if (coursesCount === 0) {
+      res.status(403).json({
+        success: false,
+        message: 'Your LMS access has not been activated. Please contact Techzon Wide Support.',
+      });
+      return;
+    }
 
     // Completed courses count (percentComplete === 100)
     const completedCoursesCount = enrollments.filter((e) => e.progress?.percentComplete === 100).length;
@@ -222,14 +234,15 @@ export const exportReport = async (req: Request, res: Response): Promise<void> =
   try {
     let csvData = '';
 
-    if (type === 'payments') {
-      const payments = await Payment.find().sort('-createdAt');
-      csvData = 'Payment ID,Order ID,Student Name,Student Email,Amount,Status,Date\n';
-      payments.forEach((p) => {
-        csvData += `"${p.paymentId || ''}","${p.orderId}","${p.studentName}","${p.studentEmail}",${p.amount},"${p.status}","${p.createdAt.toISOString()}"\n`;
+    if (type === 'onboardings') {
+      const onboardings = await Onboarding.find().populate('courses', 'title').populate('learningPlan', 'name');
+      csvData = 'Student Name,Student Email,Phone,College,Degree,City,State,Courses,Plan,Status,Date\n';
+      onboardings.forEach((o: any) => {
+        const courseTitles = o.courses ? o.courses.map((c: any) => c.title).join(' | ') : '';
+        csvData += `"${o.fullName}","${o.email}","${o.phone}","${o.college}","${o.degree}","${o.city}","${o.state}","${courseTitles}","${o.learningPlan?.name || ''}","${o.status}","${o.createdAt.toISOString()}"\n`;
       });
       res.setHeader('Content-Type', 'text/csv');
-      res.attachment('payments_report.csv');
+      res.attachment('onboarding_requests_report.csv');
       res.status(200).send(csvData);
       return;
     }
@@ -250,7 +263,7 @@ export const exportReport = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    res.status(400).json({ success: false, message: 'Invalid or missing report type. Use type=payments or type=enrollments.' });
+    res.status(400).json({ success: false, message: 'Invalid or missing report type. Use type=onboardings or type=enrollments.' });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }

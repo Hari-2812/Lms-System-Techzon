@@ -21,6 +21,10 @@ import AdminCourses from '../pages/AdminCourses';
 import AdminPlans from '../pages/AdminPlans';
 import AdminStudents from '../pages/AdminStudents';
 import AdminSettings from '../pages/AdminSettings';
+import AdminOnboarding from '../pages/AdminOnboarding';
+
+// Onboarding student public page
+import Onboard from '../pages/Onboard';
 
 // Mentor
 import MentorCourses from '../pages/MentorCourses';
@@ -63,6 +67,7 @@ const AppRoutes: React.FC = () => {
     <Routes>
       {/* 1. PUBLIC PATHS */}
       <Route path="/login" element={<Login />} />
+      <Route path="/onboard" element={<Onboard />} />
       <Route path="/certificates/verify/:key" element={<VerifyCertificate />} />
 
       {/* 2. PROTECTED PRIVATE ROUTES */}
@@ -142,6 +147,14 @@ const AppRoutes: React.FC = () => {
                   element={
                     <RoleGuard allowedRoles={['admin', 'super-admin']}>
                       <AdminStudents />
+                    </RoleGuard>
+                  }
+                />
+                <Route
+                  path="/admin/onboarding"
+                  element={
+                    <RoleGuard allowedRoles={['admin', 'super-admin']}>
+                      <AdminOnboarding />
                     </RoleGuard>
                   }
                 />

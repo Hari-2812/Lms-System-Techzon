@@ -20,7 +20,8 @@ import {
   Settings as SettingsIcon,
   Activity,
   Menu,
-  X
+  X,
+  ClipboardList
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -51,6 +52,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     { name: 'Support Tickets', path: '/tickets', icon: <LifeBuoy className="w-5 h-5" />, roles: ['student', 'support', 'admin', 'super-admin'] },
 
     // Admins
+    { name: 'Onboarding Requests', path: '/admin/onboarding', icon: <ClipboardList className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
     { name: 'LMS Overview', path: '/admin/overview', icon: <Activity className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
     { name: 'Manage Courses', path: '/admin/courses', icon: <GraduationCap className="w-5 h-5" />, roles: ['admin', 'super-admin'] },
     { name: 'Learning Plans', path: '/admin/plans', icon: <Layers className="w-5 h-5" />, roles: ['admin', 'super-admin'] },

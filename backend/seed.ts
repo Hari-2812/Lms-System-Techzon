@@ -14,6 +14,7 @@ import Enrollment from './models/Enrollment';
 import LiveClass from './models/LiveClass';
 import Settings from './models/Settings';
 import AuditLog from './models/AuditLog';
+import Onboarding from './models/Onboarding';
 
 const seedDatabase = async () => {
   const mongoUri = process.env.MONGODB_URI;
@@ -39,6 +40,7 @@ const seedDatabase = async () => {
       LiveClass.deleteMany({}),
       Settings.deleteMany({}),
       AuditLog.deleteMany({}),
+      Onboarding.deleteMany({}),
     ]);
     console.log('Database wiped clean.');
 
@@ -206,6 +208,8 @@ const seedDatabase = async () => {
       studentId: studentUser._id,
       courseId: course._id,
       learningPlanId: selfPacedPlan._id,
+      batch: 'Batch A',
+      mentorId: mentorUser._id,
       startDate,
       expiryDate,
       progress: { completedLessons: [], percentComplete: 0 },
@@ -230,6 +234,54 @@ const seedDatabase = async () => {
       status: 'scheduled',
     });
     await liveClass.save();
+
+    // 9. Seed Sample Onboarding Requests
+    console.log('Seeding sample onboarding requests...');
+    await Onboarding.insertMany([
+      {
+        fullName: 'Jane Doe',
+        email: 'jane.doe@example.com',
+        phone: '+919988776655',
+        college: 'PSG College of Technology',
+        degree: 'B.E. Computer Science',
+        city: 'Coimbatore',
+        state: 'Tamil Nadu',
+        courses: [course._id],
+        learningPlan: selfPacedPlan._id,
+        preferredBatch: 'Batch A',
+        status: 'pending',
+      },
+      {
+        fullName: 'Arun Kumar',
+        email: 'arun@example.com',
+        phone: '+918877665544',
+        college: 'IIT Madras',
+        degree: 'B.Tech Electrical',
+        city: 'Chennai',
+        state: 'Tamil Nadu',
+        courses: [course._id],
+        learningPlan: mentorPlan._id,
+        preferredBatch: 'Batch B',
+        status: 'pending',
+        preferredMentor: mentorUser._id,
+      },
+      {
+        fullName: 'Rahul Sharma',
+        email: 'rahul@example.com',
+        phone: '+917766554433',
+        college: 'BITS Pilani',
+        degree: 'M.Sc Physics',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        courses: [course._id],
+        learningPlan: selfPacedPlan._id,
+        preferredBatch: 'Batch A',
+        status: 'rejected',
+        remarks: 'Incomplete application forms data.',
+        approvedBy: adminUser._id,
+        approvedAt: new Date(),
+      },
+    ]);
 
     console.log('Database seeded successfully with test records!');
     process.exit(0);
