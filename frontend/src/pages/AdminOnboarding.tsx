@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { 
-  ClipboardList, Check, X, Search, Edit2, Trash2, Loader2, Sparkles, UserCheck, 
-  BookOpen, Layers, ShieldCheck, Mail, Calendar, User, Clock, AlertTriangle 
+  ClipboardList, Check, X, Search, Trash2, Loader2, Sparkles, 
+  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock 
 } from 'lucide-react';
 
 interface OnboardingRequest {
@@ -29,9 +29,15 @@ interface MentorOption {
   email: string;
 }
 
+interface CourseOption {
+  _id: string;
+  title: string;
+}
+
 const AdminOnboarding: React.FC = () => {
   const [requests, setRequests] = useState<OnboardingRequest[]>([]);
   const [mentors, setMentors] = useState<MentorOption[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
   
   // Lists UI state
   const [loading, setLoading] = useState(true);
@@ -45,6 +51,8 @@ const AdminOnboarding: React.FC = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
 
   // Approval Wizard Parameters
+  const [wizardStep, setWizardStep] = useState(1);
+  const [approveCourses, setApproveCourses] = useState<string[]>([]);
   const [approvePlan, setApprovePlan] = useState('');
   const [approveBatch, setApproveBatch] = useState('Batch A');
   const [approveMentor, setApproveMentor] = useState('');
@@ -70,16 +78,19 @@ const AdminOnboarding: React.FC = () => {
     }
   };
 
-  const fetchMentors = async () => {
+  const fetchMentorsAndCourses = async () => {
     try {
-      const res = await api.get('/auth/users?role=mentor');
-      // In case we don't have standard /users endpoint, we can gracefully fallback
-      setMentors(res.data.data || []);
+      const [mentorsRes, coursesRes] = await Promise.all([
+        api.get('/auth/users?role=mentor'),
+        api.get('/courses')
+      ]);
+      setMentors(mentorsRes.data.data || []);
+      setCourses(coursesRes.data.data || []);
     } catch (err) {
-      // Fallback fallback if endpoint is private
       setMentors([
         { _id: 'dev-mentor-id', name: 'Instructor Mentor (Default)', email: 'mentor@techzonwide.com' }
       ]);
+      setCourses([]);
     }
   };
 
@@ -88,11 +99,13 @@ const AdminOnboarding: React.FC = () => {
   }, [statusFilter]);
 
   useEffect(() => {
-    fetchMentors();
+    fetchMentorsAndCourses();
   }, []);
 
   const openApproveWizard = (req: OnboardingRequest) => {
     setSelectedRequest(req);
+    setWizardStep(1);
+    setApproveCourses(req.courses?.map(c => c._id) || []);
     setApprovePlan(req.learningPlan?._id || '');
     setApproveBatch(req.preferredBatch || 'Batch A');
     setApproveMentor(req.preferredMentor?._id || '');
@@ -109,6 +122,14 @@ const AdminOnboarding: React.FC = () => {
     setShowRejectModal(true);
   };
 
+  const handleCourseToggle = (courseId: string) => {
+    if (approveCourses.includes(courseId)) {
+      setApproveCourses(approveCourses.filter((id) => id !== courseId));
+    } else {
+      setApproveCourses([...approveCourses, courseId]);
+    }
+  };
+
   const handleApprove = async () => {
     if (!selectedRequest) return;
     setSubmitting(true);
@@ -116,6 +137,7 @@ const AdminOnboarding: React.FC = () => {
 
     try {
       await api.post(`/onboarding/${selectedRequest._id}/approve`, {
+        courses: approveCourses,
         learningPlan: approvePlan,
         batch: approveBatch,
         mentorId: approveMentor || undefined,
@@ -409,14 +431,15 @@ const AdminOnboarding: React.FC = () => {
         </div>
       )}
 
-      {/* APPROVE MODAL WIZARD */}
+      {/* APPROVE 8-STEP WIZARD MODAL */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs">
+            {/* Header with Step Indicator */}
             <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Approval Enrollment Setup</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Assign batch parameters for {selectedRequest.fullName}</p>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Approval Wizard</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Step {wizardStep} of 8</p>
               </div>
               <button onClick={() => setShowApproveModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -429,10 +452,66 @@ const AdminOnboarding: React.FC = () => {
               </div>
             )}
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-slate-500">Learning Plan</label>
+            {/* WIZARD CONTENT STEPS */}
+            <div className="space-y-4 min-h-[160px] flex flex-col justify-center">
+              
+              {/* STEP 1: REVIEW STUDENT */}
+              {wizardStep === 1 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-accent" /> Step 1: Review Student Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-slate-600 dark:text-slate-300">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Full Name</p>
+                      <p className="font-semibold">{selectedRequest.fullName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Email Address</p>
+                      <p className="font-semibold">{selectedRequest.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Contact Phone</p>
+                      <p className="font-semibold">{selectedRequest.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Academic Background</p>
+                      <p className="font-semibold">{selectedRequest.college} ({selectedRequest.degree})</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: ASSIGN COURSE(S) */}
+              {wizardStep === 2 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-accent" /> Step 2: Assign Learning Program Courses
+                  </h4>
+                  <p className="text-slate-500 text-[10px]">Select or override the courses the student will get access to:</p>
+                  <div className="max-h-[120px] overflow-y-auto space-y-2">
+                    {courses.map((courseOption) => (
+                      <label key={courseOption._id} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 dark:border-border-dark cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 select-none">
+                        <input
+                          type="checkbox"
+                          checked={approveCourses.includes(courseOption._id)}
+                          onChange={() => handleCourseToggle(courseOption._id)}
+                          className="w-4 h-4 text-accent accent-accent rounded"
+                        />
+                        <span className="font-bold">{courseOption.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: ASSIGN LEARNING PLAN */}
+              {wizardStep === 3 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-accent" /> Step 3: Select Learning Plan Tier
+                  </h4>
+                  <p className="text-slate-500 text-[10px]">Determines what features (live webinars, doubt sessions) are permitted:</p>
                   <select
                     value={approvePlan}
                     onChange={(e) => setApprovePlan(e.target.value)}
@@ -441,8 +520,14 @@ const AdminOnboarding: React.FC = () => {
                     <option value={selectedRequest.learningPlan?._id}>{selectedRequest.learningPlan?.name}</option>
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-slate-500">Assign Batch</label>
+              )}
+
+              {/* STEP 4: ASSIGN BATCH */}
+              {wizardStep === 4 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-accent" /> Step 4: Assign Learning Batch
+                  </h4>
                   <select
                     value={approveBatch}
                     onChange={(e) => setApproveBatch(e.target.value)}
@@ -453,11 +538,14 @@ const AdminOnboarding: React.FC = () => {
                     <option value="Batch C">Batch C (Weekends batch)</option>
                   </select>
                 </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-slate-500">Assign Mentor</label>
+              {/* STEP 5: ASSIGN MENTOR */}
+              {wizardStep === 5 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-accent" /> Step 5: Assign Instructor Mentor
+                  </h4>
                   <select
                     value={approveMentor}
                     onChange={(e) => setApproveMentor(e.target.value)}
@@ -466,48 +554,99 @@ const AdminOnboarding: React.FC = () => {
                     <option value="">No Mentor Assigned</option>
                     {mentors.map((m) => (
                       <option key={m._id} value={m._id}>
-                        {m.name}
+                        {m.name} ({m.email})
                       </option>
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-slate-500">Duration (Months)</label>
-                  <input
-                    type="number"
-                    value={approveDuration}
-                    onChange={(e) => setApproveDuration(parseInt(e.target.value) || 6)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                  />
+              )}
+
+              {/* STEP 6: SET ACCESS DURATION */}
+              {wizardStep === 6 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-accent" /> Step 6: Set Access Duration Timeline
+                  </h4>
+                  <p className="text-slate-500 text-[10px]">LMS access will automatically expire after the configured duration:</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      value={approveDuration}
+                      onChange={(e) => setApproveDuration(parseInt(e.target.value) || 6)}
+                      className="w-32 p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                    />
+                    <span className="font-bold text-slate-500">Months from today</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-slate-500">remarks / notes</label>
-                <textarea
-                  placeholder="Approved and welcome email sent."
-                  value={approveRemarks}
-                  onChange={(e) => setApproveRemarks(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs h-16 resize-none"
-                />
-              </div>
+              {/* STEP 7: GENERATE CREDENTIALS */}
+              {wizardStep === 7 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-accent" /> Step 7: Account Security Credentials
+                  </h4>
+                  <div className="p-4 bg-emerald-500/10 rounded-xl space-y-2 border border-emerald-500/20">
+                    <p className="font-bold text-emerald-600 dark:text-emerald-400">Automated Provisioning Enabled</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                      A random temporary password string will be securely hashed using bcrypt and stored in the database. The student is forced to change their password on first sign-in.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 8: CONFIRM & SEND WELCOME EMAIL */}
+              {wizardStep === 8 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Mail className="w-4 h-4 text-accent" /> Step 8: Welcome Email & Finish
+                  </h4>
+                  <p className="text-slate-500 text-[10px]">Add any onboarding comments or remarks for auditing logs:</p>
+                  <textarea
+                    placeholder="Approval onboarding processing remarks..."
+                    value={approveRemarks}
+                    onChange={(e) => setApproveRemarks(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs h-16 resize-none"
+                  />
+                  <div className="p-3 bg-slate-50 dark:bg-secondary-dark rounded-lg text-slate-500 leading-normal">
+                    On finish, account credentials, assigned batch, and the LMS login URL will be automatically mailed to <strong>{selectedRequest.email}</strong>.
+                  </div>
+                </div>
+              )}
+
             </div>
 
-            <div className="flex justify-end gap-2 border-t pt-4 dark:border-border-dark">
+            {/* Navigation Actions */}
+            <div className="flex justify-between items-center border-t pt-4 dark:border-border-dark">
               <button
-                onClick={() => setShowApproveModal(false)}
-                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 text-slate-700 dark:text-slate-300"
+                type="button"
+                onClick={() => setWizardStep(prev => Math.max(1, prev - 1))}
+                disabled={wizardStep === 1}
+                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 disabled:opacity-40 flex items-center gap-1"
               >
-                Cancel
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
-              <button
-                onClick={handleApprove}
-                disabled={submitting}
-                className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1.5"
-              >
-                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Confirm Activation'}
-              </button>
+              
+              {wizardStep < 8 ? (
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(prev => Math.min(8, prev + 1))}
+                  className="px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary-light flex items-center gap-1"
+                >
+                  Next <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1.5"
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Finish & Activate</>}
+                </button>
+              )}
             </div>
+
           </div>
         </div>
       )}

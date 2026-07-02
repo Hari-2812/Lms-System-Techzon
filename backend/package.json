@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "ts-node seed.ts",
+    "seed:admin": "ts-node seed-admin.ts",
     "test": "echo \"Error: no test specified\" && exit 0"
   },
   "keywords": [],

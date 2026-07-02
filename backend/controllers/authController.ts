@@ -66,18 +66,28 @@ export const loginWithPassword = async (req: Request, res: Response): Promise<vo
   try {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
+      res.status(401).json({ success: false, message: 'User not found' });
       return;
     }
 
-    if (user.status !== 'active') {
-      res.status(403).json({ success: false, message: 'User account is inactive or suspended' });
+    if (user.status === 'inactive') {
+      res.status(403).json({ success: false, message: 'Account inactive' });
+      return;
+    }
+
+    if (user.status === 'suspended') {
+      res.status(403).json({ success: false, message: 'Account suspended' });
+      return;
+    }
+
+    if (!user.isEmailVerified) {
+      res.status(403).json({ success: false, message: 'Email not verified' });
       return;
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
+      res.status(401).json({ success: false, message: 'Incorrect password' });
       return;
     }
 
@@ -120,6 +130,8 @@ export const loginWithPassword = async (req: Request, res: Response): Promise<vo
     res.status(200).json({
       success: true,
       token: accessToken,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
       deviceId: dId,
       user: {
         id: user._id,

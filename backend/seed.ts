@@ -134,7 +134,7 @@ const seedDatabase = async () => {
       name: 'Super Admin',
       email: 'admin@techzonwide.com',
       password: 'Admin@123',
-      role: 'super-admin',
+      role: 'SuperAdmin',
       status: 'active',
       isEmailVerified: true,
     });

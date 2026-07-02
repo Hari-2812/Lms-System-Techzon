@@ -53,7 +53,7 @@ const DashboardRedirector: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   if (!user) return <Navigate to="/login" replace />;
 
-  if (['admin', 'super-admin'].includes(user.role)) {
+  if (['admin', 'super-admin', 'SuperAdmin'].includes(user.role)) {
     return <Navigate to="/admin/overview" replace />;
   }
   if (user.role === 'mentor') {

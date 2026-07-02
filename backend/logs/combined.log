@@ -36,3 +36,12 @@
 {"level":"info","message":"Techzon LMS Backend server running in development mode on port 5000","timestamp":"2026-07-02 12:14:04"}
 {"level":"info","message":"MongoDB Atlas connected successfully.","timestamp":"2026-07-02 12:14:05"}
 {"level":"info","message":"Automated enrollment expiry check executed. Expired 0 courses subscriptions.","timestamp":"2026-07-02 12:14:05"}
+{"level":"info","message":"Techzon LMS Backend server running in development mode on port 5000","timestamp":"2026-07-02 12:14:14"}
+{"level":"info","message":"MongoDB Atlas connected successfully.","timestamp":"2026-07-02 12:14:14"}
+{"level":"info","message":"Automated enrollment expiry check executed. Expired 0 courses subscriptions.","timestamp":"2026-07-02 12:14:14"}
+{"level":"info","message":"Techzon LMS Backend server running in development mode on port 5000","timestamp":"2026-07-02 12:21:25"}
+{"level":"info","message":"MongoDB Atlas connected successfully.","timestamp":"2026-07-02 12:21:25"}
+{"level":"info","message":"Automated enrollment expiry check executed. Expired 0 courses subscriptions.","timestamp":"2026-07-02 12:21:25"}
+{"level":"info","message":"Techzon LMS Backend server running in development mode on port 5000","timestamp":"2026-07-02 12:22:25"}
+{"level":"info","message":"MongoDB Atlas connected successfully.","timestamp":"2026-07-02 12:22:25"}
+{"level":"info","message":"Automated enrollment expiry check executed. Expired 0 courses subscriptions.","timestamp":"2026-07-02 12:22:25"}
