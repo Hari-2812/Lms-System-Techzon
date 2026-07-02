@@ -281,6 +281,9 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
         planName: plan.name,
         batchName: finalBatch,
         mentorName: mainMentor ? mainMentor.name : 'Not Assigned',
+        durationMonths: activeDuration,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: expiryDate.toISOString().split('T')[0],
       });
     } else {
       emailSent = true; // Student already has an active account & password
@@ -332,6 +335,12 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
     const batchName = (enrollment && enrollment.batch) || 'Batch A';
     const mentorName = enrollment && (enrollment.mentorId as any) ? (enrollment.mentorId as any).name : 'Not Assigned';
 
+    const durationMonths = enrollment && enrollment.expiryDate && enrollment.startDate
+      ? Math.round((enrollment.expiryDate.getTime() - enrollment.startDate.getTime()) / (30 * 24 * 60 * 60 * 1000))
+      : 6;
+    const startDateStr = enrollment && enrollment.startDate ? enrollment.startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const endDateStr = enrollment && enrollment.expiryDate ? enrollment.expiryDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
     const emailSent = await sendWelcomeEmail({
       studentName: user.name,
       email: user.email,
@@ -340,6 +349,9 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
       planName,
       batchName,
       mentorName,
+      durationMonths,
+      startDate: startDateStr,
+      endDate: endDateStr,
     });
 
     await AuditLog.create({

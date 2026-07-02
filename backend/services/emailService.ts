@@ -9,6 +9,9 @@ interface SendWelcomeEmailArgs {
   planName: string;
   batchName: string;
   mentorName: string;
+  durationMonths: number;
+  startDate: string;
+  endDate: string;
 }
 
 export const sendWelcomeEmail = async ({
@@ -19,6 +22,9 @@ export const sendWelcomeEmail = async ({
   planName,
   batchName,
   mentorName,
+  durationMonths,
+  startDate,
+  endDate,
 }: SendWelcomeEmailArgs): Promise<boolean> => {
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT || '587');
@@ -54,7 +60,7 @@ export const sendWelcomeEmail = async ({
         <p style="font-size: 14px; color: #111827; line-height: 1.6;">Welcome to Techzon Wide! Your LMS student account has been successfully provisioned. You can now log in and begin your studies.</p>
         
         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; margin: 20px 0;">
-          <h3 style="color: #31206B; margin: 0 0 10px 0; font-size: 14px;">Your Access Credentials</h3>
+          <h3 style="color: #31206B; margin: 0 0 10px 0; font-size: 14px;">Your Access Credentials & Plan Details</h3>
           <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
             <tr>
               <td style="padding: 4px 0; color: #6b7280; font-weight: bold; width: 140px;">Login Email:</td>
@@ -71,6 +77,18 @@ export const sendWelcomeEmail = async ({
             <tr>
               <td style="padding: 4px 0; color: #6b7280; font-weight: bold;">Learning Plan:</td>
               <td style="padding: 4px 0; color: #111827;">${planName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280; font-weight: bold;">Course Duration:</td>
+              <td style="padding: 4px 0; color: #111827;">${durationMonths} Months</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280; font-weight: bold;">Access Start Date:</td>
+              <td style="padding: 4px 0; color: #111827;">${startDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #6b7280; font-weight: bold;">Access Expiry Date:</td>
+              <td style="padding: 4px 0; color: #EF4444; font-weight: bold;">${endDate}</td>
             </tr>
             <tr>
               <td style="padding: 4px 0; color: #6b7280; font-weight: bold;">Batch Assignment:</td>
@@ -103,7 +121,7 @@ export const sendWelcomeEmail = async ({
     await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
       to: email,
-      subject: 'Welcome to Techzon LMS System - Account Activated',
+      subject: 'Welcome to Techzon LMS – Your Learning Account is Ready',
       html: htmlContent,
     });
 
