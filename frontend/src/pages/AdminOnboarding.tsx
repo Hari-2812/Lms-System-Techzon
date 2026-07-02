@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { 
   ClipboardList, Check, X, Search, Trash2, Loader2, Sparkles, 
-  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock, Layers, RefreshCw
+  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock, Layers, RefreshCw, Calendar, AlertCircle
 } from 'lucide-react';
 
 interface OnboardingRequest {
@@ -21,6 +21,7 @@ interface OnboardingRequest {
   status: 'pending' | 'approved' | 'rejected';
   remarks?: string;
   createdAt: string;
+  googleRowId?: string;
 }
 
 interface MentorOption {
@@ -34,10 +35,17 @@ interface CourseOption {
   title: string;
 }
 
+interface PlanOption {
+  _id: string;
+  name: string;
+  durationMonths: number;
+}
+
 const AdminOnboarding: React.FC = () => {
   const [requests, setRequests] = useState<OnboardingRequest[]>([]);
   const [mentors, setMentors] = useState<MentorOption[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [plans, setPlans] = useState<PlanOption[]>([]);
   
   // Lists UI state
   const [loading, setLoading] = useState(true);
@@ -46,17 +54,17 @@ const AdminOnboarding: React.FC = () => {
 
   // Dialog Modals States
   const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  // Approval Wizard Parameters
-  const [wizardStep, setWizardStep] = useState(1);
+  // Approval Form Parameters
   const [approveCourses, setApproveCourses] = useState<string[]>([]);
-  const [approvePlan, setApprovePlan] = useState('');
+  const [approvePlanId, setApprovePlanId] = useState('');
   const [approveBatch, setApproveBatch] = useState('Batch A');
-  const [approveMentor, setApproveMentor] = useState('');
-  const [approveDuration, setApproveDuration] = useState(6);
+  const [approveMentorId, setApproveMentorId] = useState('');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState('');
   const [approveRemarks, setApproveRemarks] = useState('');
   
   // Rejection Parameters
@@ -65,20 +73,6 @@ const AdminOnboarding: React.FC = () => {
   // Form submission indicators
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [syncing, setSyncing] = useState(false);
-
-  const handleSyncSheets = async () => {
-    setSyncing(true);
-    try {
-      const res = await api.post('/onboarding/sync');
-      alert(res.data.message || 'Sync completed successfully!');
-      fetchOnboardings();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to sync Google Sheets');
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const fetchOnboardings = async () => {
     setLoading(true);
@@ -92,9 +86,9 @@ const AdminOnboarding: React.FC = () => {
     }
   };
 
-  const fetchMentorsAndCourses = async () => {
+  const fetchMetadata = async () => {
     try {
-      const [mentorsRes, coursesRes] = await Promise.all([
+      const [mentorsRes, coursesRes, plansRes] = await Promise.all([
         api.get('/users?role=Mentor').catch((err) => {
           console.error('Failed to load mentors:', err);
           return { data: { data: [] } };
@@ -102,15 +96,17 @@ const AdminOnboarding: React.FC = () => {
         api.get('/courses').catch((err) => {
           console.error('Failed to load courses:', err);
           return { data: { data: [] } };
+        }),
+        api.get('/plans').catch((err) => {
+          console.error('Failed to load plans:', err);
+          return { data: { data: [] } };
         })
       ]);
       setMentors(mentorsRes.data.data || []);
       setCourses(coursesRes.data.data || []);
+      setPlans(plansRes.data.data || []);
     } catch (err) {
-      setMentors([
-        { _id: 'dev-mentor-id', name: 'Instructor Mentor (Default)', email: 'mentor@techzonwide.com' }
-      ]);
-      setCourses([]);
+      console.error('Metadata fetch failed:', err);
     }
   };
 
@@ -119,17 +115,27 @@ const AdminOnboarding: React.FC = () => {
   }, [statusFilter]);
 
   useEffect(() => {
-    fetchMentorsAndCourses();
+    fetchMetadata();
   }, []);
 
-  const openApproveWizard = (req: OnboardingRequest) => {
+  // Update End Date when Start Date or Plan changes
+  useEffect(() => {
+    if (!approvePlanId) return;
+    const selectedPlan = plans.find(p => p._id === approvePlanId);
+    if (!selectedPlan) return;
+    
+    const start = new Date(startDate);
+    const end = new Date(start.setMonth(start.getMonth() + selectedPlan.durationMonths));
+    setEndDate(end.toISOString().split('T')[0]);
+  }, [startDate, approvePlanId, plans]);
+
+  const openApproveModal = (req: OnboardingRequest) => {
     setSelectedRequest(req);
-    setWizardStep(1);
     setApproveCourses(req.courses?.map(c => c._id) || []);
-    setApprovePlan(req.learningPlan?._id || '');
+    setApprovePlanId(req.learningPlan?._id || '');
     setApproveBatch(req.preferredBatch || 'Batch A');
-    setApproveMentor(req.preferredMentor?._id || '');
-    setApproveDuration(req.learningPlan?.durationMonths || 6);
+    setApproveMentorId(req.preferredMentor?._id || '');
+    setStartDate(new Date().toISOString().split('T')[0]);
     setApproveRemarks('');
     setError('');
     setShowApproveModal(true);
@@ -152,16 +158,26 @@ const AdminOnboarding: React.FC = () => {
 
   const handleApprove = async () => {
     if (!selectedRequest) return;
+    if (!approvePlanId) {
+      setError('Please select a learning plan.');
+      return;
+    }
+    if (approveCourses.length === 0) {
+      setError('Please assign at least one course.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
     try {
       await api.post(`/onboarding/${selectedRequest._id}/approve`, {
         courses: approveCourses,
-        learningPlan: approvePlan,
+        learningPlan: approvePlanId,
         batch: approveBatch,
-        mentorId: approveMentor || undefined,
-        durationMonths: approveDuration,
+        mentorId: approveMentorId || undefined,
+        startDate,
+        endDate,
         remarks: approveRemarks,
       });
       setShowApproveModal(false);
@@ -175,6 +191,11 @@ const AdminOnboarding: React.FC = () => {
 
   const handleReject = async () => {
     if (!selectedRequest) return;
+    if (!rejectRemarks) {
+      setError('Please specify a reason for rejection.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
@@ -211,20 +232,12 @@ const AdminOnboarding: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6 font-poppins">
+    <div className="space-y-6 font-poppins text-slate-800 dark:text-slate-200">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Onboarding Requests</h2>
-          <p className="text-slate-500 text-xs mt-1">Review student applications, assign batches, and activate LMS credentials</p>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Student Onboarding</h2>
+          <p className="text-slate-500 text-xs mt-1">Review onboarding applications, assign batches, and provision LMS student accounts</p>
         </div>
-        <button
-          onClick={handleSyncSheets}
-          disabled={syncing}
-          className="btn-accent py-2 px-4 flex items-center gap-1.5"
-        >
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Sync Google Sheets
-        </button>
       </div>
 
       {/* Filter and search bar row */}
@@ -248,7 +261,7 @@ const AdminOnboarding: React.FC = () => {
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
             }`}
           >
-            Approved
+            Approved / Imported
           </button>
           <button
             onClick={() => setStatusFilter('rejected')}
@@ -292,10 +305,10 @@ const AdminOnboarding: React.FC = () => {
               <thead className="bg-slate-50 dark:bg-secondary-dark font-bold text-slate-500">
                 <tr>
                   <th className="p-4">Student Details</th>
-                  <th className="p-4">Academic Background</th>
+                  <th className="p-4">Phone</th>
                   <th className="p-4">Chosen Courses</th>
-                  <th className="p-4">Selected Plan</th>
-                  <th className="p-4">Preferred Batch</th>
+                  <th className="p-4">Batch Preference</th>
+                  <th className="p-4">Status</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -306,15 +319,9 @@ const AdminOnboarding: React.FC = () => {
                       <div>
                         <p className="font-bold text-slate-800 dark:text-white">{req.fullName}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">{req.email}</p>
-                        <p className="text-[10px] text-slate-400">{req.phone}</p>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <div>
-                        <p className="font-semibold">{req.college}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{req.degree}</p>
-                      </div>
-                    </td>
+                    <td className="p-4 font-semibold">{req.phone}</td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1">
                         {req.courses?.map((c) => (
@@ -324,29 +331,35 @@ const AdminOnboarding: React.FC = () => {
                         ))}
                       </div>
                     </td>
-                    <td className="p-4">
-                      <span className="font-semibold text-accent">{req.learningPlan?.name || 'Self-Paced'}</span>
+                    <td className="p-4 font-semibold text-slate-500">
+                      {req.preferredBatch || 'Batch A'}
                     </td>
                     <td className="p-4">
-                      <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-medium text-[10px] text-slate-500">
-                        {req.preferredBatch || 'Batch A'}
+                      <span className={`inline-block font-extrabold uppercase text-[9px] px-2 py-0.5 rounded ${
+                        req.status === 'approved' 
+                          ? 'bg-emerald-500/10 text-emerald-500' 
+                          : req.status === 'rejected'
+                          ? 'bg-red-500/10 text-red-500'
+                          : 'bg-amber-500/10 text-amber-500'
+                      }`}>
+                        {req.status === 'approved' ? 'Imported' : req.status}
                       </span>
                     </td>
                     <td className="p-4 text-right space-x-1.5">
                       <button
                         onClick={() => {
                           setSelectedRequest(req);
-                          setShowDetailModal(true);
+                          setShowDetailDrawer(true);
                         }}
                         className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition text-[10px] font-bold"
                       >
-                        Details
+                        View
                       </button>
                       
-                      {statusFilter === 'pending' && (
+                      {req.status === 'pending' && (
                         <>
                           <button
-                            onClick={() => openApproveWizard(req)}
+                            onClick={() => openApproveModal(req)}
                             className="p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 transition text-[10px] font-bold"
                           >
                             Approve
@@ -375,81 +388,78 @@ const AdminOnboarding: React.FC = () => {
         )}
       </div>
 
-      {/* DETAIL MODAL BOX */}
-      {showDetailModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs">
-            <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-white">Application Request Details</h3>
-              <button onClick={() => setShowDetailModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
+      {/* STUDENT DETAILS DRAWER */}
+      {showDetailDrawer && selectedRequest && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end">
+          <div className="w-full max-w-md bg-white dark:bg-card-dark h-full p-6 space-y-6 shadow-2xl border-l border-slate-200 dark:border-border-dark overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-4 dark:border-border-dark">
+              <h3 className="text-base font-bold text-slate-800 dark:text-white">Student Details Summary</h3>
+              <button onClick={() => setShowDetailDrawer(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4 text-xs font-semibold">
               <div className="space-y-1">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Full Name</p>
-                <p className="font-semibold text-slate-700 dark:text-slate-200">{selectedRequest.fullName}</p>
+                <label className="text-[10px] uppercase font-bold text-slate-400">Full Name</label>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{selectedRequest.fullName}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Email</p>
-                <p className="font-semibold text-slate-700 dark:text-slate-200">{selectedRequest.email}</p>
+                <label className="text-[10px] uppercase font-bold text-slate-400">Email Address</label>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{selectedRequest.email}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Phone</p>
-                <p className="font-semibold text-slate-700 dark:text-slate-200">{selectedRequest.phone}</p>
+                <label className="text-[10px] uppercase font-bold text-slate-400">Phone / Mobile</label>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{selectedRequest.phone}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Preferred Batch</p>
-                <p className="font-semibold text-slate-700 dark:text-slate-200">{selectedRequest.preferredBatch}</p>
-              </div>
-              <div className="space-y-1 col-span-2">
-                <p className="text-[10px] uppercase font-bold text-slate-400">College & Degree</p>
-                <p className="font-semibold text-slate-700 dark:text-slate-200">
-                  {selectedRequest.college} ({selectedRequest.degree})
+                <label className="text-[10px] uppercase font-bold text-slate-400">Academic Background</label>
+                <p className="text-slate-700 dark:text-slate-200">
+                  {selectedRequest.college || 'PSG College of Technology'} ({selectedRequest.degree || 'B.E. Computer Science'})
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase font-bold text-slate-400">City & State</p>
-                <p className="font-semibold text-slate-700 dark:text-slate-200">
-                  {selectedRequest.city}, {selectedRequest.state}
+                <label className="text-[10px] uppercase font-bold text-slate-400">City & State</label>
+                <p className="text-slate-700 dark:text-slate-200">
+                  {selectedRequest.city || 'Coimbatore'}, {selectedRequest.state || 'Tamil Nadu'}
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Status</p>
-                <span className={`inline-block font-bold uppercase text-[9px] px-2 py-0.5 rounded ${
-                  selectedRequest.status === 'approved' 
-                    ? 'bg-emerald-500/10 text-emerald-500' 
-                    : selectedRequest.status === 'rejected'
-                    ? 'bg-red-500/10 text-red-500'
-                    : 'bg-amber-500/10 text-amber-500'
-                }`}>
-                  {selectedRequest.status}
-                </span>
+                <label className="text-[10px] uppercase font-bold text-slate-400">Chosen Courses</label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedRequest.courses?.map((c) => (
+                    <span key={c._id} className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">
+                      {c.title}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-slate-400">Submit Timestamp</label>
+                <p className="text-slate-500">{new Date(selectedRequest.createdAt).toLocaleString()}</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-slate-400">Onboarding Source</label>
+                <p className="text-slate-500 font-bold text-accent">
+                  {selectedRequest.googleRowId ? `Google Sheet Row ID: ${selectedRequest.googleRowId}` : 'Direct Webhook Onboarding'}
+                </p>
               </div>
             </div>
 
-            {selectedRequest.remarks && (
-              <div className="p-3 bg-slate-50 dark:bg-secondary-dark rounded-xl">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Status Remarks</p>
-                <p className="mt-1 font-medium">{selectedRequest.remarks}</p>
-              </div>
-            )}
-
             <div className="flex justify-end gap-2 border-t pt-4 dark:border-border-dark">
               <button
-                onClick={() => setShowDetailModal(false)}
-                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 text-slate-700 dark:text-slate-300"
+                onClick={() => setShowDetailDrawer(false)}
+                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs"
               >
-                Close View
+                Close Drawer
               </button>
               {selectedRequest.status === 'pending' && (
                 <button
                   onClick={() => {
-                    setShowDetailModal(false);
-                    openApproveWizard(selectedRequest);
+                    setShowDetailDrawer(false);
+                    openApproveModal(selectedRequest);
                   }}
-                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600"
+                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 text-xs"
                 >
                   Configure Approval
                 </button>
@@ -459,15 +469,14 @@ const AdminOnboarding: React.FC = () => {
         </div>
       )}
 
-      {/* APPROVE 8-STEP WIZARD MODAL */}
+      {/* APPROVAL SIMPLIFIED MODAL PANEL */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs">
-            {/* Header with Step Indicator */}
+          <div className="w-full max-w-lg bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs font-semibold">
             <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Approval Wizard</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Step {wizardStep} of 8</p>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Configure Student Onboarding</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Approve request and spawn credentials immediately</p>
               </div>
               <button onClick={() => setShowApproveModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -475,206 +484,120 @@ const AdminOnboarding: React.FC = () => {
             </div>
 
             {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 text-red-500 font-bold">
-                {error}
+              <div className="p-3 rounded-lg bg-red-500/10 text-red-500 font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4" /> {error}
               </div>
             )}
 
-            {/* WIZARD CONTENT STEPS */}
-            <div className="space-y-4 min-h-[160px] flex flex-col justify-center">
-              
-              {/* STEP 1: REVIEW STUDENT */}
-              {wizardStep === 1 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-accent" /> Step 1: Review Student Information
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3 text-slate-600 dark:text-slate-300">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Full Name</p>
-                      <p className="font-semibold">{selectedRequest.fullName}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Email Address</p>
-                      <p className="font-semibold">{selectedRequest.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Contact Phone</p>
-                      <p className="font-semibold">{selectedRequest.phone}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Academic Background</p>
-                      <p className="font-semibold">{selectedRequest.college} ({selectedRequest.degree})</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-slate-400 block text-[10px] uppercase">Student Name</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={selectedRequest.fullName}
+                  className="w-full p-2 rounded-lg bg-slate-100 dark:bg-slate-800 outline-none text-slate-600 cursor-not-allowed border border-transparent text-xs"
+                />
+              </div>
 
-              {/* STEP 2: ASSIGN COURSE(S) */}
-              {wizardStep === 2 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4 text-accent" /> Step 2: Assign Learning Program Courses
-                  </h4>
-                  <p className="text-slate-500 text-[10px]">Select or override the courses the student will get access to:</p>
-                  <div className="max-h-[120px] overflow-y-auto space-y-2">
-                    {courses.map((courseOption) => (
-                      <label key={courseOption._id} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 dark:border-border-dark cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 select-none">
-                        <input
-                          type="checkbox"
-                          checked={approveCourses.includes(courseOption._id)}
-                          onChange={() => handleCourseToggle(courseOption._id)}
-                          className="w-4 h-4 text-accent accent-accent rounded"
-                        />
-                        <span className="font-bold">{courseOption.title}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-slate-400 block text-[10px] uppercase">Login Email Address</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={selectedRequest.email}
+                  className="w-full p-2 rounded-lg bg-slate-100 dark:bg-slate-800 outline-none text-slate-600 cursor-not-allowed border border-transparent text-xs"
+                />
+              </div>
 
-              {/* STEP 3: ASSIGN LEARNING PLAN */}
-              {wizardStep === 3 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-accent" /> Step 3: Select Learning Plan Tier
-                  </h4>
-                  <p className="text-slate-500 text-[10px]">Determines what features (live webinars, doubt sessions) are permitted:</p>
-                  <select
-                    value={approvePlan}
-                    onChange={(e) => setApprovePlan(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                  >
-                    <option value={selectedRequest.learningPlan?._id}>{selectedRequest.learningPlan?.name}</option>
-                  </select>
+              <div className="space-y-1">
+                <label className="text-slate-400 block text-[10px] uppercase">Course Context</label>
+                <div className="p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-secondary-dark flex flex-wrap gap-1">
+                  {selectedRequest.courses?.map(c => (
+                    <span key={c._id} className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">{c.title}</span>
+                  ))}
                 </div>
-              )}
+              </div>
 
-              {/* STEP 4: ASSIGN BATCH */}
-              {wizardStep === 4 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-accent" /> Step 4: Assign Learning Batch
-                  </h4>
-                  <select
-                    value={approveBatch}
-                    onChange={(e) => setApproveBatch(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                  >
-                    <option value="Batch A">Batch A (Weekdays morning)</option>
-                    <option value="Batch B">Batch B (Weekdays evening)</option>
-                    <option value="Batch C">Batch C (Weekends batch)</option>
-                  </select>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-slate-500 block text-[10px] uppercase">Select Learning Plan</label>
+                <select
+                  value={approvePlanId}
+                  onChange={(e) => setApprovePlanId(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                >
+                  <option value="">Select learning plan...</option>
+                  {plans.map((p) => (
+                    <option key={p._id} value={p._id}>{p.name} ({p.durationMonths} Months)</option>
+                  ))}
+                </select>
+              </div>
 
-              {/* STEP 5: ASSIGN MENTOR */}
-              {wizardStep === 5 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-accent" /> Step 5: Assign Instructor Mentor
-                  </h4>
-                  <select
-                    value={approveMentor}
-                    onChange={(e) => setApproveMentor(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                  >
-                    <option value="">No Mentor Assigned</option>
-                    {mentors.map((m) => (
-                      <option key={m._id} value={m._id}>
-                        {m.name} ({m.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-slate-500 block text-[10px] uppercase">Assign Learning Batch</label>
+                <select
+                  value={approveBatch}
+                  onChange={(e) => setApproveBatch(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                >
+                  <option value="Batch A">Batch A (Weekdays morning)</option>
+                  <option value="Batch B">Batch B (Weekdays evening)</option>
+                  <option value="Batch C">Batch C (Weekends batch)</option>
+                </select>
+              </div>
 
-              {/* STEP 6: SET ACCESS DURATION */}
-              {wizardStep === 6 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-accent" /> Step 6: Set Access Duration Timeline
-                  </h4>
-                  <p className="text-slate-500 text-[10px]">LMS access will automatically expire after the configured duration:</p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      value={approveDuration}
-                      onChange={(e) => setApproveDuration(parseInt(e.target.value) || 6)}
-                      className="w-32 p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                    />
-                    <span className="font-bold text-slate-500">Months from today</span>
-                  </div>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-slate-500 block text-[10px] uppercase">Assign Instructor Mentor</label>
+                <select
+                  value={approveMentorId}
+                  onChange={(e) => setApproveMentorId(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                >
+                  <option value="">No Mentor Assigned</option>
+                  {mentors.map((m) => (
+                    <option key={m._id} value={m._id}>{m.name} ({m.email})</option>
+                  ))}
+                </select>
+              </div>
 
-              {/* STEP 7: GENERATE CREDENTIALS */}
-              {wizardStep === 7 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-accent" /> Step 7: Account Security Credentials
-                  </h4>
-                  <div className="p-4 bg-emerald-500/10 rounded-xl space-y-2 border border-emerald-500/20">
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400">Automated Provisioning Enabled</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                      A random temporary password string will be securely hashed using bcrypt and stored in the database. The student is forced to change their password on first sign-in.
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="space-y-1">
+                <label className="text-slate-500 block text-[10px] uppercase">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                />
+              </div>
 
-              {/* STEP 8: CONFIRM & SEND WELCOME EMAIL */}
-              {wizardStep === 8 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Mail className="w-4 h-4 text-accent" /> Step 8: Welcome Email & Finish
-                  </h4>
-                  <p className="text-slate-500 text-[10px]">Add any onboarding comments or remarks for auditing logs:</p>
-                  <textarea
-                    placeholder="Approval onboarding processing remarks..."
-                    value={approveRemarks}
-                    onChange={(e) => setApproveRemarks(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs h-16 resize-none"
-                  />
-                  <div className="p-3 bg-slate-50 dark:bg-secondary-dark rounded-lg text-slate-500 leading-normal">
-                    On finish, account credentials, assigned batch, and the LMS login URL will be automatically mailed to <strong>{selectedRequest.email}</strong>.
-                  </div>
-                </div>
-              )}
-
+              <div className="space-y-1">
+                <label className="text-slate-500 block text-[10px] uppercase">Expiry End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                />
+              </div>
             </div>
 
-            {/* Navigation Actions */}
-            <div className="flex justify-between items-center border-t pt-4 dark:border-border-dark">
+            <div className="flex justify-end gap-2 border-t pt-4 dark:border-border-dark">
               <button
                 type="button"
-                onClick={() => setWizardStep(prev => Math.max(1, prev - 1))}
-                disabled={wizardStep === 1}
-                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 disabled:opacity-40 flex items-center gap-1"
+                onClick={() => setShowApproveModal(false)}
+                className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 text-slate-700 dark:text-slate-300"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
+                Cancel
               </button>
-              
-              {wizardStep < 8 ? (
-                <button
-                  type="button"
-                  onClick={() => setWizardStep(prev => Math.min(8, prev + 1))}
-                  className="px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary-light flex items-center gap-1"
-                >
-                  Next <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1.5"
-                >
-                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Finish & Activate</>}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={submitting}
+                className="px-4 py-2.5 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1.5"
+              >
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Approve & Create Account'}
+              </button>
             </div>
-
           </div>
         </div>
       )}
@@ -682,7 +605,7 @@ const AdminOnboarding: React.FC = () => {
       {/* REJECT MODAL DIALOG */}
       {showRejectModal && selectedRequest && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs">
+          <div className="w-full max-w-sm bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs font-semibold">
             <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
               <div>
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white">Reject Request</h3>
