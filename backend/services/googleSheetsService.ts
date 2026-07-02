@@ -27,29 +27,7 @@ export const syncGoogleSpreadsheetData = async (): Promise<{
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
   if (!serviceAccountEmail || !privateKey) {
-    logger.warn('Google Service Account credentials are not defined in environment variables. Falling back to development simulated sheet responses.');
-    
-    // Fallback simulated records as requested for development to run out of the box
-    const simulatedRows: GoogleSheetsOnboardingRecord[] = [
-      {
-        timestamp: new Date().toISOString(),
-        name: 'Aravind Swamy',
-        email: 'aravind@example.com',
-        phone: '9876543210',
-        courseName: 'React JS Development',
-        status: 'New',
-      },
-      {
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        name: 'Divya Nair',
-        email: 'divya@example.com',
-        phone: '8765432109',
-        courseName: 'Full Stack Node.js Developer',
-        status: 'New',
-      }
-    ];
-
-    return await processImportRecords(simulatedRows);
+    throw new Error('Google Sheets credentials are not configured.');
   }
 
   try {
