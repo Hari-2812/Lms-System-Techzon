@@ -23,10 +23,14 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught React component error:', error, errorInfo);
-    // Log to backend if possible
-    api.post('/analytics/audit-logs', {
-      action: 'REACT_RUNTIME_ERROR',
-      details: `React boundary caught error: ${error.message}. Stack: ${error.stack || ''}`
+    // Log to backend logs system
+    api.post('/logs/runtime-error', {
+      message: error.message || 'React component render crash',
+      stack: error.stack || '',
+      url: window.location.href,
+      userId: '',
+      browser: navigator.userAgent,
+      timestamp: new Date().toISOString()
     }).catch(err => console.error('Failed to log runtime error to server:', err));
   }
 

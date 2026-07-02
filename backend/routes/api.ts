@@ -76,6 +76,7 @@ import {
   updateTicketStatus,
 } from '../controllers/ticketController';
 import { syncGoogleSheetsOnboardings } from '../controllers/googleSheetsController';
+import { postRuntimeError } from '../controllers/logController';
 import {
   getSettings,
   updateSettings,
@@ -110,6 +111,8 @@ router.get('/health', (req, res) => {
     version: '1.0.0',
   });
 });
+
+router.post('/logs/runtime-error', postRuntimeError);
 
 // ==========================================
 // 2. PROTECTED LOGGED IN USER ROUTES

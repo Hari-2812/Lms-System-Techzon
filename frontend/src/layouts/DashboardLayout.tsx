@@ -21,7 +21,8 @@ import {
   Activity,
   Menu,
   X,
-  ClipboardList
+  ClipboardList,
+  RefreshCw
 } from 'lucide-react';
 
 interface SidebarItem {
