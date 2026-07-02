@@ -18,6 +18,7 @@ export interface IUser extends Document {
   }>;
   createdAt: Date;
   updatedAt: Date;
+  needsPasswordChange?: boolean;
   comparePassword(password: string): Promise<boolean>;
 }
 
@@ -37,6 +38,7 @@ const UserSchema: Schema<IUser> = new Schema(
       default: 'active',
     },
     isEmailVerified: { type: Boolean, default: false },
+    needsPasswordChange: { type: Boolean, default: false },
     otp: { type: String },
     otpExpiresAt: { type: Date },
     devices: [

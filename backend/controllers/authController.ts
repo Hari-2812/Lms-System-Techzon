@@ -138,6 +138,7 @@ export const loginWithPassword = async (req: Request, res: Response): Promise<vo
         name: user.name,
         email: user.email,
         role: user.role,
+        needsPasswordChange: user.needsPasswordChange,
       },
     });
   } catch (error) {
@@ -220,6 +221,7 @@ export const verifyOTPAndLogin = async (req: Request, res: Response): Promise<vo
         name: user.name,
         email: user.email,
         role: user.role,
+        needsPasswordChange: user.needsPasswordChange,
       },
     });
   } catch (error) {
@@ -273,6 +275,7 @@ export const updatePassword = async (req: any, res: Response): Promise<void> => 
     }
 
     user.password = newPassword;
+    user.needsPasswordChange = false;
     await user.save();
 
     await AuditLog.create({

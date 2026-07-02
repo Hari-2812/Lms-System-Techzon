@@ -69,6 +69,24 @@ const AdminStudents: React.FC = () => {
     }
   };
 
+  const [resending, setResending] = useState<string | null>(null);
+
+  const handleResendCredentials = async (studentId: string) => {
+    setResending(studentId);
+    try {
+      const res = await api.post(`/users/${studentId}/resend-credentials`);
+      if (res.data.emailSent) {
+        alert('Welcome credentials email resent successfully!');
+      } else {
+        alert('Temporary password generated, but email delivery failed. Check SMTP configuration.');
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to resend welcome credentials.');
+    } finally {
+      setResending(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -128,6 +146,7 @@ const AdminStudents: React.FC = () => {
                 <th className="px-6 py-4">Registered On</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Verification</th>
+                {activeTab === 'students' && <th className="px-6 py-4 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/50 dark:divide-border-dark/30">
@@ -144,6 +163,17 @@ const AdminStudents: React.FC = () => {
                   <td className="px-6 py-4 text-slate-400 font-medium">
                     {item.isEmailVerified ? 'Verified' : 'Pending OTP'}
                   </td>
+                  {activeTab === 'students' && (
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleResendCredentials(item._id)}
+                        disabled={resending === item._id}
+                        className="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-bold disabled:opacity-50"
+                      >
+                        {resending === item._id ? 'Sending...' : 'Resend Credentials'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

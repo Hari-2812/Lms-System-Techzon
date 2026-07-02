@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
 
@@ -31,10 +31,22 @@ import Onboard from '../pages/Onboard';
 import MentorCourses from '../pages/MentorCourses';
 import MentorSubmissions from '../pages/MentorSubmissions';
 
+import ChangePassword from '../pages/ChangePassword';
+
 // Private Route Guard (Auth Check)
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.needsPasswordChange && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 // Role-Based Route Access Guard
@@ -79,6 +91,7 @@ const AppRoutes: React.FC = () => {
               <Routes>
                 {/* Dashboards Base */}
                 <Route path="/dashboard" element={<DashboardRedirector />} />
+                <Route path="/change-password" element={<ChangePassword />} />
                 
                 {/* Course Details Details */}
                 <Route path="/courses/:id" element={<CourseDetails />} />

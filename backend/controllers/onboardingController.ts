@@ -6,13 +6,29 @@ import Enrollment from '../models/Enrollment';
 import LearningPlan from '../models/LearningPlan';
 import Course from '../models/Course';
 import AuditLog from '../models/AuditLog';
-import { sendWelcomeEmail } from '../services/email';
+import { sendWelcomeEmail } from '../services/emailService';
 import { syncGoogleSheetsOnboardings } from '../services/googleSheets';
 import logger from '../config/logger';
 
 // Helper to generate a random temporary password
 const generateTempPassword = (): string => {
-  return crypto.randomBytes(6).toString('hex');
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnopqrstuvwxyz';
+  const num = '23456789';
+  const sym = '!@#$%-+';
+  const all = upper + lower + num + sym;
+  
+  let pwd = '';
+  pwd += upper[Math.floor(Math.random() * upper.length)];
+  pwd += lower[Math.floor(Math.random() * lower.length)];
+  pwd += num[Math.floor(Math.random() * num.length)];
+  pwd += sym[Math.floor(Math.random() * sym.length)];
+  
+  for (let i = 4; i < 12; i++) {
+    pwd += all[Math.floor(Math.random() * all.length)];
+  }
+  
+  return pwd.split('').sort(() => 0.5 - Math.random()).join('');
 };
 
 // 1. Submit Onboarding Request (PUBLIC)
@@ -203,6 +219,7 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
         role: 'Student',
         status: 'active',
         isEmailVerified: true,
+        needsPasswordChange: true,
       });
       await user.save();
       logger.info(`Onboarding approval spawned new student user: ${request.email}`);
@@ -251,18 +268,35 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
     await request.save();
 
     // 4. Send Welcome Email Credentials
-    await sendWelcomeEmail(request.email, request.fullName, tempPassword || undefined);
+    const mainCourse = await Course.findById(finalCourseIds[0]);
+    const mainMentor = finalMentorId ? await User.findById(finalMentorId) : null;
+    let emailSent = false;
+
+    if (tempPassword) {
+      emailSent = await sendWelcomeEmail({
+        studentName: request.fullName,
+        email: request.email.toLowerCase(),
+        passwordTemp: tempPassword,
+        courseTitle: mainCourse ? mainCourse.title : 'General Course',
+        planName: plan.name,
+        batchName: finalBatch,
+        mentorName: mainMentor ? mainMentor.name : 'Not Assigned',
+      });
+    } else {
+      emailSent = true; // Student already has an active account & password
+    }
 
     // 5. Audit Logging
     await AuditLog.create({
       userId: req.user._id,
       action: 'APPROVE_ONBOARDING',
-      details: `Approved onboarding ID ${request._id} for ${request.fullName}. Spawned ${enrollmentResults.length} enrollments.`,
+      details: `Approved onboarding ID ${request._id} for ${request.fullName}. Spawned ${enrollmentResults.length} enrollments. Email sent: ${emailSent}`,
     });
 
     res.status(200).json({
       success: true,
       message: 'Onboarding approved successfully. Student access provisioned!',
+      emailSent,
       data: {
         user: { id: user._id, name: user.name, email: user.email },
         enrollments: enrollmentResults,
@@ -270,6 +304,57 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
     });
   } catch (error: any) {
     logger.error('Error during onboarding approval:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const resendCredentials = async (req: any, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Student user not found' });
+      return;
+    }
+
+    const tempPassword = generateTempPassword();
+    user.password = tempPassword;
+    user.needsPasswordChange = true;
+    await user.save();
+
+    const enrollment = await Enrollment.findOne({ studentId: user._id })
+      .populate('courseId')
+      .populate('learningPlanId')
+      .populate('mentorId');
+
+    const courseTitle = enrollment && (enrollment.courseId as any) ? (enrollment.courseId as any).title : 'General Course';
+    const planName = enrollment && (enrollment.learningPlanId as any) ? (enrollment.learningPlanId as any).name : 'Standard Plan';
+    const batchName = (enrollment && enrollment.batch) || 'Batch A';
+    const mentorName = enrollment && (enrollment.mentorId as any) ? (enrollment.mentorId as any).name : 'Not Assigned';
+
+    const emailSent = await sendWelcomeEmail({
+      studentName: user.name,
+      email: user.email,
+      passwordTemp: tempPassword,
+      courseTitle,
+      planName,
+      batchName,
+      mentorName,
+    });
+
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'RESEND_CREDENTIALS',
+      details: `Resent welcome login credentials to: ${user.email}. Email sent: ${emailSent}`,
+    });
+
+    res.status(200).json({
+      success: true,
+      emailSent,
+      message: emailSent ? 'Credentials resent successfully!' : 'Credentials generated, but email delivery failed.',
+    });
+  } catch (error: any) {
+    logger.error('Error resending credentials:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

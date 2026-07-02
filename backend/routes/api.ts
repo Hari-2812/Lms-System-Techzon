@@ -31,6 +31,7 @@ import {
   deleteOnboarding,
   rejectOnboarding,
   approveOnboarding,
+  resendCredentials,
   syncGoogleSheets,
 } from '../controllers/onboardingController';
 import {
@@ -193,6 +194,7 @@ router.put('/onboarding/:id', updateOnboarding);
 router.delete('/onboarding/:id', deleteOnboarding);
 router.post('/onboarding/:id/approve', approveOnboarding);
 router.post('/onboarding/:id/reject', rejectOnboarding);
+router.post('/users/:id/resend-credentials', resendCredentials);
 
 // System Settings Edits
 router.put('/settings', updateSettings);

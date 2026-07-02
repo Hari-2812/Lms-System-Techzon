@@ -5,6 +5,7 @@ interface User {
   name: string;
   email: string;
   role: 'super-admin' | 'admin' | 'mentor' | 'student' | 'support';
+  needsPasswordChange?: boolean;
 }
 
 interface AuthState {
