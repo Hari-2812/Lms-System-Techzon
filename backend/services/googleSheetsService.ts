@@ -78,20 +78,33 @@ const processImportRecords = async (records: GoogleSheetsOnboardingRecord[]) => 
       continue;
     }
 
+    // Match Course
+    let course = await Course.findOne({ title: new RegExp(record.courseName, 'i') });
+    if (!course) {
+      course = defaultCourse;
+    }
+
     // Check if duplicate in User or Onboarding requests
     const userExists = await User.findOne({ email: record.email });
     const onboardingExists = await Onboarding.findOne({ email: record.email });
 
     if (userExists || onboardingExists) {
+      const isDev = process.env.NODE_ENV === 'development' || process.env.ALLOW_REIMPORT_TEST_USERS === 'true';
+      if (isDev && onboardingExists) {
+        // Relaxed duplicate checking: Update existing test record
+        onboardingExists.fullName = record.name;
+        onboardingExists.phone = record.phone;
+        onboardingExists.courses = course ? [course._id] : [];
+        onboardingExists.status = 'pending';
+        await onboardingExists.save();
+        record.status = 'Imported';
+        synced++;
+        continue;
+      }
+
       record.status = 'Duplicate';
       duplicates++;
       continue;
-    }
-
-    // Match Course
-    let course = await Course.findOne({ title: new RegExp(record.courseName, 'i') });
-    if (!course) {
-      course = defaultCourse;
     }
 
     // Create Onboarding Request in LMS
