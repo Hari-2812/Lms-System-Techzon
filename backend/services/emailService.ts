@@ -28,8 +28,8 @@ export const sendWelcomeEmail = async ({
   const fromEmail = process.env.SMTP_FROM_EMAIL || 'support@techzonwide.com';
 
   if (!host || !user || !pass) {
-    logger.warn('SMTP email credentials are not fully configured in environment variables. Simulating success response.');
-    return true; // Return true to prevent blocking system in dev
+    logger.error('SMTP email credentials are not configured in environment variables.');
+    throw new Error('SMTP email credentials are not configured.');
   }
 
   try {

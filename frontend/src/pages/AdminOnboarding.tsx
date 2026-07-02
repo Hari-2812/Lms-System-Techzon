@@ -97,7 +97,7 @@ const AdminOnboarding: React.FC = () => {
           console.error('Failed to load courses:', err);
           return { data: { data: [] } };
         }),
-        api.get('/plans').catch((err) => {
+        api.get('/learning-plans').catch((err) => {
           console.error('Failed to load plans:', err);
           return { data: { data: [] } };
         })

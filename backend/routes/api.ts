@@ -103,6 +103,7 @@ router.post('/payments/webhook', razorpayWebhook);
 router.post('/payments/simulate-webhook', simulatePaymentWebhook);
 router.get('/certificates/verify/:key', verifyCertificate);
 router.get('/plans', getPlans);
+router.get('/learning-plans', getPlans);
 router.post('/onboarding', submitOnboarding);
 router.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
