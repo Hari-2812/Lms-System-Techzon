@@ -68,19 +68,6 @@ const GoogleFormSync: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const isDevMode = import.meta.env.DEV || window.location.hostname === 'localhost';
-
-  const handleResetTestImports = async () => {
-    if (!window.confirm('Are you sure you want to delete all imported sheets requests and student users for repeated testing?')) return;
-    try {
-      const res = await api.post('/dev/reset-google-imports');
-      alert(res.data.message || 'Test data reset successfully!');
-      fetchOnboardings();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Reset failed.');
-    }
-  };
-
   const fetchOnboardings = async () => {
     setLoading(true);
     try {
@@ -195,23 +182,6 @@ const GoogleFormSync: React.FC = () => {
 
   return (
     <div className="space-y-6 font-poppins">
-      {isDevMode && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-xl flex justify-between items-center text-xs font-semibold">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 animate-pulse text-amber-500" />
-            <div>
-              <p className="font-bold">Development Mode Enabled</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Duplicate email checking is relaxed for testing. New imports will overwrite existing test records.</p>
-            </div>
-          </div>
-          <button
-            onClick={handleResetTestImports}
-            className="px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-bold transition text-[10px]"
-          >
-            Reset Test Imports
-          </button>
-        </div>
-      )}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Google Form Responses Sync</h2>

@@ -118,42 +118,6 @@ router.get('/health', (req, res) => {
 
 router.post('/logs/runtime-error', postRuntimeError);
 
-router.post('/dev/reset-google-imports', async (req, res) => {
-  const isDev = process.env.NODE_ENV === 'development' || process.env.ALLOW_REIMPORT_TEST_USERS === 'true';
-  if (!isDev) {
-    res.status(403).json({ success: false, message: 'Access denied: Development only endpoint.' });
-    return;
-  }
-
-  try {
-    const Onboarding = mongoose.model('Onboarding');
-    const Enrollment = mongoose.model('Enrollment');
-    const User = mongoose.model('User');
-
-    const sheetsRequests = await Onboarding.find({
-      $or: [
-        { source: 'google-sheets' },
-        { googleRowId: { $exists: true } }
-      ]
-    });
-    const emails = sheetsRequests.map(r => r.email);
-
-    const testUsers = await User.find({ email: { $in: emails }, role: 'Student' });
-    const userIds = testUsers.map(u => u._id);
-
-    await User.deleteMany({ _id: { $in: userIds } });
-    await Enrollment.deleteMany({ studentId: { $in: userIds } });
-    await Onboarding.deleteMany({ _id: { $in: sheetsRequests.map(r => r._id) } });
-
-    res.status(200).json({
-      success: true,
-      message: `Reset complete. Deleted ${sheetsRequests.length} onboarding requests and ${testUsers.length} test student users.`,
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 // ==========================================
 // 2. PROTECTED LOGGED IN USER ROUTES
 // ==========================================
