@@ -5,6 +5,7 @@ import { setCredentials } from '../redux/authSlice';
 import type { RootState } from '../redux/store';
 import api from '../services/api';
 import { ShieldCheck, Mail, Lock, KeyRound, Loader2, ArrowRight, Eye, EyeOff, Info } from 'lucide-react';
+import { BRAND } from '../constants/branding';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -159,10 +160,12 @@ const Login: React.FC = () => {
         
         {/* Brand header */}
         <div className="flex flex-col items-center">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center font-bold text-white shadow-xl shadow-primary/25 mb-4 text-xl animate-float">
-            TZ
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">Techzon LMS</h2>
+          <img
+            src={BRAND.logo}
+            alt={BRAND.name}
+            className="h-16 w-auto object-contain mb-4 animate-float"
+          />
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">{BRAND.name}</h2>
           <p className="text-slate-500 text-xs text-center mt-1">Private Learning Portal for Enrollments</p>
         </div>
 

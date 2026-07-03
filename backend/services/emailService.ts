@@ -52,6 +52,7 @@ export const sendWelcomeEmail = async ({
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://lms.techzonwide.com/techzon-logo.png" alt="Techzon Wide" style="height: 50px; width: auto; margin-bottom: 10px; display: inline-block;" />
           <h2 style="color: #241252; margin: 0;">Techzon Wide LMS</h2>
           <p style="color: #F57C20; font-size: 14px; margin: 5px 0 0 0; font-weight: bold;">Your Professional Learning Platform</p>
         </div>

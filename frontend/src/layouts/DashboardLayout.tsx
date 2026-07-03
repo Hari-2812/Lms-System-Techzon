@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
 import { Toaster } from 'react-hot-toast';
+import { BRAND } from '../constants/branding';
 
 interface SidebarItem {
   name: string;
@@ -78,11 +79,13 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     <div className="flex flex-col h-full bg-slate-900 text-slate-300 w-64 border-r border-slate-800 dark:bg-bg-dark dark:border-border-dark">
       {/* Brand Header */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-800 dark:border-border-dark bg-slate-950/20">
-        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center font-bold text-white shadow-lg shadow-accent/20">
-          TZ
-        </div>
+        <img
+          src={BRAND.logo}
+          alt={BRAND.name}
+          className="w-10 h-10 object-contain"
+        />
         <div>
-          <h1 className="font-poppins font-bold text-white text-sm tracking-wide">Techzon Wide</h1>
+          <h1 className="font-poppins font-bold text-white text-sm tracking-wide">{BRAND.company}</h1>
           <p className="text-[10px] text-slate-400 font-medium">PRIVATE LMS SYSTEM</p>
         </div>
       </div>
@@ -178,7 +181,15 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               <Menu className="w-6 h-6" />
             </button>
   
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <img
+                src={BRAND.logo}
+                alt={BRAND.name}
+                className="w-8 h-8 object-contain"
+              />
+              <span className="font-poppins font-bold text-slate-800 dark:text-white text-sm hidden md:inline-block">
+                {BRAND.name}
+              </span>
               <span className="text-xs font-poppins bg-accent/10 text-accent font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
                 {user?.role} Portal
               </span>
