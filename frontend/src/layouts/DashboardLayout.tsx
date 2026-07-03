@@ -22,8 +22,11 @@ import {
   Menu,
   X,
   ClipboardList,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
+import NotificationBell from '../components/NotificationBell';
+import { Toaster } from 'react-hot-toast';
 
 interface SidebarItem {
   name: string;
@@ -55,6 +58,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     // Admins
     { name: 'Onboarding Requests', path: '/admin/onboarding', icon: <ClipboardList className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
     { name: 'Google Form Sync', path: '/admin/google-sync', icon: <RefreshCw className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
+    { name: 'System Notifications', path: '/admin/notifications', icon: <Bell className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
     { name: 'LMS Overview', path: '/admin/overview', icon: <Activity className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
     { name: 'Manage Courses', path: '/admin/courses', icon: <GraduationCap className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
     { name: 'Learning Plans', path: '/admin/plans', icon: <Layers className="w-5 h-5" />, roles: ['Admin', 'SuperAdmin'] },
@@ -139,60 +143,62 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
     </div>
   );
 
-  return (
-    <div className="min-h-screen flex bg-bg-light dark:bg-bg-dark transition-colors duration-200">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block h-screen sticky top-0">
-        <SidebarContent />
-      </div>
-
-      {/* Mobile Drawer Overlay */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <div className="relative flex flex-col z-10 animate-slide-in">
-            <SidebarContent />
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-4 -right-12 p-2 rounded-full bg-slate-900 text-white border border-slate-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+    return (
+      <div className="min-h-screen flex bg-bg-light dark:bg-bg-dark transition-colors duration-200">
+        <Toaster position="top-right" reverseOrder={false} />
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block h-screen sticky top-0">
+          <SidebarContent />
         </div>
-      )}
-
-      {/* Main Panel */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar */}
-        <header className="flex items-center justify-between px-6 py-4 bg-white/70 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 dark:bg-bg-dark/70 dark:border-border-dark">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden text-slate-600 dark:text-slate-300"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-poppins bg-accent/10 text-accent font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
-              {user?.role} Portal
-            </span>
+  
+        {/* Mobile Drawer Overlay */}
+        {mobileOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            <div className="fixed inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+            <div className="relative flex flex-col z-10 animate-slide-in">
+              <SidebarContent />
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="absolute top-4 -right-12 p-2 rounded-full bg-slate-900 text-white border border-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-xs text-slate-500 font-medium">
-              Support: support@techzonwide.com
-            </span>
-          </div>
-        </header>
-
-        {/* Dashboard Pages */}
-        <main className="flex-1 p-6 lg:p-8 overflow-x-hidden">
-          {children}
-        </main>
+        )}
+  
+        {/* Main Panel */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Top Navbar */}
+          <header className="flex items-center justify-between px-6 py-4 bg-white/70 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 dark:bg-bg-dark/70 dark:border-border-dark">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden text-slate-600 dark:text-slate-300"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+  
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-poppins bg-accent/10 text-accent font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                {user?.role} Portal
+              </span>
+            </div>
+  
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline text-xs text-slate-500 font-medium">
+                Support: support@techzonwide.com
+              </span>
+              <NotificationBell />
+            </div>
+          </header>
+  
+          {/* Dashboard Pages */}
+          <main className="flex-1 p-6 lg:p-8 overflow-x-hidden">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
-  );
+    );
 };
 
 export default DashboardLayout;

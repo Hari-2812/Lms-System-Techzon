@@ -8,6 +8,7 @@ import Course from '../models/Course';
 import AuditLog from '../models/AuditLog';
 import { sendWelcomeEmail } from '../services/emailService';
 import { syncGoogleSheetsOnboardings } from '../services/googleSheets';
+import { createNotification } from '../services/notificationService';
 import logger from '../config/logger';
 
 // Helper to generate a random temporary password
@@ -58,6 +59,28 @@ export const submitOnboarding = async (req: Request, res: Response): Promise<voi
 
     await onboarding.save();
     logger.info(`New student onboarding request submitted from: ${email}`);
+
+    // Try to get course title
+    let courseTitle = 'MERN Stack Development';
+    try {
+      if (courses && courses.length > 0) {
+        const courseDb = await Course.findById(courses[0]);
+        if (courseDb) {
+          courseTitle = courseDb.title;
+        }
+      }
+    } catch (err) {
+      logger.error('Error fetching course for notification:', err);
+    }
+
+    await createNotification({
+      title: '🎓 New Student Registration',
+      message: `${fullName} submitted an onboarding request for ${courseTitle}. Review and approve the student.`,
+      type: 'ONBOARDING_CREATED',
+      recipientRole: ['Admin', 'SuperAdmin'],
+      metadata: { onboardingId: onboarding._id, courseName: courseTitle },
+    });
+
     res.status(201).json({ success: true, message: 'Your onboarding application has been submitted successfully!', data: onboarding });
   } catch (error: any) {
     logger.error('Error submitting onboarding request:', error);
@@ -169,6 +192,14 @@ export const rejectOnboarding = async (req: any, res: Response): Promise<void> =
       userId: req.user._id,
       action: 'REJECT_ONBOARDING',
       details: `Rejected onboarding request: ${request.fullName}. Reason: ${remarks || 'No remarks provided'}`,
+    });
+
+    await createNotification({
+      title: '❌ Student Request Rejected',
+      message: `${request.fullName}'s onboarding request has been rejected.`,
+      type: 'STUDENT_REJECTED',
+      recipientRole: ['Admin', 'SuperAdmin'],
+      metadata: { onboardingId: request._id, fullName: request.fullName },
     });
 
     res.status(200).json({ success: true, data: request });
@@ -289,6 +320,35 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
       emailSent = true; // Student already has an active account & password
     }
 
+    const courseTitle = mainCourse ? mainCourse.title : 'General Course';
+    
+    // Create notifications
+    await createNotification({
+      title: '✅ Student Approved Successfully',
+      message: `${request.fullName} has been enrolled in ${courseTitle}.`,
+      type: 'STUDENT_APPROVED',
+      recipientRole: ['Admin', 'SuperAdmin'],
+      metadata: { onboardingId: request._id, fullName: request.fullName, courseName: courseTitle },
+    });
+
+    if (emailSent) {
+      await createNotification({
+        title: '📧 Welcome Email Sent',
+        message: `Login credentials successfully delivered to ${request.email.toLowerCase()}`,
+        type: 'EMAIL_SENT',
+        recipientRole: ['Admin', 'SuperAdmin'],
+        metadata: { onboardingId: request._id, email: request.email },
+      });
+    } else {
+      await createNotification({
+        title: '⚠️ Email Delivery Failed',
+        message: 'Student account created, but email failed. Please resend credentials.',
+        type: 'EMAIL_FAILED',
+        recipientRole: ['Admin', 'SuperAdmin'],
+        metadata: { onboardingId: request._id, email: request.email },
+      });
+    }
+
     // 5. Audit Logging
     await AuditLog.create({
       userId: req.user._id,
@@ -353,6 +413,24 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
       startDate: startDateStr,
       endDate: endDateStr,
     });
+
+    if (emailSent) {
+      await createNotification({
+        title: '📧 Welcome Email Sent',
+        message: `Login credentials successfully delivered to ${user.email.toLowerCase()}`,
+        type: 'EMAIL_SENT',
+        recipientRole: ['Admin', 'SuperAdmin'],
+        metadata: { userId: user._id, email: user.email },
+      });
+    } else {
+      await createNotification({
+        title: '⚠️ Email Delivery Failed',
+        message: `Student account created, but email failed to deliver to ${user.email.toLowerCase()}.`,
+        type: 'EMAIL_FAILED',
+        recipientRole: ['Admin', 'SuperAdmin'],
+        metadata: { userId: user._id, email: user.email },
+      });
+    }
 
     await AuditLog.create({
       userId: req.user._id,

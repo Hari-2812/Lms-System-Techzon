@@ -8,6 +8,7 @@ import AppRoutes from './routes/AppRoutes';
 import ErrorBoundary from './components/ErrorBoundary';
 import api from './services/api';
 import { Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 import './App.css';
 import './index.css';
 
@@ -122,6 +123,7 @@ const App: React.FC = () => {
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Toaster position="top-right" reverseOrder={false} />
             <AppContent />
           </BrowserRouter>
         </QueryClientProvider>

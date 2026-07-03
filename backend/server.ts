@@ -1,14 +1,14 @@
+import dotenv from 'dotenv';
+import path from 'path';
+// Load environment variables immediately
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
-import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
-import path from 'path';
-
-// Configurations
-dotenv.config({ path: path.join(__dirname, '.env') });
+import { initSocket } from './services/socketService';
 import { connectDB } from './config/db';
 import logger from './config/logger';
 
@@ -20,15 +20,11 @@ import { seedDefaultPlans } from './controllers/planController';
 import { seedDefaultCourses } from './controllers/courseController';
 import { seedDefaultSettings } from './controllers/analyticsController';
 import { startExpiryScheduler } from './jobs/expiryJob';
+import { startGoogleSheetWatcher } from './jobs/googleSheetWatcher';
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  },
-});
+const io = initSocket(server);
 
 const PORT = process.env.PORT || 5000;
 
@@ -40,6 +36,7 @@ connectDB().then(async () => {
     await seedDefaultCourses();
     await seedDefaultSettings();
     startExpiryScheduler();
+    startGoogleSheetWatcher();
   } catch (error) {
     logger.error('Database seeding failed:', error);
   }
@@ -110,19 +107,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Socket.IO communication
-io.on('connection', (socket) => {
-  logger.info(`Socket client connected: ${socket.id}`);
-
-  // Broadcast announcements
-  socket.on('send_announcement', (data) => {
-    io.emit('announcement_received', data);
-  });
-
-  socket.on('disconnect', () => {
-    logger.info(`Socket client disconnected: ${socket.id}`);
-  });
-});
+// Socket.IO is initialized and managed by socketService.ts
 
 // Run server
 server.listen(PORT, () => {

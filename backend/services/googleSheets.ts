@@ -5,6 +5,7 @@ import Course from '../models/Course';
 import LearningPlan from '../models/LearningPlan';
 import User from '../models/User';
 import logger from '../config/logger';
+import { createNotification } from './notificationService';
 
 interface GoogleSheetRow {
   rowId: string;
@@ -96,6 +97,7 @@ export const fetchSheetSubmissions = async (): Promise<GoogleSheetRow[]> => {
 };
 
 export const syncGoogleSheetsOnboardings = async (): Promise<{ synced: number; skipped: number }> => {
+  console.log("[BACKEND] Google sync started");
   try {
     const submissions = await fetchSheetSubmissions();
     let synced = 0;
@@ -157,6 +159,24 @@ export const syncGoogleSheetsOnboardings = async (): Promise<{ synced: number; s
       });
 
       await newOnboarding.save();
+      console.log(`[BACKEND] New onboarding detected: ${sub.email}`);
+      
+      const courseTitle = course ? course.title : 'Full Stack Development';
+      console.log("[BACKEND] Creating admin notification");
+      await createNotification({
+        title: "New Student Registration",
+        message: `${sub.fullName} registered for ${courseTitle}`,
+        type: "NEW_STUDENT_ONBOARDING",
+        recipientRole: ["Admin", "SuperAdmin"],
+        metadata: {
+          studentName: sub.fullName,
+          email: sub.email,
+          course: courseTitle,
+          studentId: newOnboarding._id,
+          googleRowId: sub.rowId
+        }
+      });
+
       synced++;
     }
 

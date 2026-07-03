@@ -89,6 +89,7 @@ import {
   exportReport,
 } from '../controllers/analyticsController';
 import { protect, authorize, checkPlanFeature } from '../middleware/auth';
+import notificationRoutes from './notificationRoutes';
 
 const router = Router();
 
@@ -122,6 +123,8 @@ router.post('/logs/runtime-error', postRuntimeError);
 // 2. PROTECTED LOGGED IN USER ROUTES
 // ==========================================
 router.use(protect);
+
+router.use('/notifications', notificationRoutes);
 
 router.get('/auth/me', getMe);
 router.get('/users', getUsers);
