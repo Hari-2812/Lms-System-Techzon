@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
 import { Toaster } from 'react-hot-toast';
-import { BRAND } from '../config/brand';
+import { BRAND } from '@/config/branding';
 
 interface SidebarItem {
   name: string;
