@@ -5,7 +5,7 @@ import { setCredentials } from '../redux/authSlice';
 import type { RootState } from '../redux/store';
 import api from '../services/api';
 import { ShieldCheck, Mail, Lock, KeyRound, Loader2, ArrowRight, Eye, EyeOff, Info } from 'lucide-react';
-import { BRAND } from '../constants/branding';
+import { BRAND } from '../config/brand';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
