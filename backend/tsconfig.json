@@ -1,28 +1,35 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "outDir": "./dist",
-    "rootDir": "./",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
-    "incremental": false,
-    "sourceMap": false,
-    "declaration": false
-  },
-  "include": ["**/*.ts"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "logs",
-    "tests",
-    "uploads"
-  ]
+ "compilerOptions": {
+  "target": "ES2020",
+  "module": "commonjs",
+  "rootDir": "./",
+  "outDir": "./dist",
+  "esModuleInterop": true,
+  "strict": false,
+  "skipLibCheck": true,
+  "forceConsistentCasingInFileNames": true,
+  "resolveJsonModule": true,
+  "sourceMap": false,
+  "declaration": false,
+  "incremental": false
+ },
+ "include": [
+  "server.ts",
+  "config/**/*.ts",
+  "controllers/**/*.ts",
+  "middleware/**/*.ts",
+  "models/**/*.ts",
+  "routes/**/*.ts",
+  "services/**/*.ts",
+  "utils/**/*.ts"
+ ],
+ "exclude": [
+  "node_modules",
+  "dist",
+  "frontend",
+  "uploads",
+  "logs",
+  "scripts",
+  "**/*.test.ts"
+ ]
 }
