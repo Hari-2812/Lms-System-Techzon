@@ -113,6 +113,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // Socket.IO is initialized and managed by socketService.ts
 
 // Run server
-server.listen(PORT, () => {
+server.listen(PORT as number, "0.0.0.0", () => {
   logger.info(`Techzon LMS Backend server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
