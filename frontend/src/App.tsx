@@ -6,6 +6,7 @@ import { store } from './redux/store';
 import { initializeTheme } from './redux/authSlice';
 import AppRoutes from './routes/AppRoutes';
 import ErrorBoundary from './components/ErrorBoundary';
+import axios from 'axios';
 import api from './services/api';
 import { Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
@@ -28,7 +29,7 @@ const AppContent: React.FC = () => {
   const checkHealth = async () => {
     setIsBackendOnline('loading');
     try {
-      const res = await api.get('/health');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/health`);
       if (res.data.status === 'healthy' || res.data.status === 'OK' || res.data.status === 'UP') {
         setIsBackendOnline(true);
       } else {

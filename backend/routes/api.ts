@@ -113,7 +113,8 @@ router.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   res.status(200).json({
     success: true,
-    status: 'online',
+    status: 'UP',
+    message: 'Backend Online',
     database: dbStatus === 'Connected' ? 'connected' : 'disconnected',
     uptime: process.uptime(),
     timestamp: new Date(),
