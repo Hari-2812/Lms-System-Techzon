@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { SentMessageInfo } from 'nodemailer';
 import logger from '../config/logger';
 
 interface SendWelcomeEmailArgs {
@@ -25,29 +25,42 @@ export const sendWelcomeEmail = async ({
   durationMonths,
   startDate,
   endDate,
-}: SendWelcomeEmailArgs): Promise<boolean> => {
+}: SendWelcomeEmailArgs): Promise<SentMessageInfo> => {
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT || '587');
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const fromName = process.env.SMTP_FROM_NAME || 'Techzon Wide';
-  const fromEmail = process.env.SMTP_FROM_EMAIL || 'support@techzonwide.com';
+  const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_FROM || 'support@techzonwide.com';
+  const LMS_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
   if (!host || !user || !pass) {
     logger.error('SMTP email credentials are not configured in environment variables.');
     throw new Error('SMTP email credentials are not configured.');
   }
 
+  if (!email || !email.trim()) {
+    logger.error('Email recipient is missing or empty.', { email });
+    throw new Error('Recipient email is required to send welcome email.');
+  }
+
+  console.log('SMTP HOST:', host);
+  console.log('SMTP USER:', user);
+
   try {
     const transporter = nodemailer.createTransport({
       host,
       port,
-      secure: port === 465, // Use SSL for 465, TLS for 587
+      secure: process.env.SMTP_SECURE === 'true',
       auth: { user, pass },
       tls: {
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+      },
     });
+
+    await transporter.verify();
+    logger.info('SMTP Connected Successfully', { host, port, user });
+    console.log('SMTP Connected Successfully');
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
@@ -103,7 +116,7 @@ export const sendWelcomeEmail = async ({
         </div>
         
         <div style="text-align: center; margin: 25px 0;">
-          <a href="https://lms.techzonwide.com/login" style="background-color: #241252; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-weight: bold; text-decoration: none; display: inline-block; font-size: 14px;">Log In to LMS Dashboard</a>
+          <a href="${LMS_URL}/login" style="background-color: #241252; color: #ffffff; padding: 12px 24px; border-radius: 6px; font-weight: bold; text-decoration: none; display: inline-block; font-size: 14px;">Log In to LMS Dashboard</a>
         </div>
         
         <p style="font-size: 12px; color: #EF4444; font-weight: bold; line-height: 1.5; margin: 15px 0;">
@@ -119,17 +132,33 @@ export const sendWelcomeEmail = async ({
       </div>
     `;
 
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
       to: email,
       subject: 'Welcome to Techzon LMS – Your Learning Account is Ready',
       html: htmlContent,
     });
 
-    logger.info(`Welcome credentials successfully transmitted to ${email}`);
-    return true;
-  } catch (error) {
-    logger.error('Nodemailer SMTP transmission failure:', error);
-    return false;
+    logger.info('EMAIL RESULT', {
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response,
+      envelope: info.envelope,
+    });
+    console.log('Email Sent Successfully', {
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+    });
+    return info;
+  } catch (error: any) {
+    logger.error('EMAIL FAILED', {
+      message: error.message,
+      code: error.code,
+      response: error.response,
+      stack: error.stack,
+    });
+    throw error;
   }
 };

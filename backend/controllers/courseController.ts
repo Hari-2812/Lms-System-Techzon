@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import Course from '../models/Course';
 import Module from '../models/Module';
 import Lesson from '../models/Lesson';
@@ -6,6 +8,7 @@ import Enrollment from '../models/Enrollment';
 import AuditLog from '../models/AuditLog';
 import { generateCertificateOffline } from './certificateController';
 import logger from '../config/logger';
+import cloudinary from '../config/cloudinary';
 
 // Seed default course if needed
 export const seedDefaultCourses = async (): Promise<void> => {
@@ -39,8 +42,6 @@ export const seedDefaultCourses = async (): Promise<void> => {
     courseId: defaultCourse._id,
     title: 'MongoDB Basics & Schema Design',
     description: 'Understand document database foundations and Mongoose structures.',
-    videoUrl: 'https://res.cloudinary.com/demo/video/upload/c_scale,w_640/dog.mp4',
-    videoDuration: 300,
     order: 1,
   });
   await les1.save();
@@ -48,10 +49,54 @@ export const seedDefaultCourses = async (): Promise<void> => {
   logger.info('Default courses seeded successfully.');
 };
 
+export const uploadLessonVideo = async (req: any, res: Response): Promise<void> => {
+  logger.info('Upload video request received. File:', req.file?.originalname);
+
+  const uploadsDir = path.join(__dirname, '..', 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  if (!req.file) {
+    res.status(400).json({ success: false, message: 'No video file uploaded.' });
+    return;
+  }
+
+  try {
+    const result = (await cloudinary.uploader.upload_large(req.file.path, {
+      resource_type: 'video',
+      folder: 'techzone-lms/courses',
+      chunk_size: 6000000,
+    })) as any;
+
+    try {
+      await fs.promises.unlink(req.file.path);
+    } catch (_) {}
+
+    res.status(200).json({
+      success: true,
+      video: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        duration: result.duration,
+      },
+    });
+  } catch (error: any) {
+    console.error('Cloudinary upload failed', error);
+    try {
+      await fs.promises.unlink(req.file.path);
+    } catch (_) {}
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const getCourses = async (req: any, res: Response): Promise<void> => {
   try {
     let courses;
-    if (['super-admin', 'admin', 'mentor', 'support'].includes(req.user?.role)) {
+    if (['SuperAdmin', 'Admin', 'Mentor', 'Support'].includes(req.user?.role)) {
       courses = await Course.find().populate('mentors', 'name email');
     } else {
       // Students only see courses they are actively enrolled in
@@ -80,13 +125,26 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       return;
     }
 
+    // If student, verify active enrollment before exposing course details
+    if (req.user?.role === 'Student') {
+      const enrollment = await Enrollment.findOne({
+        studentId: req.user._id,
+        courseId: course._id,
+        status: 'active',
+        expiryDate: { $gt: new Date() },
+      });
+      if (!enrollment) {
+        res.status(403).json({ success: false, message: 'Access denied to this course.' });
+        return;
+      }
+    }
+
     // Fetch modules & lessons
     const modules = await Module.find({ courseId: course._id }).sort('order');
     const lessons = await Lesson.find({ courseId: course._id }).sort('order');
 
-    // If student, check progress
     let completedLessons: string[] = [];
-    if (req.user?.role === 'student') {
+    if (req.user?.role === 'Student') {
       const enrollment = await Enrollment.findOne({
         studentId: req.user._id,
         courseId: course._id,
@@ -96,11 +154,16 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       }
     }
 
+    const modulesWithLessons = modules.map((mod) => ({
+      ...mod.toObject(),
+      lessons: lessons.filter((lesson) => lesson.moduleId.toString() === mod._id.toString()),
+    }));
+
     res.status(200).json({
       success: true,
       data: {
         course,
-        modules,
+        modules: modulesWithLessons,
         lessons,
         completedLessons,
       },

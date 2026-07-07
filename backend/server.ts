@@ -28,6 +28,9 @@ const io = initSocket(server);
 
 const PORT = process.env.PORT || 5000;
 
+// Log Cloudinary connection status
+console.log('Cloudinary Connected:', process.env.CLOUDINARY_CLOUD_NAME);
+
 // Connect Database
 connectDB().then(async () => {
   try {
@@ -46,7 +49,7 @@ connectDB().then(async () => {
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   })
 );

@@ -32,7 +32,7 @@ export const getAssignments = async (req: any, res: Response): Promise<void> => 
       .populate('moduleId', 'title');
 
     // For students, attach their submission status
-    if (req.user.role === 'student') {
+    if (req.user.role === 'Student') {
       const submissions = await Submission.find({ studentId: req.user._id });
       const submissionMap = new Map(
         submissions.map((s) => [s.assignmentId.toString(), s])

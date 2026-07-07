@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { syncGoogleSpreadsheetData } from '../services/googleSheetsService';
+import { syncGoogleSheetsOnboardings as syncGoogleSheetsService } from '../services/googleSheets';
 import AuditLog from '../models/AuditLog';
 import logger from '../config/logger';
 
@@ -17,17 +17,17 @@ export const syncGoogleSheetsOnboardings = async (req: any, res: Response): Prom
   }
 
   try {
-    const result = await syncGoogleSpreadsheetData();
+    const result = await syncGoogleSheetsService();
 
     await AuditLog.create({
       userId: req.user._id,
       action: 'SYNC_GOOGLE_SHEETS_SPREADSHEET',
-      details: `Google Sheets Synced. Total: ${result.total}, Import: ${result.synced}, Duplicates: ${result.duplicates}`,
+      details: `Google Sheets Synced. Total: ${result.totalRows}, Imported: ${result.newImports}, Updated: ${result.updated}, Duplicates: ${result.duplicates}, Skipped: ${result.skipped}`,
     });
 
     res.status(200).json({
       success: true,
-      message: `Google Sheets synced successfully! Added ${result.synced} new records, detected ${result.duplicates} duplicates.`,
+      message: `Google Sheets synced successfully! Imported ${result.newImports} new records, updated ${result.updated}, duplicates ${result.duplicates}, skipped ${result.skipped}.`,
       data: result,
     });
   } catch (error: any) {

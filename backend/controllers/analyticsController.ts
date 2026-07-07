@@ -10,6 +10,7 @@ import Settings from '../models/Settings';
 import Submission from '../models/Submission';
 import QuizResult from '../models/QuizResult';
 import Onboarding from '../models/Onboarding';
+import Notification from '../models/Notification';
 import logger from '../config/logger';
 
 // Seed default settings if they do not exist
@@ -66,6 +67,119 @@ export const updateSettings = async (req: any, res: Response): Promise<void> => 
   }
 };
 
+export const clearTestData = async (req: any, res: Response): Promise<void> => {
+  if (process.env.NODE_ENV !== 'development') {
+    res.status(403).json({ success: false, message: 'Clear Test Data is only available in development mode.' });
+    return;
+  }
+
+  try {
+    const userDuplicateGroups = await User.aggregate([
+      { $match: { role: 'Student', email: { $exists: true, $ne: '' } } },
+      { $group: { _id: '$email', docs: { $push: { _id: '$_id', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+
+    let duplicateUsersRemoved = 0;
+    for (const group of userDuplicateGroups) {
+      group.docs.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const idsToRemove = group.docs.slice(1).map((doc: any) => doc._id);
+      if (idsToRemove.length > 0) {
+        const { deletedCount } = await User.deleteMany({ _id: { $in: idsToRemove } });
+        duplicateUsersRemoved += deletedCount || 0;
+      }
+    }
+
+    const onboardingDuplicateGroups = await Onboarding.aggregate([
+      { $match: { email: { $exists: true, $ne: '' } } },
+      { $group: { _id: '$email', docs: { $push: { _id: '$_id', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+
+    let duplicateOnboardingsRemoved = 0;
+    for (const group of onboardingDuplicateGroups) {
+      group.docs.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const idsToRemove = group.docs.slice(1).map((doc: any) => doc._id);
+      if (idsToRemove.length > 0) {
+        const { deletedCount } = await Onboarding.deleteMany({ _id: { $in: idsToRemove } });
+        duplicateOnboardingsRemoved += deletedCount || 0;
+      }
+    }
+
+    const enrollmentDuplicateGroups = await Enrollment.aggregate([
+      { $group: { _id: { studentId: '$studentId', courseId: '$courseId' }, docs: { $push: { _id: '$_id', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+
+    let duplicateEnrollmentsRemoved = 0;
+    for (const group of enrollmentDuplicateGroups) {
+      group.docs.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const idsToRemove = group.docs.slice(1).map((doc: any) => doc._id);
+      if (idsToRemove.length > 0) {
+        const { deletedCount } = await Enrollment.deleteMany({ _id: { $in: idsToRemove } });
+        duplicateEnrollmentsRemoved += deletedCount || 0;
+      }
+    }
+
+    const notificationDuplicateGroups = await Notification.aggregate([
+      { $match: { isRead: false, type: { $exists: true }, 'metadata.email': { $exists: true, $ne: '' } } },
+      { $group: { _id: { type: '$type', email: '$metadata.email' }, docs: { $push: { _id: '$_id', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+
+    let duplicateNotificationsRemoved = 0;
+    for (const group of notificationDuplicateGroups) {
+      group.docs.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const idsToRemove = group.docs.slice(1).map((doc: any) => doc._id);
+      if (idsToRemove.length > 0) {
+        const { deletedCount } = await Notification.deleteMany({ _id: { $in: idsToRemove } });
+        duplicateNotificationsRemoved += deletedCount || 0;
+      }
+    }
+
+    const testPattern = [
+      { email: { $regex: /@example\.com$/i } },
+      { email: { $regex: /^test/i } },
+      { email: { $regex: /demo/i } },
+      { fullName: { $regex: /(test|demo)/i } },
+    ];
+
+    const testUsersDeleted = (await User.deleteMany({ role: 'Student', $or: testPattern })).deletedCount || 0;
+    const testOnboardingsDeleted = (await Onboarding.deleteMany({ $or: testPattern })).deletedCount || 0;
+    const testNotificationsDeleted = (await Notification.deleteMany({
+      $or: [
+        { 'metadata.email': { $regex: /@example\.com$/i } },
+        { 'metadata.email': { $regex: /^test/i } },
+        { 'metadata.email': { $regex: /demo/i } },
+        { title: { $regex: /(test|demo)/i } },
+        { message: { $regex: /(test|demo)/i } },
+      ],
+    })).deletedCount || 0;
+
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'CLEAR_TEST_DATA',
+      details: `Cleared development test records: duplicate users ${duplicateUsersRemoved}, duplicate onboardings ${duplicateOnboardingsRemoved}, duplicate enrollments ${duplicateEnrollmentsRemoved}, duplicate notifications ${duplicateNotificationsRemoved}, test users ${testUsersDeleted}, test onboardings ${testOnboardingsDeleted}, test notifications ${testNotificationsDeleted}`,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        duplicateUsersRemoved,
+        duplicateOnboardingsRemoved,
+        duplicateEnrollmentsRemoved,
+        duplicateNotificationsRemoved,
+        testUsersDeleted,
+        testOnboardingsDeleted,
+        testNotificationsDeleted,
+      },
+    });
+  } catch (error: any) {
+    logger.error('Error clearing test data:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 export const getAuditLogs = async (req: Request, res: Response): Promise<void> => {
   try {
     const logs = await AuditLog.find()
@@ -81,8 +195,8 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
 // Admin Dashboard Analytics
 export const getAdminStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const totalStudents = await User.countDocuments({ role: 'student' });
-    const totalMentors = await User.countDocuments({ role: 'mentor' });
+    const totalStudents = await User.countDocuments({ role: 'Student' });
+    const totalMentors = await User.countDocuments({ role: 'Mentor' });
     const totalCourses = await Course.countDocuments();
     const activeEnrollments = await Enrollment.countDocuments({ status: 'active' });
 

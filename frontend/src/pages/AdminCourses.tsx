@@ -41,6 +41,8 @@ const AdminCourses: React.FC = () => {
   const [lesTitle, setLesTitle] = useState('');
   const [lesDesc, setLesDesc] = useState('');
   const [lesVideo, setLesVideo] = useState('');
+  const [lesVideoFile, setLesVideoFile] = useState<File | null>(null);
+  const [videoUploadLoading, setVideoUploadLoading] = useState(false);
   const [lesDuration, setLesDuration] = useState(300);
   const [lesNotes, setLesNotes] = useState('');
   const [lesOrder, setLesOrder] = useState(1);
@@ -151,25 +153,50 @@ const AdminCourses: React.FC = () => {
     e.preventDefault();
     if (!selectedCourse || !selectedModId) return;
     try {
-      await api.post('/lessons', {
+      let lessonPayload: any = {
         courseId: selectedCourse._id,
         moduleId: selectedModId,
         title: lesTitle,
         description: lesDesc,
-        videoUrl: lesVideo,
         videoDuration: lesDuration,
         notesUrl: lesNotes,
         order: lesOrder,
-      });
+      };
+
+      if (lesVideoFile) {
+        setVideoUploadLoading(true);
+        const formData = new FormData();
+        formData.append('video', lesVideoFile);
+        const uploadRes = await api.post('/lessons/upload-video', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        const videoData = uploadRes.data.data;
+        lessonPayload.video = {
+          url: videoData.url,
+          publicId: videoData.publicId,
+          duration: videoData.duration,
+        };
+        lessonPayload.videoUrl = videoData.url;
+      } else if (lesVideo) {
+        lessonPayload.videoUrl = lesVideo;
+      }
+
+      await api.post('/lessons', lessonPayload);
       alert('Lesson added successfully!');
       setLesTitle('');
       setLesDesc('');
       setLesVideo('');
+      setLesVideoFile(null);
       setLesNotes('');
+      setLesDuration(300);
+      setLesOrder(1);
       setShowLesForm(false);
       handleSelectCourse(selectedCourse);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      alert(error.response?.data?.error || 'Failed to add lesson');
+    } finally {
+      setVideoUploadLoading(false);
     }
   };
 
@@ -506,6 +533,19 @@ const AdminCourses: React.FC = () => {
               </div>
 
               <div className="space-y-1">
+                <label className="text-slate-400">Upload Video File</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setLesVideoFile(e.target.files?.[0] || null)}
+                  className="glass-input py-2 text-xs"
+                />
+                {lesVideoFile && (
+                  <p className="text-[10px] text-slate-500">Selected file: {lesVideoFile.name}</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
                 <label className="text-slate-400">Video URL (Cloudinary link)</label>
                 <input
                   type="url"
@@ -514,6 +554,7 @@ const AdminCourses: React.FC = () => {
                   onChange={(e) => setLesVideo(e.target.value)}
                   className="glass-input py-2 text-xs"
                 />
+                <p className="text-[10px] text-slate-500">Upload a file or paste an existing Cloudinary video URL.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -548,8 +589,12 @@ const AdminCourses: React.FC = () => {
                 />
               </div>
 
-              <button type="submit" className="btn-accent w-full py-2.5 text-xs">
-                Create Lesson
+              <button
+                type="submit"
+                className="btn-accent w-full py-2.5 text-xs"
+                disabled={videoUploadLoading}
+              >
+                {videoUploadLoading ? 'Uploading video…' : 'Create Lesson'}
               </button>
             </form>
           </div>

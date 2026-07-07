@@ -32,7 +32,7 @@ export const getQuizzes = async (req: any, res: Response): Promise<void> => {
       .populate('moduleId', 'title');
 
     // For students, attach their previous attempt stats
-    if (req.user.role === 'student') {
+    if (req.user.role === 'Student') {
       const results = await QuizResult.find({ studentId: req.user._id });
       const resultMap = new Map(results.map((r) => [r.quizId.toString(), r]));
 

@@ -36,8 +36,39 @@ const generateTempPassword = (): string => {
 export const submitOnboarding = async (req: Request, res: Response): Promise<void> => {
   const { fullName, email, phone, college, degree, city, state, courses, learningPlan, preferredBatch, preferredMentor } = req.body;
 
-  if (!fullName || !email || !phone || !college || !degree || !city || !state || !courses || !learningPlan) {
-    res.status(400).json({ success: false, message: 'All registration details are required' });
+  if (!fullName || !email || !phone || !courses || !learningPlan) {
+    res.status(400).json({ success: false, message: 'Name, email, phone, course selection, and learning plan are required.' });
+    return;
+  }
+
+  const emailLower = email.toLowerCase().trim();
+  const existingUser = await User.findOne({ email: emailLower });
+  const existingOnboarding = await Onboarding.findOne({ email: emailLower });
+
+  if (existingUser) {
+    res.status(400).json({ success: false, message: 'A student account already exists for this email.' });
+    return;
+  }
+
+  if (existingOnboarding) {
+    if (process.env.NODE_ENV === 'development') {
+      existingOnboarding.fullName = fullName;
+      existingOnboarding.phone = phone;
+      existingOnboarding.college = college;
+      existingOnboarding.degree = degree;
+      existingOnboarding.city = city;
+      existingOnboarding.state = state;
+      existingOnboarding.courses = courses;
+      existingOnboarding.learningPlan = learningPlan;
+      existingOnboarding.preferredBatch = preferredBatch || existingOnboarding.preferredBatch;
+      existingOnboarding.preferredMentor = preferredMentor || existingOnboarding.preferredMentor;
+      existingOnboarding.updatedAt = new Date();
+      await existingOnboarding.save();
+      res.status(200).json({ success: true, message: 'Onboarding request updated successfully.', data: existingOnboarding });
+      return;
+    }
+
+    res.status(400).json({ success: false, message: 'An onboarding request already exists for this email.' });
     return;
   }
 
@@ -46,10 +77,10 @@ export const submitOnboarding = async (req: Request, res: Response): Promise<voi
       fullName,
       email: email.toLowerCase(),
       phone,
-      college,
-      degree,
-      city,
-      state,
+      college: college || '',
+      degree: degree || '',
+      city: city || '',
+      state: state || '',
       courses,
       learningPlan,
       preferredBatch,
@@ -210,6 +241,7 @@ export const rejectOnboarding = async (req: any, res: Response): Promise<void> =
 
 // 7. Approve Onboarding Request & Provision Account (ADMIN)
 export const approveOnboarding = async (req: any, res: Response): Promise<void> => {
+  console.log('Approval Started');
   const { id } = req.params;
   const { courses, learningPlan, batch, mentorId, durationMonths, remarks } = req.body;
 
@@ -239,13 +271,17 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
 
     // 1. Provision User Account
     let user = await User.findOne({ email: request.email.toLowerCase() });
-    let tempPassword = '';
+    const emailLower = request.email.toLowerCase();
+    const tempPassword = generateTempPassword();
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Generated Password:', tempPassword);
+    }
 
     if (!user) {
-      tempPassword = generateTempPassword();
       user = new User({
         name: request.fullName,
-        email: request.email.toLowerCase(),
+        email: emailLower,
         password: tempPassword,
         role: 'Student',
         status: 'active',
@@ -253,13 +289,18 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
         needsPasswordChange: true,
       });
       await user.save();
+      console.log('Student Created');
       logger.info(`Onboarding approval spawned new student user: ${request.email}`);
     } else {
-      // Ensure user profile status is active
-      if (user.status !== 'active') {
-        user.status = 'active';
-        await user.save();
+      user.password = tempPassword;
+      user.needsPasswordChange = true;
+      user.status = 'active';
+      await user.save();
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Password Hash Exists:', !!user.password);
       }
+      console.log('Existing student account password reset');
+      logger.info(`Existing student account updated during onboarding approval: ${emailLower}`);
     }
 
     // 2. Spawning Enrollments (spawns one enrollment per selected course)
@@ -297,27 +338,47 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
     request.approvedBy = req.user._id;
     request.approvedAt = new Date();
     await request.save();
+    console.log('Enrollment Created');
 
     // 4. Send Welcome Email Credentials
     const mainCourse = await Course.findById(finalCourseIds[0]);
     const mainMentor = finalMentorId ? await User.findById(finalMentorId) : null;
     let emailSent = false;
 
+    let emailInfo: any = null;
+    console.log('Sending Email...');
     if (tempPassword) {
-      emailSent = await sendWelcomeEmail({
-        studentName: request.fullName,
-        email: request.email.toLowerCase(),
-        passwordTemp: tempPassword,
-        courseTitle: mainCourse ? mainCourse.title : 'General Course',
-        planName: plan.name,
-        batchName: finalBatch,
-        mentorName: mainMentor ? mainMentor.name : 'Not Assigned',
-        durationMonths: activeDuration,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: expiryDate.toISOString().split('T')[0],
-      });
-    } else {
-      emailSent = true; // Student already has an active account & password
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Before Email Password:', tempPassword);
+      }
+      try {
+        emailInfo = await sendWelcomeEmail({
+          studentName: request.fullName,
+          email: request.email.toLowerCase(),
+          passwordTemp: tempPassword,
+          courseTitle: mainCourse ? mainCourse.title : 'General Course',
+          planName: plan.name,
+          batchName: finalBatch,
+          mentorName: mainMentor ? mainMentor.name : 'Not Assigned',
+          durationMonths: activeDuration,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: expiryDate.toISOString().split('T')[0],
+        });
+        emailSent = Array.isArray(emailInfo.accepted) && emailInfo.accepted.length > 0;
+        if (emailSent) {
+          console.log('Email Message ID:', emailInfo.messageId);
+          console.log('Email Delivered', { accepted: emailInfo.accepted, rejected: emailInfo.rejected });
+        }
+      } catch (emailError: any) {
+        emailSent = false;
+        logger.error('Welcome email sending failed during onboarding approval:', {
+          message: emailError.message,
+          code: emailError.code,
+          response: emailError.response,
+          stack: emailError.stack,
+        });
+        console.log('SMTP error during approval email:', emailError.message);
+      }
     }
 
     const courseTitle = mainCourse ? mainCourse.title : 'General Course';
@@ -331,22 +392,34 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
       metadata: { onboardingId: request._id, fullName: request.fullName, courseName: courseTitle },
     });
 
-    if (emailSent) {
-      await createNotification({
-        title: '📧 Welcome Email Sent',
-        message: `Login credentials successfully delivered to ${request.email.toLowerCase()}`,
-        type: 'EMAIL_SENT',
-        recipientRole: ['Admin', 'SuperAdmin'],
-        metadata: { onboardingId: request._id, email: request.email },
-      });
-    } else {
-      await createNotification({
-        title: '⚠️ Email Delivery Failed',
-        message: 'Student account created, but email failed. Please resend credentials.',
-        type: 'EMAIL_FAILED',
-        recipientRole: ['Admin', 'SuperAdmin'],
-        metadata: { onboardingId: request._id, email: request.email },
-      });
+    if (tempPassword) {
+      if (emailSent) {
+        await createNotification({
+          title: '📧 Welcome Email Sent',
+          message: `Login credentials successfully delivered to ${request.email.toLowerCase()}`,
+          type: 'EMAIL_SENT',
+          recipientRole: ['Admin', 'SuperAdmin'],
+          metadata: {
+            onboardingId: request._id,
+            email: request.email,
+            messageId: emailInfo?.messageId,
+            accepted: emailInfo?.accepted,
+            rejected: emailInfo?.rejected,
+          },
+        });
+      } else {
+        await createNotification({
+          title: '⚠️ Email Delivery Failed',
+          message: `Student account created, but email failed to deliver to ${request.email.toLowerCase()}.`,
+          type: 'EMAIL_FAILED',
+          recipientRole: ['Admin', 'SuperAdmin'],
+          metadata: {
+            onboardingId: request._id,
+            email: request.email,
+            error: emailInfo?.response || 'SMTP accepted list empty',
+          },
+        });
+      }
     }
 
     // 5. Audit Logging
@@ -401,18 +474,32 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
     const startDateStr = enrollment && enrollment.startDate ? enrollment.startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
     const endDateStr = enrollment && enrollment.expiryDate ? enrollment.expiryDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
 
-    const emailSent = await sendWelcomeEmail({
-      studentName: user.name,
-      email: user.email,
-      passwordTemp: tempPassword,
-      courseTitle,
-      planName,
-      batchName,
-      mentorName,
-      durationMonths,
-      startDate: startDateStr,
-      endDate: endDateStr,
-    });
+    let emailInfo: any = null;
+    let emailSent = false;
+    try {
+      console.log('Email Sending Started');
+      emailInfo = await sendWelcomeEmail({
+        studentName: user.name,
+        email: user.email,
+        passwordTemp: tempPassword,
+        courseTitle,
+        planName,
+        batchName,
+        mentorName,
+        durationMonths,
+        startDate: startDateStr,
+        endDate: endDateStr,
+      });
+      emailSent = Array.isArray(emailInfo.accepted) && emailInfo.accepted.length > 0;
+    } catch (emailError: any) {
+      emailSent = false;
+      logger.error('Welcome email sending failed during resend credentials:', {
+        message: emailError.message,
+        code: emailError.code,
+        response: emailError.response,
+        stack: emailError.stack,
+      });
+    }
 
     if (emailSent) {
       await createNotification({
@@ -420,7 +507,13 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
         message: `Login credentials successfully delivered to ${user.email.toLowerCase()}`,
         type: 'EMAIL_SENT',
         recipientRole: ['Admin', 'SuperAdmin'],
-        metadata: { userId: user._id, email: user.email },
+        metadata: {
+          userId: user._id,
+          email: user.email,
+          messageId: emailInfo?.messageId,
+          accepted: emailInfo?.accepted,
+          rejected: emailInfo?.rejected,
+        },
       });
     } else {
       await createNotification({
@@ -428,7 +521,11 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
         message: `Student account created, but email failed to deliver to ${user.email.toLowerCase()}.`,
         type: 'EMAIL_FAILED',
         recipientRole: ['Admin', 'SuperAdmin'],
-        metadata: { userId: user._id, email: user.email },
+        metadata: {
+          userId: user._id,
+          email: user.email,
+          error: emailInfo?.response || 'SMTP accepted list empty',
+        },
       });
     }
 
@@ -456,12 +553,12 @@ export const syncGoogleSheets = async (req: any, res: Response): Promise<void> =
     await AuditLog.create({
       userId: req.user._id,
       action: 'SYNC_GOOGLE_SHEETS',
-      details: `Manually synchronized Google Sheets. Synced ${result.synced} items, skipped ${result.skipped}.`,
+      details: `Manually synchronized Google Sheets. Imported ${result.newImports} items, updated ${result.updated}, skipped ${result.skipped}.`,
     });
 
     res.status(200).json({
       success: true,
-      message: `Google Sheets synced successfully! Added ${result.synced} new records, skipped ${result.skipped} duplicates.`,
+      message: `Google Sheets synced successfully! Imported ${result.newImports} new records, updated ${result.updated}, skipped ${result.skipped} invalid rows.`,
       data: result,
     });
   } catch (error: any) {

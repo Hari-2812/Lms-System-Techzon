@@ -1,10 +1,10 @@
 import { io, Socket } from 'socket.io-client';
-import { store } from '../redux/store';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL as string;
 const SOCKET_URL = API_URL.replace('/api/v1', '').replace('/api', '');
 
 let socket: Socket | null = null;
+let connectErrorLogged = false;
 
 export const getSocket = (): Socket => {
   if (socket) return socket;
@@ -12,27 +12,33 @@ export const getSocket = (): Socket => {
   const token = localStorage.getItem('token');
 
   socket = io(SOCKET_URL, {
+    transports: ['websocket'],
     auth: {
-      token,
+      token: localStorage.getItem('token'),
     },
-    autoConnect: false,
     reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 10000,
     timeout: 20000,
   });
 
   socket.on('connect', () => {
-    console.log("Socket connected", socket?.id);
+    connectErrorLogged = false;
+    console.log('[Socket.IO] Connected:', socket?.id);
   });
 
   socket.on('disconnect', (reason) => {
-    console.warn('Socket.IO disconnected:', reason);
+    if (reason !== 'io client disconnect') {
+      console.warn('[Socket.IO] Disconnected:', reason);
+    }
   });
 
   socket.on('connect_error', (error) => {
-    console.error('Socket.IO connection error:', error.message);
+    if (!connectErrorLogged) {
+      console.warn('[Socket.IO] Connection failed:', error.message, '— will retry silently.');
+      connectErrorLogged = true;
+    }
   });
 
   return socket;
@@ -41,11 +47,10 @@ export const getSocket = (): Socket => {
 export const connectSocket = () => {
   const token = localStorage.getItem('token');
   if (!token) return;
-  
+
   const s = getSocket();
-  if (s.auth) {
-    s.auth.token = token;
-  }
+  // Always update the auth token before connecting
+  (s.auth as any).token = token;
   if (!s.connected) {
     s.connect();
   }
@@ -55,5 +60,6 @@ export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
+    connectErrorLogged = false;
   }
 };

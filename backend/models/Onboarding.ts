@@ -16,8 +16,9 @@ export interface IOnboarding extends Document {
   remarks?: string;
   approvedBy?: mongoose.Types.ObjectId;
   approvedAt?: Date;
-  source: 'direct' | 'google-sheets';
+  source: 'direct' | 'google-sheets' | 'GOOGLE_FORM';
   googleRowId?: string;
+  submittedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,12 +26,19 @@ export interface IOnboarding extends Document {
 const OnboardingSchema: Schema<IOnboarding> = new Schema(
   {
     fullName: { type: String, required: true, trim: true },
-    email: { type: String, required: true, lowercase: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+      unique: process.env.NODE_ENV === 'production',
+    },
     phone: { type: String, required: true, trim: true },
-    college: { type: String, required: true, trim: true },
-    degree: { type: String, required: true, trim: true },
-    city: { type: String, required: true, trim: true },
-    state: { type: String, required: true, trim: true },
+    college: { type: String, default: '', trim: true },
+    degree: { type: String, default: '', trim: true },
+    city: { type: String, default: '', trim: true },
+    state: { type: String, default: '', trim: true },
     courses: [{ type: Schema.Types.ObjectId, ref: 'Course', required: true }],
     learningPlan: { type: Schema.Types.ObjectId, ref: 'LearningPlan', required: true },
     preferredBatch: { type: String },
@@ -44,10 +52,13 @@ const OnboardingSchema: Schema<IOnboarding> = new Schema(
     remarks: { type: String },
     approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     approvedAt: { type: Date },
-    source: { type: String, enum: ['direct', 'google-sheets'], default: 'direct', index: true },
+    source: { type: String, enum: ['direct', 'google-sheets', 'GOOGLE_FORM'], default: 'direct', index: true },
     googleRowId: { type: String, index: true, sparse: true },
+    submittedAt: { type: Date, index: true },
   },
   { timestamps: true }
 );
+
+OnboardingSchema.index({ email: 1, submittedAt: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model<IOnboarding>('Onboarding', OnboardingSchema);

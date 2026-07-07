@@ -30,7 +30,7 @@ export const createTicket = async (req: any, res: Response): Promise<void> => {
 export const getTickets = async (req: any, res: Response): Promise<void> => {
   try {
     let tickets;
-    if (['super-admin', 'admin', 'support'].includes(req.user.role)) {
+    if (['SuperAdmin', 'Admin', 'Support'].includes(req.user.role)) {
       tickets = await SupportTicket.find()
         .populate('studentId', 'name email')
         .populate('assignedTo', 'name email');
@@ -61,7 +61,7 @@ export const addMessageToTicket = async (req: any, res: Response): Promise<void>
 
     // Security check: Only students who created it, or admin/support roles can add messages
     if (
-      req.user.role === 'student' &&
+      req.user.role === 'Student' &&
       ticket.studentId.toString() !== req.user._id.toString()
     ) {
       res.status(403).json({ success: false, message: 'Access denied' });
@@ -75,7 +75,7 @@ export const addMessageToTicket = async (req: any, res: Response): Promise<void>
     });
 
     // If support agent replies, change status to in-progress
-    if (['super-admin', 'admin', 'support'].includes(req.user.role)) {
+    if (['SuperAdmin', 'Admin', 'Support'].includes(req.user.role)) {
       ticket.status = 'in-progress';
       ticket.assignedTo = req.user._id;
     }

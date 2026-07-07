@@ -1,13 +1,38 @@
 import nodemailer from 'nodemailer';
 import logger from '../config/logger';
 
+const host = process.env.SMTP_HOST;
+const port = parseInt(process.env.SMTP_PORT || '587');
+const user = process.env.SMTP_USER;
+const pass = process.env.SMTP_PASS;
+
+if (!host || !user || !pass) {
+  throw new Error('SMTP email credentials are not configured.');
+}
+
+console.log('SMTP HOST:', host);
+console.log('SMTP USER:', user);
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-  port: parseInt(process.env.SMTP_PORT || '2525'),
+  host,
+  port,
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    user,
+    pass,
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
+
+transporter.verify().then(() => console.log('SMTP Connected')).catch((error) => {
+  logger.error('SMTP verification failed for generic email service:', {
+    message: error.message,
+    code: error.code,
+    response: error.response,
+    stack: error.stack,
+  });
 });
 
 export const sendEmail = async (options: {
@@ -17,7 +42,7 @@ export const sendEmail = async (options: {
   attachments?: any[];
 }): Promise<void> => {
   const mailOptions = {
-    from: `"${process.env.APP_NAME || 'Techzon LMS'}" <${process.env.SMTP_FROM || 'noreply@techzonwide.com'}>`,
+    from: `"${process.env.APP_NAME || 'Techzon LMS'}" <${process.env.SMTP_FROM || process.env.SMTP_FROM_EMAIL || 'noreply@techzonwide.com'}>`,
     to: options.email,
     subject: options.subject,
     html: options.html,
@@ -27,9 +52,14 @@ export const sendEmail = async (options: {
   try {
     const info = await transporter.sendMail(mailOptions);
     logger.info(`Email sent successfully: ${info.messageId} to ${options.email}`);
-  } catch (error) {
-    logger.error(`Failed to send email to ${options.email}:`, error);
-    // In production we throw or handle. For development, we log to stdout to avoid crashing the webhook.
+  } catch (error: any) {
+    logger.error(`Failed to send email to ${options.email}:`, {
+      message: error.message,
+      code: error.code,
+      response: error.response,
+      stack: error.stack,
+    });
+    throw error;
   }
 };
 
@@ -39,7 +69,7 @@ export const sendWelcomeEmail = async (
   tempPassword?: string,
   otpCode?: string
 ): Promise<void> => {
-  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  const loginUrl = `${process.env.FRONTEND_URL}/login`;
   const otpSection = otpCode
     ? `<p>Your One-Time Passcode (OTP) for verifying your email is: <strong>${otpCode}</strong></p>`
     : '';

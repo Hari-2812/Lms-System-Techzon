@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import User from '../models/User';
 import {
@@ -34,6 +34,7 @@ import {
   resendCredentials,
   syncGoogleSheets,
 } from '../controllers/onboardingController';
+import multer from 'multer';
 import {
   getCourses,
   getCourseDetails,
@@ -47,6 +48,7 @@ import {
   updateLesson,
   deleteLesson,
   trackLessonProgress,
+  uploadLessonVideo,
 } from '../controllers/courseController';
 import {
   getLiveClasses,
@@ -82,6 +84,7 @@ import { postRuntimeError } from '../controllers/logController';
 import {
   getSettings,
   updateSettings,
+  clearTestData,
   getAdminStats,
   getStudentStats,
   getMentorStats,
@@ -158,6 +161,25 @@ router.post('/tickets/:id/messages', addMessageToTicket);
 
 // Course Details & Progress Checks
 router.get('/courses', getCourses);
+router.get('/student/my-courses', authorize('Student'), async (req: any, res: Response) => {
+  try {
+    const enrollments = await mongoose.model('Enrollment').find({
+      studentId: req.user._id,
+      status: 'active',
+    }).populate({
+      path: 'courseId',
+      populate: {
+        path: 'modules',
+        populate: {
+          path: 'lessons',
+        },
+      },
+    });
+    res.status(200).json({ success: true, data: enrollments });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 router.get('/courses/:id', getCourseDetails);
 router.post('/courses/track-progress', authorize('Student'), trackLessonProgress);
 
@@ -203,6 +225,7 @@ router.post('/users/:id/resend-credentials', resendCredentials);
 
 // System Settings Edits
 router.put('/settings', updateSettings);
+router.post('/settings/clear-test-data', clearTestData);
 router.get('/analytics/audit-logs', getAuditLogs);
 router.get('/analytics/export', exportReport);
 
@@ -214,6 +237,14 @@ router.get('/plans/admin', getAllPlansAdmin);
 router.post('/plans', createPlan);
 router.put('/plans/:id', updatePlan);
 router.delete('/plans/:id', deletePlan);
+
+import fs from 'fs';
+import path from 'path';
+const uploadDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const upload = multer({ dest: uploadDir });
 
 // Course Management CRUDs
 router.post('/courses', createCourse);
@@ -229,6 +260,7 @@ router.delete('/modules/:id', deleteModule);
 router.post('/lessons', createLesson);
 router.put('/lessons/:id', updateLesson);
 router.delete('/lessons/:id', deleteLesson);
+router.post('/lessons/upload-video', upload.single('video'), uploadLessonVideo);
 
 // Quiz Scheduling
 router.post('/quizzes', createQuiz);
@@ -236,7 +268,7 @@ router.post('/quizzes', createQuiz);
 // User/Student Administration
 router.get('/users/students', async (req, res) => {
   try {
-    const students = await User.find({ role: 'student' }).select('-password');
+    const students = await User.find({ role: 'Student' }).select('-password');
     res.json({ success: true, data: students });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -244,7 +276,7 @@ router.get('/users/students', async (req, res) => {
 });
 router.get('/users/mentors', async (req, res) => {
   try {
-    const mentors = await User.find({ role: 'mentor' }).select('-password');
+    const mentors = await User.find({ role: 'Mentor' }).select('-password');
     res.json({ success: true, data: mentors });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

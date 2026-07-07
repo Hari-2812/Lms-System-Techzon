@@ -9,8 +9,9 @@ let io: Server | null = null;
 export const initSocket = (server: http.Server): Server => {
   io = new Server(server, {
     cors: {
-      origin: '*',
+      origin: process.env.FRONTEND_URL,
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      credentials: true,
     },
   });
 

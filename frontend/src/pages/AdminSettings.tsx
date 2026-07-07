@@ -19,6 +19,8 @@ const AdminSettings: React.FC = () => {
   const [serviceAccountJson, setServiceAccountJson] = useState('');
   const [syncIntervalMinutes, setSyncIntervalMinutes] = useState(15);
   const [autoImport, setAutoImport] = useState(false);
+  const [clearingTestData, setClearingTestData] = useState(false);
+  const isDevMode = import.meta.env.DEV;
 
   useEffect(() => {
     fetchSettings();
@@ -238,6 +240,30 @@ const AdminSettings: React.FC = () => {
             </label>
           </div>
 
+          {isDevMode && (
+            <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-border-dark">
+              <p className="text-xs text-slate-500">Development only: clear test students and onboarding duplicates from the database.</p>
+              <button
+                type="button"
+                disabled={clearingTestData}
+                onClick={async () => {
+                  if (!window.confirm('This will remove duplicate and test records from the database. Continue?')) return;
+                  setClearingTestData(true);
+                  try {
+                    const res = await api.post('/settings/clear-test-data');
+                    alert(`Cleanup complete: ${JSON.stringify(res.data.data)}`);
+                  } catch (err: any) {
+                    alert(err.response?.data?.error || 'Failed to clear test data');
+                  } finally {
+                    setClearingTestData(false);
+                  }
+                }}
+                className="btn-secondary py-2.5 px-6 flex items-center gap-2"
+              >
+                {clearingTestData ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Clear Test Data'}
+              </button>
+            </div>
+          )}
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-border-dark">
             <button
               type="submit"

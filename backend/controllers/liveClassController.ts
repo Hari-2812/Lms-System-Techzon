@@ -5,7 +5,7 @@ import AuditLog from '../models/AuditLog';
 export const getLiveClasses = async (req: any, res: Response): Promise<void> => {
   try {
     let classes;
-    if (['super-admin', 'admin', 'mentor', 'support'].includes(req.user.role)) {
+    if (['SuperAdmin', 'Admin', 'Mentor', 'Support'].includes(req.user.role)) {
       classes = await LiveClass.find().populate('courseId', 'title').populate('mentorId', 'name email');
     } else {
       // Students only see live classes scheduled for their enrolled courses
@@ -48,7 +48,7 @@ export const joinLiveClass = async (req: any, res: Response): Promise<void> => {
       return;
     }
 
-    if (req.user.role === 'student') {
+    if (req.user.role === 'Student') {
       const alreadyAttended = liveClass.attendance.some(
         (a) => a.studentId.toString() === req.user._id.toString()
       );

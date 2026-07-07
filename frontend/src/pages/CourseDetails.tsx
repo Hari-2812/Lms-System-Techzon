@@ -291,10 +291,11 @@ const CourseDetails: React.FC = () => {
           <>
             {/* Media Block / Video Player */}
             <div className="glass-card overflow-hidden bg-slate-900 border-none aspect-video relative flex items-center justify-center">
-              {selectedLesson?.videoUrl ? (
+              {selectedLesson?.video?.url || selectedLesson?.videoUrl ? (
                 <video
-                  src={selectedLesson.videoUrl}
+                  src={selectedLesson.video?.url || selectedLesson.videoUrl}
                   controls
+                  controlsList="nodownload"
                   className="w-full h-full object-contain"
                   onEnded={() => selectedLesson && toggleProgress(selectedLesson._id, true)}
                 />

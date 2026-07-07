@@ -80,6 +80,29 @@ export const createNotification = async (data: {
   recipientId?: string | mongoose.Types.ObjectId;
   metadata?: Record<string, any>;
 }): Promise<INotification> => {
+  const normalizedEmail = data.metadata?.email?.toLowerCase?.().trim();
+  if (normalizedEmail) {
+    const duplicateQuery: any = {
+      type: data.type,
+      'metadata.email': normalizedEmail,
+      isRead: false,
+    };
+
+    if (data.recipientRole && data.recipientRole.length > 0) {
+      duplicateQuery.recipientRole = { $all: data.recipientRole };
+    }
+
+    const existingNotification = await Notification.findOne(duplicateQuery);
+    if (existingNotification) {
+      logger.info('Skipping duplicate unread notification', {
+        email: normalizedEmail,
+        type: data.type,
+        notificationId: existingNotification._id,
+      });
+      return existingNotification;
+    }
+  }
+
   console.log(`[BACKEND] Creating admin notification in database: "${data.title}"`);
   const notification = new Notification({
     title: data.title,

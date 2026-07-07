@@ -10,10 +10,10 @@ interface OnboardingRequest {
   fullName: string;
   email: string;
   phone: string;
-  college: string;
-  degree: string;
-  city: string;
-  state: string;
+  college?: string;
+  degree?: string;
+  city?: string;
+  state?: string;
   courses: { _id: string; title: string }[];
   learningPlan: { _id: string; name: string; durationMonths: number };
   preferredBatch: string;
@@ -227,7 +227,7 @@ const AdminOnboarding: React.FC = () => {
     return (
       req.fullName.toLowerCase().includes(term) ||
       req.email.toLowerCase().includes(term) ||
-      req.college.toLowerCase().includes(term)
+      (req.college || '').toLowerCase().includes(term)
     );
   });
 
@@ -413,16 +413,14 @@ const AdminOnboarding: React.FC = () => {
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{selectedRequest.phone}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-slate-400">Academic Background</label>
-                <p className="text-slate-700 dark:text-slate-200">
-                  {selectedRequest.college || 'PSG College of Technology'} ({selectedRequest.degree || 'B.E. Computer Science'})
-                </p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-bold text-slate-400">City & State</label>
-                <p className="text-slate-700 dark:text-slate-200">
-                  {selectedRequest.city || 'Coimbatore'}, {selectedRequest.state || 'Tamil Nadu'}
-                </p>
+                <label className="text-[10px] uppercase font-bold text-slate-400">Chosen Courses</label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedRequest.courses?.map((c) => (
+                    <span key={c._id} className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">
+                      {c.title}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-bold text-slate-400">Chosen Courses</label>

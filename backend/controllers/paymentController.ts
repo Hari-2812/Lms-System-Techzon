@@ -53,7 +53,7 @@ export const processEnrollment = async (
         name,
         email: email.toLowerCase(),
         password: tempPassword,
-        role: 'student',
+        role: 'Student',
         status: 'active',
         isEmailVerified: true,
       });
