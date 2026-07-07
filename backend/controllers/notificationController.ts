@@ -1,12 +1,11 @@
-import { Response } from "express";
-
 import {
- AuthenticatedRequest
-} from "../types/auth";
+ Request,
+ Response
+} from "express";
 import * as notificationService from '../services/notificationService';
 import logger from '../config/logger';
 
-export const getMyNotifications = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const getMyNotifications = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user._id;
     const role = req.user.role;
@@ -18,7 +17,7 @@ export const getMyNotifications = async (req: AuthenticatedRequest, res: Respons
   }
 };
 
-export const markNotificationRead = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const markNotificationRead = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const notification = await notificationService.markAsRead(id);
@@ -33,7 +32,7 @@ export const markNotificationRead = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
-export const markAllNotificationsRead = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const markAllNotificationsRead = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user._id;
     const role = req.user.role;
@@ -45,7 +44,7 @@ export const markAllNotificationsRead = async (req: AuthenticatedRequest, res: R
   }
 };
 
-export const deleteNotification = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const deleteNotification = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const success = await notificationService.deleteNotification(id);

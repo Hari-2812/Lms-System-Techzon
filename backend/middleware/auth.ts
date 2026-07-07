@@ -1,11 +1,8 @@
 import {
+ Request,
  Response,
  NextFunction
 } from "express";
-
-import {
- AuthenticatedRequest
-} from "../types/auth";
 
 import { verifyAccessToken } from '../utils/token';
 import User from '../models/User';
@@ -14,7 +11,7 @@ import LearningPlan from '../models/LearningPlan';
 import logger from '../config/logger';
 
 export const protect = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -56,7 +53,7 @@ export const protect = async (
 
 // RBAC Roles verification middleware
 export const authorize = (...roles: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
       res.status(403).json({
         success: false,
@@ -70,7 +67,7 @@ export const authorize = (...roles: string[]) => {
 
 // Dynamic feature verification based on subscription plan
 export const checkPlanFeature = (featureName: string) => {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const user = req.user;
     if (!user) {
       res.status(401).json({ success: false, message: 'Not authenticated' });
