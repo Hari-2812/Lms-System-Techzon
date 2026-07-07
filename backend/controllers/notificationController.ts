@@ -1,5 +1,8 @@
-import { Response } from 'express';
-import { AuthenticatedRequest } from '../types/auth';
+import { Response } from "express";
+
+import {
+ AuthenticatedRequest
+} from "../types/auth";
 import * as notificationService from '../services/notificationService';
 import logger from '../config/logger';
 

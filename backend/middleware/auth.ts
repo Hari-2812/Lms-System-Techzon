@@ -1,11 +1,17 @@
-import { Request, Response, NextFunction } from 'express';
+import {
+ Response,
+ NextFunction
+} from "express";
+
+import {
+ AuthenticatedRequest
+} from "../types/auth";
+
 import { verifyAccessToken } from '../utils/token';
 import User from '../models/User';
 import Enrollment from '../models/Enrollment';
 import LearningPlan from '../models/LearningPlan';
 import logger from '../config/logger';
-
-import { AuthenticatedRequest } from "../types/auth";
 
 export const protect = async (
   req: AuthenticatedRequest,
