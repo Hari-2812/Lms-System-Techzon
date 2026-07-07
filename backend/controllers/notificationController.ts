@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthenticatedRequest } from '../types/auth';
 import * as notificationService from '../services/notificationService';
 import logger from '../config/logger';
 
@@ -7,7 +7,7 @@ export const getMyNotifications = async (req: AuthenticatedRequest, res: Respons
   try {
     const userId = req.user._id;
     const role = req.user.role;
-    const list = await notificationService.getUserNotifications(userId, role);
+    const list = await notificationService.getUserNotifications(userId, role as any);
     res.status(200).json({ success: true, data: list });
   } catch (error: any) {
     logger.error('Error fetching notifications:', error);
@@ -34,7 +34,7 @@ export const markAllNotificationsRead = async (req: AuthenticatedRequest, res: R
   try {
     const userId = req.user._id;
     const role = req.user.role;
-    const count = await notificationService.markAllAsRead(userId, role);
+    const count = await notificationService.markAllAsRead(userId, role as any);
     res.status(200).json({ success: true, message: `${count} notifications marked as read` });
   } catch (error: any) {
     logger.error('Error marking all notifications read:', error);

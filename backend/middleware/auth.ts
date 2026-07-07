@@ -5,9 +5,7 @@ import Enrollment from '../models/Enrollment';
 import LearningPlan from '../models/LearningPlan';
 import logger from '../config/logger';
 
-export interface AuthenticatedRequest extends Request {
-  user?: any;
-}
+import { AuthenticatedRequest } from "../types/auth";
 
 export const protect = async (
   req: AuthenticatedRequest,
@@ -42,7 +40,7 @@ export const protect = async (
       return;
     }
 
-    req.user = user;
+    req.user = user as any;
     next();
   } catch (error) {
     logger.error('JWT Verification error:', error);
