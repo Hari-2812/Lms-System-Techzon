@@ -14,14 +14,7 @@
   "incremental": false
  },
  "include": [
-  "server.ts",
-  "config/**/*.ts",
-  "controllers/**/*.ts",
-  "middleware/**/*.ts",
-  "models/**/*.ts",
-  "routes/**/*.ts",
-  "services/**/*.ts",
-  "utils/**/*.ts"
+  "**/*.ts"
  ],
  "exclude": [
   "node_modules",
