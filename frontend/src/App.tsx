@@ -36,9 +36,17 @@ const AppContent: React.FC = () => {
       }
     } catch (err: any) {
       console.error('LMS backend offline verification failed:', err);
-      if (err.response && err.response.status === 429) {
-        setIsBackendOnline('rate-limited');
+      if (err.response) {
+        if (err.response.status === 429) {
+          setIsBackendOnline('rate-limited');
+        } else if (err.response.status >= 500) {
+          setIsBackendOnline(false);
+        } else {
+          // If we got a 4xx response (like 401, 404), the backend is online!
+          setIsBackendOnline(true);
+        }
       } else {
+        // Network error, backend is truly offline
         setIsBackendOnline(false);
       }
     }
