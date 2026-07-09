@@ -268,13 +268,13 @@ export const updatePassword = async (req: any, res: Response): Promise<void> => 
   }
 
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("+password");
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found' });
       return;
     }
 
-    const isMatch = await user.comparePassword(currentPassword);
+    const isMatch = await user.matchPassword(currentPassword);
     if (!isMatch) {
       res.status(400).json({ success: false, message: 'Incorrect current password' });
       return;
