@@ -10,6 +10,7 @@
     "seed": "ts-node seed.ts",
     "seed:admin": "tsx scripts/createAdmin.ts",
     "reset-admin": "tsx scripts/resetAdminPassword.ts",
+    "test-email": "tsx scripts/testEmail.ts",
     "import:videos": "ts-node scripts/importCloudinaryVideos.ts",
     "test": "echo \"Error: no test specified\" && exit 0"
   },

@@ -1,146 +1,33 @@
 import nodemailer from "nodemailer";
-import SMTPTransport from "nodemailer/lib/smtp-transport";
-import logger from "../config/logger";
 import dns from "dns";
+import logger from "../config/logger";
 
-
-// FORCE IPv4 ON RENDER
 dns.setDefaultResultOrder("ipv4first");
 
-
-// ENV
-const host = process.env.SMTP_HOST || "smtp.gmail.com";
-const port = Number(process.env.SMTP_PORT || 587);
-
-const user = process.env.SMTP_USER;
-const pass = process.env.SMTP_PASS;
-
-
-if (!user || !pass) {
-
-  throw new Error(
-    "SMTP email credentials are not configured."
-  );
-
-}
-
-
-console.log(
-  "SMTP HOST:",
-  host
-);
-
-
-console.log(
-  "SMTP USER:",
-  user
-);
-
-
-
-
-// SMTP CONFIG
-
-const smtpOptions: SMTPTransport.Options = {
-
-
-  host,
-
-
-  port,
-
-
-  // Gmail 587 STARTTLS
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
   secure: false,
-
-
   requireTLS: true,
-
-
   auth: {
-
-    user,
-
-    pass
-
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
   },
-
-
+  connectionTimeout: 120000,
+  greetingTimeout: 60000,
+  socketTimeout: 120000,
   tls: {
-
-    rejectUnauthorized: false,
-
-    servername: "smtp.gmail.com"
-
-  },
-
-
-  connectionTimeout: 60000,
-
-
-  greetingTimeout: 30000,
-
-
-  socketTimeout: 60000
-
-
-};
-
-
-
-
-
-const transporter =
-nodemailer.createTransport(
-  smtpOptions
-);
-
-
-
-
-
-// VERIFY SMTP
-
-transporter.verify()
-
-.then(()=>{
-
-
- logger.info(
-   "SMTP CONNECTED SUCCESSFULLY"
- );
-
-
-})
-
-
-.catch((error:any)=>{
-
-
- logger.error(
-  "SMTP CONNECTION FAILED",
-  {
-
-    message:error.message,
-
-    code:error.code,
-
-    response:error.response
-
+    rejectUnauthorized: false
   }
- );
-
-
 });
 
-
-
-
-
-
-
-
-// SEND EMAIL FUNCTION
+transporter.verify()
+  .then(() => {
+    console.log("✅ SMTP LOGIN SUCCESS - EMAIL READY");
+  })
+  .catch((err) => {
+    console.error("❌ SMTP LOGIN FAILED", err);
+  });// SEND EMAIL FUNCTION
 
 export const sendEmail = async(
 
@@ -174,7 +61,7 @@ await transporter.sendMail({
 
  from:
 
- `"${process.env.APP_NAME || "Techzon LMS"}" <${user}>`,
+ `"${process.env.APP_NAME || "Techzon LMS"}" <${process.env.SMTP_USER}>`,
 
 
 
@@ -215,32 +102,18 @@ logger.info(
 
 
 
-}
+} catch(error:any){
 
-
-catch(error:any){
-
-
-
-logger.error(
- "SMTP SEND FAILED",
- {
-
+ logger.error("SMTP FULL ERROR",{
   message:error.message,
-
   code:error.code,
+  command:error.command,
+  response:error.response,
+  responseCode:error.responseCode,
+  stack:error.stack
+ });
 
-  response:error.response
-
- }
-);
-
-
-
-throw error;
-
-
-
+ throw error;
 }
 
 
