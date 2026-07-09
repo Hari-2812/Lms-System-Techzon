@@ -1,35 +1,60 @@
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 import logger from "../config/logger";
+import dns from "dns";
 
 
+// FORCE IPv4 ON RENDER
+dns.setDefaultResultOrder("ipv4first");
+
+
+// ENV
 const host = process.env.SMTP_HOST || "smtp.gmail.com";
-const port = Number(process.env.SMTP_PORT || 465);
-const secure = process.env.SMTP_SECURE === "true";
+const port = Number(process.env.SMTP_PORT || 587);
 
 const user = process.env.SMTP_USER;
 const pass = process.env.SMTP_PASS;
 
 
 if (!user || !pass) {
+
   throw new Error(
     "SMTP email credentials are not configured."
   );
+
 }
 
 
-console.log("SMTP HOST:", host);
-console.log("SMTP USER:", user);
+console.log(
+  "SMTP HOST:",
+  host
+);
 
 
+console.log(
+  "SMTP USER:",
+  user
+);
+
+
+
+
+// SMTP CONFIG
 
 const smtpOptions: SMTPTransport.Options = {
 
+
   host,
+
 
   port,
 
-  secure,
+
+  // Gmail 587 STARTTLS
+  secure: false,
+
+
+  requireTLS: true,
 
 
   auth: {
@@ -45,7 +70,6 @@ const smtpOptions: SMTPTransport.Options = {
 
     rejectUnauthorized: false,
 
-    // force IPv4
     servername: "smtp.gmail.com"
 
   },
@@ -53,23 +77,29 @@ const smtpOptions: SMTPTransport.Options = {
 
   connectionTimeout: 60000,
 
+
   greetingTimeout: 30000,
 
+
   socketTimeout: 60000
+
 
 };
 
 
 
+
+
 const transporter =
-  nodemailer.createTransport(
-    smtpOptions
-  );
+nodemailer.createTransport(
+  smtpOptions
+);
 
 
 
 
-// VERIFY SMTP CONNECTION
+
+// VERIFY SMTP
 
 transporter.verify()
 
@@ -110,9 +140,11 @@ transporter.verify()
 
 
 
-// SEND EMAIL
+// SEND EMAIL FUNCTION
 
-export const sendEmail = async(options:{
+export const sendEmail = async(
+
+options:{
 
  email:string;
 
@@ -122,7 +154,9 @@ export const sendEmail = async(options:{
 
  attachments?:any[];
 
-}):Promise<void>=>{
+}
+
+):Promise<void>=>{
 
 
 try{
@@ -133,36 +167,50 @@ console.log(
 );
 
 
+
 const info =
 await transporter.sendMail({
 
 
  from:
+
  `"${process.env.APP_NAME || "Techzon LMS"}" <${user}>`,
 
 
+
  to:
+
  options.email,
 
 
+
  subject:
+
  options.subject,
 
 
+
  html:
+
  options.html,
 
 
+
  attachments:
+
  options.attachments
+
 
 
 });
 
 
 
+
 logger.info(
+
  `EMAIL SENT SUCCESSFULLY ${info.messageId}`
+
 );
 
 
@@ -171,6 +219,7 @@ logger.info(
 
 
 catch(error:any){
+
 
 
 logger.error(
@@ -187,10 +236,13 @@ logger.error(
 );
 
 
+
 throw error;
 
 
+
 }
+
 
 
 };
@@ -203,18 +255,29 @@ throw error;
 
 
 
+
+
+// STUDENT WELCOME EMAIL
+
+
 export const sendWelcomeEmail = async(
+
 
  email:string,
 
+
  name:string,
 
+
  tempPassword?:string,
+
 
  otpCode?:string
 
 
+
 ):Promise<void>=>{
+
 
 
 const loginUrl =
@@ -222,61 +285,138 @@ const loginUrl =
 
 
 
-const html = `
-
-<div style="font-family:Arial;padding:20px">
-
-<h2>Welcome to Techzon LMS</h2>
-
-<p>Hello ${name}</p>
 
 
-<p>Your account has been approved.</p>
+const passwordBlock =
 
+tempPassword ?
 
-${
-tempPassword
-?
 `
-<p>Your temporary password:</p>
 
-<h2>${tempPassword}</h2>
-`
-:
-""
-}
+<p>Your LMS Temporary Password:</p>
 
-
-
-${
-otpCode
-?
-`
-<p>Your OTP:</p>
-
-<h2>${otpCode}</h2>
-`
-:
-""
-}
-
-
-
-<a href="${loginUrl}">
-Login to LMS
-</a>
-
-
-<br/>
+<h2 style="color:#F57C20">
+${tempPassword}
+</h2>
 
 <p>
-Techzon Team
+Please change your password after login.
 </p>
+
+`
+
+:
+
+"";
+
+
+
+
+
+const otpBlock =
+
+otpCode ?
+
+`
+
+<p>Your Verification OTP:</p>
+
+<h2>
+${otpCode}
+</h2>
+
+`
+
+:
+
+"";
+
+
+
+
+
+
+const html = `
+
+
+<div style="
+font-family:Arial;
+max-width:600px;
+margin:auto;
+padding:20px;
+border:1px solid #ddd;
+border-radius:10px;
+">
+
+
+<h2 style="
+color:#241252;
+text-align:center;
+">
+
+Welcome to Techzon LMS
+
+</h2>
+
+
+
+<p>Hello ${name},</p>
+
+
+<p>
+Your student account has been approved successfully.
+</p>
+
+
+${passwordBlock}
+
+
+${otpBlock}
+
+
+
+<div style="text-align:center;margin:30px">
+
+
+<a href="${loginUrl}"
+
+style="
+background:#F57C20;
+color:white;
+padding:12px 25px;
+text-decoration:none;
+border-radius:6px;
+"
+
+>
+
+Login LMS
+
+</a>
 
 
 </div>
 
+
+<p>
+
+Regards,
+
+<br/>
+
+Techzon Team
+
+</p>
+
+
+
+</div>
+
+
 `;
+
+
+
 
 
 
@@ -284,12 +424,17 @@ await sendEmail({
 
  email,
 
+
  subject:
+
  "Welcome to Techzon LMS - Account Activated",
+
 
  html
 
+
 });
+
 
 
 };
@@ -301,38 +446,88 @@ await sendEmail({
 
 
 
+
+
+// OTP EMAIL
+
+
 export const sendOTPEmail = async(
+
 
  email:string,
 
+
  code:string
+
 
 
 ):Promise<void>=>{
 
 
+
 const html = `
 
-<h2>Techzon LMS Verification</h2>
 
-<p>Your OTP:</p>
+<div style="font-family:Arial">
 
-<h1>${code}</h1>
+
+<h2>
+
+Techzon LMS Verification
+
+</h2>
+
+
+
+<p>
+
+Your OTP Code:
+
+</p>
+
+
+
+<h1>
+
+${code}
+
+</h1>
+
+
+
+<p>
+
+This code expires in 10 minutes.
+
+</p>
+
+
+
+</div>
+
 
 `;
 
 
 
+
+
 await sendEmail({
+
 
  email,
 
+
  subject:
+
  "Techzon LMS OTP Verification",
+
 
  html
 
+
 });
+
 
 
 };
