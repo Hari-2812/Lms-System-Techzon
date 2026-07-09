@@ -64,14 +64,9 @@ export const loginWithPassword = async (req: Request, res: Response): Promise<vo
   }
 
   try {
-    console.log("LOGIN EMAIL:", email);
-
     const user = await User.findOne({
       email: email.toLowerCase()
     }).select("+password");
-
-    console.log("USER FOUND:", user);
-    console.log("PASSWORD HASH:", user?.password);
 
     if (!user) {
       res.status(401).json({ success: false, message: 'User not found' });
