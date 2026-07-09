@@ -2,161 +2,163 @@ import nodemailer from "nodemailer";
 import logger from "../config/logger";
 
 
-const host = process.env.SMTP_HOST;
-const port = Number(process.env.SMTP_PORT || 465);
 const user = process.env.SMTP_USER;
 const pass = process.env.SMTP_PASS;
 
 
-if (!host || !user || !pass) {
+if (!user || !pass) {
   throw new Error(
     "SMTP email credentials are not configured."
   );
 }
 
 
-console.log("SMTP HOST:", host);
-console.log("SMTP USER:", user);
-
+console.log(
+  "SMTP USER:",
+  user
+);
 
 
 const transporter = nodemailer.createTransport({
 
-  host,
-
-  port,
-
-  secure: true,
+  service: "gmail",
 
   auth: {
-
     user,
-
     pass
-
   },
 
+  pool: true,
 
-  connectionTimeout: 60000,
+  maxConnections: 1,
 
-  greetingTimeout: 30000,
+  maxMessages: 5,
 
-  socketTimeout: 60000,
+  connectionTimeout: 120000,
 
+  greetingTimeout: 60000,
 
-  tls: {
-
-    rejectUnauthorized:false
-
-  }
+  socketTimeout: 120000,
 
 });
 
 
 
-// VERIFY SMTP
+// SMTP TEST
 
-transporter.verify()
-.then(()=>{
+transporter.verify((error: any) => {
 
- logger.info(
-  "SMTP Connected Successfully"
- );
+ if (error) {
 
-})
-.catch((error)=>{
+  logger.error(
+   "SMTP CONNECTION FAILED",
+   {
+    message: error.message,
+    code: error.code,
+    response: error.response
+   }
+  );
 
- logger.error(
-  "SMTP verification failed:",
-  {
-   message:error.message,
-   code:error.code,
-   response:error.response
-  }
- );
+ }
+
+ else {
+
+  logger.info(
+   "SMTP CONNECTED SUCCESSFULLY"
+  );
+
+ }
 
 });
 
 
 
 
+// SEND EMAIL FUNCTION
 
 export const sendEmail = async(options:{
  email:string;
  subject:string;
  html:string;
  attachments?:any[];
+
 }):Promise<void>=>{
 
 
- const mailOptions={
-
-  from:
-  `"${process.env.APP_NAME || "Techzon LMS"}" <${process.env.SMTP_USER}>`,
+try{
 
 
-  to:
-  options.email,
+const info =
+await transporter.sendMail({
 
 
-  subject:
-  options.subject,
+ from:
+ `"${process.env.APP_NAME || "Techzon LMS"}" <${user}>`,
 
 
-  html:
-  options.html,
+ to:
+ options.email,
 
 
-  attachments:
-  options.attachments
-
- };
+ subject:
+ options.subject,
 
 
- try{
+ html:
+ options.html,
 
 
-  const info =
-  await transporter.sendMail(
-    mailOptions
-  );
+ attachments:
+ options.attachments
 
 
-  logger.info(
-   `Email sent successfully ${info.messageId}`
-  );
+});
 
 
+logger.info(
+ `Email sent successfully: ${info.messageId}`
+);
+
+
+}
+
+
+catch(error:any){
+
+
+logger.error(
+ "EMAIL SEND FAILED",
+ {
+  message:error.message,
+  code:error.code,
+  response:error.response
  }
- catch(error:any){
+);
 
 
-  logger.error(
-   "SMTP SEND FAILED",
-   {
-    message:error.message,
-    code:error.code,
-    response:error.response
-   }
-  );
+throw error;
 
 
-  throw error;
+}
 
-
- }
 
 };
 
 
 
 
+// WELCOME EMAIL
 
 export const sendWelcomeEmail = async(
+
  email:string,
+
  name:string,
+
  tempPassword?:string,
+
  otpCode?:string
+
 
 ):Promise<void>=>{
 
@@ -167,46 +169,53 @@ const loginUrl =
 
 
 const passwordSection =
-tempPassword ?
+tempPassword
+?
 
 `
-<p>Your LMS login password:</p>
+
+<p>Your LMS Login Password:</p>
 
 <h2>${tempPassword}</h2>
 
-<p>Please change after login.</p>
+<p>Please change your password after login.</p>
 
 `
+
 :"";
+
 
 
 
 const otpSection =
-otpCode ?
+otpCode
+?
 
 `
-<p>Your OTP:</p>
+
+<p>Your Verification OTP:</p>
 
 <h2>${otpCode}</h2>
 
 `
+
 :"";
 
 
 
-const html =
 
-`
+const html = `
+
 
 <div style="
 font-family:Arial;
 padding:20px;
-border-radius:10px;
 border:1px solid #ddd;
+border-radius:10px;
 ">
 
 
-<h2 style="color:#241252;">
+<h2 style="color:#241252">
 Welcome to Techzon LMS
 </h2>
 
@@ -215,7 +224,7 @@ Welcome to Techzon LMS
 
 
 <p>
-Your enrollment has been approved.
+Your student account has been approved successfully.
 </p>
 
 
@@ -227,20 +236,22 @@ ${otpSection}
 
 
 <a href="${loginUrl}"
+
 style="
 background:#F57C20;
-color:white;
 padding:12px 25px;
+color:white;
 text-decoration:none;
 border-radius:5px;
 ">
 
-Login to LMS
+Login LMS
 
 </a>
 
 
 <br/><br/>
+
 
 <p>
 Regards,<br/>
@@ -263,31 +274,44 @@ await sendEmail({
 
  html
 
+
 });
+
 
 };
 
 
 
 
+// OTP EMAIL
 
 
 export const sendOTPEmail = async(
- email:string,
- code:string
+
+email:string,
+
+code:string
+
 
 ):Promise<void>=>{
 
 
 const html = `
 
+
 <h2>Techzon LMS Verification</h2>
 
-<p>Your OTP Code:</p>
+
+<p>Your OTP code:</p>
+
 
 <h1>${code}</h1>
 
-<p>This code expires in 10 minutes.</p>
+
+<p>
+This OTP expires in 10 minutes.
+</p>
+
 
 `;
 
@@ -302,6 +326,8 @@ await sendEmail({
 
  html
 
+
 });
+
 
 };
