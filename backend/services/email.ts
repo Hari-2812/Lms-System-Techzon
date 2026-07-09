@@ -1,8 +1,11 @@
 import nodemailer from "nodemailer";
+import SMTPTransport from "nodemailer/lib/smtp-transport";
 import dns from "dns";
+import net from "net";
 import logger from "../config/logger";
 
-dns.setDefaultResultOrder("ipv4first");
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -10,23 +13,45 @@ const transporter = nodemailer.createTransport({
   secure: false,
   requireTLS: true,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    user: SMTP_USER,
+    pass: SMTP_PASS
+  },
+  tls: {
+    servername: "smtp.gmail.com",
+    rejectUnauthorized: false
   },
   connectionTimeout: 120000,
   greetingTimeout: 60000,
   socketTimeout: 120000,
-  tls: {
-    rejectUnauthorized: false
+  getSocket: (options: any, callback: any) => {
+    dns.lookup("smtp.gmail.com", { family: 4 }, (err, ipv4Address) => {
+      if (err) {
+        return callback(err);
+      }
+      const socket = net.connect({
+        host: ipv4Address,
+        port: 587,
+        family: 4
+      });
+      callback(null, { connection: socket });
+    });
   }
 });
 
 transporter.verify()
   .then(() => {
-    console.log("✅ SMTP LOGIN SUCCESS - EMAIL READY");
+    console.log("✅ SMTP CONNECTED SUCCESSFULLY");
   })
-  .catch((err) => {
-    console.error("❌ SMTP LOGIN FAILED", err);
+  .catch((err: any) => {
+    console.error("❌ SMTP FAILED");
+    console.error({
+      message: err.message,
+      code: err.code,
+      command: err.command,
+      response: err.response,
+      responseCode: err.responseCode,
+      stack: err.stack
+    });
   });// SEND EMAIL FUNCTION
 
 export const sendEmail = async(
