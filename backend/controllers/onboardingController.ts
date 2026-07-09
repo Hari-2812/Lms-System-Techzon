@@ -358,11 +358,8 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
           tempPassword,
           undefined
         );
-        emailSent = Array.isArray(emailInfo.accepted) && emailInfo.accepted.length > 0;
-        if (emailSent) {
-          console.log('Email Message ID:', emailInfo.messageId);
-          console.log('Email Delivered', { accepted: emailInfo.accepted, rejected: emailInfo.rejected });
-        }
+        emailSent = true;
+        console.log('Email Delivered');
       } catch (emailError: any) {
         emailSent = false;
         logger.error('Welcome email sending failed during onboarding approval:', {
@@ -396,9 +393,7 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
           metadata: {
             onboardingId: request._id,
             email: request.email,
-            messageId: emailInfo?.messageId,
-            accepted: emailInfo?.accepted,
-            rejected: emailInfo?.rejected,
+            messageId: emailInfo?.id,
           },
         });
       } else {
@@ -410,7 +405,7 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
           metadata: {
             onboardingId: request._id,
             email: request.email,
-            error: emailInfo?.response || 'SMTP accepted list empty',
+            error: emailInfo?.message || 'Email delivery failed',
           },
         });
       }
@@ -478,7 +473,7 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
         tempPassword,
         undefined
       );
-      emailSent = Array.isArray(emailInfo.accepted) && emailInfo.accepted.length > 0;
+      emailSent = true;
     } catch (emailError: any) {
       emailSent = false;
       logger.error('Welcome email sending failed during resend credentials:', {
@@ -498,9 +493,7 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
         metadata: {
           userId: user._id,
           email: user.email,
-          messageId: emailInfo?.messageId,
-          accepted: emailInfo?.accepted,
-          rejected: emailInfo?.rejected,
+          messageId: emailInfo?.id,
         },
       });
     } else {
@@ -512,7 +505,7 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
         metadata: {
           userId: user._id,
           email: user.email,
-          error: emailInfo?.response || 'SMTP accepted list empty',
+          error: emailInfo?.message || 'Email delivery failed',
         },
       });
     }
