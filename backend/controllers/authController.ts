@@ -88,7 +88,7 @@ export const loginWithPassword = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const isMatch = await user.matchPassword(password);
+    const isMatch = await user.comparePassword(password);
     if (process.env.NODE_ENV === 'development') {
       console.log('Compare Result:', isMatch);
     }
@@ -274,7 +274,7 @@ export const updatePassword = async (req: any, res: Response): Promise<void> => 
       return;
     }
 
-    const isMatch = await user.matchPassword(currentPassword);
+    const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       res.status(400).json({ success: false, message: 'Incorrect current password' });
       return;

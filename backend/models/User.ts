@@ -19,7 +19,7 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   needsPasswordChange?: boolean;
-  matchPassword(password: string): Promise<boolean>;
+  comparePassword(enteredPassword: string): Promise<boolean>;
 }
 
 const UserSchema: Schema<IUser> = new Schema(
@@ -62,13 +62,14 @@ UserSchema.pre('save', async function (next) {
     return next();
   }
   if (this.password) {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    this.password = await bcrypt.hash(this.password, 10);
   }
   next();
 });
 
-UserSchema.methods.matchPassword = async function (enteredPassword: string): Promise<boolean> {
+UserSchema.methods.comparePassword = async function(
+  enteredPassword: string
+): Promise<boolean> {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
