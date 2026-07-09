@@ -352,18 +352,12 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
         console.log('Before Email Password:', tempPassword);
       }
       try {
-        emailInfo = await sendWelcomeEmail({
-          studentName: request.fullName,
-          email: request.email.toLowerCase(),
-          passwordTemp: tempPassword,
-          courseTitle: mainCourse ? mainCourse.title : 'General Course',
-          planName: plan.name,
-          batchName: finalBatch,
-          mentorName: mainMentor ? mainMentor.name : 'Not Assigned',
-          durationMonths: activeDuration,
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: expiryDate.toISOString().split('T')[0],
-        });
+        emailInfo = await sendWelcomeEmail(
+          request.email.toLowerCase(),
+          request.fullName,
+          tempPassword,
+          undefined
+        );
         emailSent = Array.isArray(emailInfo.accepted) && emailInfo.accepted.length > 0;
         if (emailSent) {
           console.log('Email Message ID:', emailInfo.messageId);
@@ -478,18 +472,12 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
     let emailSent = false;
     try {
       console.log('Email Sending Started');
-      emailInfo = await sendWelcomeEmail({
-        studentName: user.name,
-        email: user.email,
-        passwordTemp: tempPassword,
-        courseTitle,
-        planName,
-        batchName,
-        mentorName,
-        durationMonths,
-        startDate: startDateStr,
-        endDate: endDateStr,
-      });
+      emailInfo = await sendWelcomeEmail(
+        user.email,
+        user.name,
+        tempPassword,
+        undefined
+      );
       emailSent = Array.isArray(emailInfo.accepted) && emailInfo.accepted.length > 0;
     } catch (emailError: any) {
       emailSent = false;
