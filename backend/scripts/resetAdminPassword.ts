@@ -5,23 +5,23 @@ import User from "../models/User";
 
 dotenv.config();
 
-async function reset() {
+async function reset(){
   await mongoose.connect(process.env.MONGODB_URI!);
 
-  await User.deleteOne({ email: "admin@techzonwide.com" });
-
-  const admin = new User({
-    name: "Techzon Admin",
-    email: "admin@techzonwide.com",
-    password: "Admin@123",
-    role: "SuperAdmin",
-    status: "active",
-    isEmailVerified: true
+  await User.deleteOne({
+    email:"admin@techzonwide.com"
   });
 
-  await admin.save();
+  await User.create({
+    name:"Techzon Admin",
+    email:"admin@techzonwide.com",
+    password:"Admin@123",
+    role:"SuperAdmin",
+    status:"active",
+    isEmailVerified:true
+  });
 
-  console.log("Admin password reset:", admin.email);
+  console.log("ADMIN CREATED");
 
   process.exit();
 }
