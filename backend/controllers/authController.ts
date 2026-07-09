@@ -88,7 +88,7 @@ export const loginWithPassword = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await user.matchPassword(password);
     if (process.env.NODE_ENV === 'development') {
       console.log('Compare Result:', isMatch);
     }

@@ -8,20 +8,18 @@ dotenv.config();
 async function reset() {
   await mongoose.connect(process.env.MONGODB_URI!);
 
-  const hashedPassword = await bcrypt.hash("Admin@123", 10);
+  await User.deleteOne({ email: "admin@techzonwide.com" });
 
-  const admin = await User.findOneAndUpdate(
-    { email: "admin@techzonwide.com" },
-    {
-      $set: {
-        password: hashedPassword,
-        role: "SuperAdmin",
-        status: "active",
-        isEmailVerified: true
-      }
-    },
-    { new: true, upsert: true }
-  );
+  const admin = new User({
+    name: "Techzon Admin",
+    email: "admin@techzonwide.com",
+    password: "Admin@123",
+    role: "SuperAdmin",
+    status: "active",
+    isEmailVerified: true
+  });
+
+  await admin.save();
 
   console.log("Admin password reset:", admin.email);
 
