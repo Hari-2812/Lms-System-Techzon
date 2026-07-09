@@ -8,7 +8,7 @@
     "build": "tsc --skipLibCheck",
     "start": "node dist/server.js",
     "seed": "ts-node seed.ts",
-    "seed:admin": "ts-node seed-admin.ts",
+    "seed:admin": "tsx scripts/createAdmin.ts",
     "import:videos": "ts-node scripts/importCloudinaryVideos.ts",
     "test": "echo \"Error: no test specified\" && exit 0"
   },

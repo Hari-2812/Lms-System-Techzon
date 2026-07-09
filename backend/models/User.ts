@@ -26,7 +26,11 @@ const UserSchema: Schema<IUser> = new Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String },
+    password: {
+      type: String,
+      required: true,
+      select: false
+    },
     role: {
       type: String,
       enum: ['SuperAdmin', 'Admin', 'Mentor', 'Student', 'Support'],
@@ -63,8 +67,7 @@ UserSchema.pre('save', async function (next) {
 });
 
 UserSchema.methods.comparePassword = async function (password: string): Promise<boolean> {
-  if (!this.password) return false;
-  return bcrypt.compare(password, this.password);
+  return await bcrypt.compare(password, this.password);
 };
 
 export default mongoose.model<IUser>('User', UserSchema);

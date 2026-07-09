@@ -129,10 +129,11 @@ const Login: React.FC = () => {
         userAgent: navigator.userAgent,
       });
 
-      if (rememberMe) {
-        localStorage.setItem('remember_email', email);
-      } else {
-        localStorage.removeItem('remember_email');
+      const rememberEmail = rememberMe ? email : null;
+      localStorage.clear();
+      
+      if (rememberEmail) {
+        localStorage.setItem('remember_email', rememberEmail);
       }
 
       dispatch(setCredentials({
