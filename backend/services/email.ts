@@ -1,8 +1,19 @@
 import { BrevoClient } from '@getbrevo/brevo';
 import logger from "../config/logger";
 
+if (!process.env.BREVO_API_KEY) {
+  throw new Error("CRITICAL: BREVO_API_KEY is missing during startup!");
+}
+
+const EMAIL_FROM_NAME = process.env.BREVO_SENDER_NAME || "Tech";
+const EMAIL_FROM_EMAIL = process.env.BREVO_SENDER_EMAIL || "v.hari2812@gmail.com";
+
+console.log("Brevo Sender:");
+console.log(EMAIL_FROM_NAME);
+console.log(EMAIL_FROM_EMAIL);
+
 const brevo = new BrevoClient({
-  apiKey: process.env.BREVO_API_KEY as string || "fallback",
+  apiKey: process.env.BREVO_API_KEY as string,
 });
 
 export const sendEmail = async (options: {
@@ -12,18 +23,21 @@ export const sendEmail = async (options: {
   attachments?: any[];
 }) => {
   try {
-    const appName = process.env.APP_NAME || "Techzon LMS";
-    const fromAddress = "noreply@techzonwide.com"; // Set a generic noreply if not provided via options
+    logger.info(`Sending Email:\nRecipient: ${options.email}\nSubject: ${options.subject}\nSender Name: ${EMAIL_FROM_NAME}\nSender Email: ${EMAIL_FROM_EMAIL}`);
     
+    // In v6, brevo.transactionalEmails.sendTransacEmail expects the object directly
+    // but building the SendSmtpEmail object is also fine if imported, but typically 
+    // it's an object matching the schema. We'll pass it as an object directly.
     const result = await brevo.transactionalEmails.sendTransacEmail({
       subject: options.subject,
       htmlContent: options.html,
-      sender: { name: appName, email: fromAddress },
+      sender: { name: EMAIL_FROM_NAME, email: EMAIL_FROM_EMAIL },
       to: [{ email: options.email }],
       attachment: options.attachments,
     });
+    
+    logger.info(`Email Sent Successfully:\nMessage ID: ${result.messageId}\nRecipient: ${options.email}\nStatus: Delivered`);
 
-    logger.info(`EMAIL SENT SUCCESSFULLY | To: ${options.email} | Message ID: ${result.messageId}`);
     return { success: true, messageId: result.messageId };
   } catch (error: any) {
     logger.error("EMAIL SEND FAILED", {
