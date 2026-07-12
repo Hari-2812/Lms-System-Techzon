@@ -11,6 +11,8 @@ import {
   logoutFromAllDevices,
   getMe,
   getUsers,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/authController';
 import {
   getPlans,
@@ -102,6 +104,8 @@ const router = Router();
 router.post('/auth/send-otp', sendOTP);
 router.post('/auth/verify-otp', verifyOTPAndLogin);
 router.post('/auth/login', loginWithPassword);
+router.post('/auth/forgot-password', forgotPassword);
+router.post('/auth/reset-password', resetPassword);
 router.get('/auth/refresh', handleRefreshToken);
 router.post('/payments/webhook', razorpayWebhook);
 router.post('/payments/simulate-webhook', simulatePaymentWebhook);

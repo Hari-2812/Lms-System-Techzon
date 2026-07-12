@@ -23,6 +23,9 @@ export interface IUser extends Document {
   otp?: string;
   otpExpiresAt?: Date;
 
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
+
   devices: Array<{
     deviceId: string;
     userAgent: string;
@@ -130,8 +133,11 @@ new Schema(
 
     otp: String,
 
-
     otpExpiresAt: Date,
+
+    resetPasswordToken: String,
+
+    resetPasswordExpires: Date,
 
 
     devices: [

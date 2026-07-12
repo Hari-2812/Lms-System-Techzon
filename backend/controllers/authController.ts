@@ -3,7 +3,7 @@ import User from '../models/User';
 import OTP from '../models/OTP';
 import AuditLog from '../models/AuditLog';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/token';
-import { sendOTPEmail } from '../services/email';
+import { sendOTPEmail, sendPasswordResetEmail } from '../services/email';
 import crypto from 'crypto';
 import logger from '../config/logger';
 
@@ -324,6 +324,77 @@ export const logoutFromAllDevices = async (req: any, res: Response): Promise<voi
     res.status(200).json({ success: true, message: 'Logged out from all devices successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Logout from all devices failed' });
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ success: false, message: 'Email address is required' });
+    return;
+  }
+
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await user.save();
+
+    await sendPasswordResetEmail(user.email, resetToken);
+
+    await AuditLog.create({
+      userId: user._id,
+      action: 'FORGOT_PASSWORD',
+      details: 'Requested password reset email',
+    });
+
+    res.status(200).json({ success: true, message: 'Password reset email sent successfully' });
+  } catch (error) {
+    logger.error('Error in forgot password:', error);
+    res.status(500).json({ success: false, message: 'Failed to send password reset email' });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) {
+    res.status(400).json({ success: false, message: 'Token and new password are required' });
+    return;
+  }
+
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+      return;
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.needsPasswordChange = false;
+    await user.save();
+
+    await AuditLog.create({
+      userId: user._id,
+      action: 'RESET_PASSWORD',
+      details: 'Password was reset using email token',
+    });
+
+    res.status(200).json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    logger.error('Error resetting password:', error);
+    res.status(500).json({ success: false, message: 'Internal error resetting password' });
   }
 };
 

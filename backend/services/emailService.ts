@@ -1,5 +1,6 @@
 export {
  sendEmail,
  sendWelcomeEmail,
- sendOTPEmail
+ sendOTPEmail,
+ sendPasswordResetEmail
 } from "./email";
