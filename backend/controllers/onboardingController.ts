@@ -6,7 +6,7 @@ import Enrollment from '../models/Enrollment';
 import LearningPlan from '../models/LearningPlan';
 import Course from '../models/Course';
 import AuditLog from '../models/AuditLog';
-import { sendWelcomeEmail } from '../services/emailService';
+import { sendWelcomeEmail } from '../services/email';
 import { syncGoogleSheetsOnboardings } from '../services/googleSheets';
 import { createNotification } from '../services/notificationService';
 import logger from '../config/logger';

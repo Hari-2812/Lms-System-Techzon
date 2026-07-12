@@ -1,17 +1,8 @@
-import nodemailer from "nodemailer";
+import { BrevoClient } from '@getbrevo/brevo';
 import logger from "../config/logger";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 100,
+const brevo = new BrevoClient({
+  apiKey: process.env.BREVO_API_KEY as string || "fallback",
 });
 
 export const sendEmail = async (options: {
@@ -21,33 +12,28 @@ export const sendEmail = async (options: {
   attachments?: any[];
 }) => {
   try {
-    const fromAddress = process.env.SMTP_FROM || "Techzon LMS <noreply@techzonwide.com>";
+    const appName = process.env.APP_NAME || "Techzon LMS";
+    const fromAddress = "noreply@techzonwide.com"; // Set a generic noreply if not provided via options
     
-    // retry once if sending fails
-    let result;
-    try {
-       result = await transporter.sendMail({
-        from: fromAddress,
-        to: options.email,
-        subject: options.subject,
-        html: options.html,
-        attachments: options.attachments,
-      });
-    } catch (err) {
-      logger.warn("First email attempt failed, retrying once...", err);
-      result = await transporter.sendMail({
-        from: fromAddress,
-        to: options.email,
-        subject: options.subject,
-        html: options.html,
-        attachments: options.attachments,
-      });
-    }
+    const result = await brevo.transactionalEmails.sendTransacEmail({
+      subject: options.subject,
+      htmlContent: options.html,
+      sender: { name: appName, email: fromAddress },
+      to: [{ email: options.email }],
+      attachment: options.attachments,
+    });
 
     logger.info(`EMAIL SENT SUCCESSFULLY | To: ${options.email} | Message ID: ${result.messageId}`);
     return { success: true, messageId: result.messageId };
-  } catch (error) {
-    logger.error("EMAIL SEND FAILED", error);
+  } catch (error: any) {
+    logger.error("EMAIL SEND FAILED", {
+      message: error.message,
+      statusCode: error.statusCode || error.status,
+      body: error.body || error.response?.data,
+      recipient: options.email,
+      subject: options.subject,
+      stack: error.stack
+    });
     throw error;
   }
 };
