@@ -11,6 +11,7 @@ import rateLimit from 'express-rate-limit';
 import { initSocket } from './services/socketService';
 import { connectDB } from './config/db';
 import logger from './config/logger';
+import compression from 'compression';
 
 // Routing
 import apiRoutes from './routes/api';
@@ -82,6 +83,9 @@ app.use('/api/', (req, res, next) => {
   }
   return limiter(req, res, next);
 });
+
+// GZIP Compression Middleware
+app.use(compression());
 
 // JSON Body Parser & URL Encoding
 app.use(express.json({ limit: '10mb' }));

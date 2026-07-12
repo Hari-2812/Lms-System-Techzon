@@ -97,7 +97,7 @@ export const getCourses = async (req: any, res: Response): Promise<void> => {
   try {
     let courses;
     if (['SuperAdmin', 'Admin', 'Mentor', 'Support'].includes(req.user?.role)) {
-      courses = await Course.find().populate('mentors', 'name email');
+      courses = await Course.find().populate('mentors', 'name email').lean();
     } else {
       // Students only see courses they are actively enrolled in
       const enrollments = await Enrollment.find({
@@ -107,7 +107,7 @@ export const getCourses = async (req: any, res: Response): Promise<void> => {
       }).select('courseId');
 
       const enrolledCourseIds = enrollments.map((e) => e.courseId);
-      courses = await Course.find({ _id: { $in: enrolledCourseIds } }).populate('mentors', 'name email');
+      courses = await Course.find({ _id: { $in: enrolledCourseIds } }).populate('mentors', 'name email').lean();
     }
 
     res.status(200).json({ success: true, data: courses });
@@ -119,7 +119,7 @@ export const getCourses = async (req: any, res: Response): Promise<void> => {
 export const getCourseDetails = async (req: any, res: Response): Promise<void> => {
   const { id } = req.params;
   try {
-    const course = await Course.findById(id).populate('mentors', 'name email');
+    const course = await Course.findById(id).populate('mentors', 'name email').lean();
     if (!course) {
       res.status(404).json({ success: false, message: 'Course not found' });
       return;
@@ -140,8 +140,8 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
     }
 
     // Fetch modules & lessons
-    const modules = await Module.find({ courseId: course._id }).sort('order');
-    const lessons = await Lesson.find({ courseId: course._id }).sort('order');
+    const modules = await Module.find({ courseId: course._id }).sort('order').lean();
+    const lessons = await Lesson.find({ courseId: course._id }).sort('order').lean();
 
     let completedLessons: string[] = [];
     if (req.user?.role === 'Student') {
@@ -154,9 +154,9 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       }
     }
 
-    const modulesWithLessons = modules.map((mod) => ({
-      ...mod.toObject(),
-      lessons: lessons.filter((lesson) => lesson.moduleId.toString() === mod._id.toString()),
+    const modulesWithLessons = modules.map((mod: any) => ({
+      ...mod,
+      lessons: lessons.filter((lesson: any) => lesson.moduleId.toString() === mod._id.toString()),
     }));
 
     res.status(200).json({

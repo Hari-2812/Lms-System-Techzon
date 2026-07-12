@@ -1,38 +1,39 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
+import { Loader2 } from 'lucide-react';
 
-// Layout & Pages
+// Layout & Public Pages (Eager load critical components)
 import DashboardLayout from '../layouts/DashboardLayout';
 import Login from '../pages/Login';
 import VerifyCertificate from '../pages/VerifyCertificate';
-
-// Student
-import StudentDashboard from '../pages/StudentDashboard';
-import CourseDetails from '../pages/CourseDetails';
-import LiveClasses from '../pages/LiveClasses';
-import Certificates from '../pages/Certificates';
-import Tickets from '../pages/Tickets';
-
-// Admin
-import AdminOverview from '../pages/AdminOverview';
-import AdminCourses from '../pages/AdminCourses';
-import AdminPlans from '../pages/AdminPlans';
-import AdminStudents from '../pages/AdminStudents';
-import AdminSettings from '../pages/AdminSettings';
-import AdminOnboarding from '../pages/AdminOnboarding';
-import GoogleFormSync from '../pages/GoogleFormSync';
-import AdminNotifications from '../pages/AdminNotifications';
-
-// Onboarding student public page
-import Onboard from '../pages/Onboard';
-
-// Mentor
-import MentorCourses from '../pages/MentorCourses';
-import MentorSubmissions from '../pages/MentorSubmissions';
-
 import ChangePassword from '../pages/ChangePassword';
+
+// Lazy Loaded Components
+const StudentDashboard = React.lazy(() => import('../pages/StudentDashboard'));
+const CourseDetails = React.lazy(() => import('../pages/CourseDetails'));
+const LiveClasses = React.lazy(() => import('../pages/LiveClasses'));
+const Certificates = React.lazy(() => import('../pages/Certificates'));
+const Tickets = React.lazy(() => import('../pages/Tickets'));
+
+const AdminOverview = React.lazy(() => import('../pages/AdminOverview'));
+const AdminCourses = React.lazy(() => import('../pages/AdminCourses'));
+const AdminPlans = React.lazy(() => import('../pages/AdminPlans'));
+const AdminStudents = React.lazy(() => import('../pages/AdminStudents'));
+const AdminSettings = React.lazy(() => import('../pages/AdminSettings'));
+const AdminOnboarding = React.lazy(() => import('../pages/AdminOnboarding'));
+const GoogleFormSync = React.lazy(() => import('../pages/GoogleFormSync'));
+const AdminNotifications = React.lazy(() => import('../pages/AdminNotifications'));
+
+const MentorCourses = React.lazy(() => import('../pages/MentorCourses'));
+const MentorSubmissions = React.lazy(() => import('../pages/MentorSubmissions'));
+
+const SuspenseFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-[#070312]">
+    <Loader2 className="w-8 h-8 animate-spin text-accent" />
+  </div>
+);
 
 // Private Route Guard (Auth Check)
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -68,143 +69,158 @@ const DashboardRedirector: React.FC = () => {
   if (!user) return <Navigate to="/login" replace />;
 
   if (['Admin', 'SuperAdmin'].includes(user.role)) {
-    return <Navigate to="/admin/overview" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
   }
   if (user.role === 'Mentor') {
-    return <Navigate to="/mentor/courses" replace />;
+    return <Navigate to="/mentor/dashboard" replace />;
   }
-  return <StudentDashboard />;
+  return <Navigate to="/student/dashboard" replace />;
 };
 
 const AppRoutes: React.FC = () => {
   return (
-    <Routes>
-      {/* 1. PUBLIC PATHS */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/certificates/verify/:key" element={<VerifyCertificate />} />
+    <Suspense fallback={<SuspenseFallback />}>
+      <Routes>
+        {/* 1. PUBLIC PATHS */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/certificates/verify/:key" element={<VerifyCertificate />} />
 
-      {/* 2. PROTECTED PRIVATE ROUTES */}
-      <Route
-        path="/*"
-        element={
-          <PrivateRoute>
-            <DashboardLayout>
-              <Routes>
-                {/* Dashboards Base */}
-                <Route path="/dashboard" element={<DashboardRedirector />} />
-                <Route path="/change-password" element={<ChangePassword />} />
-                
-                {/* Course Details Details */}
-                <Route path="/courses/:id" element={<CourseDetails />} />
-                
-                {/* Shared calendar live list */}
-                <Route path="/live-classes" element={<LiveClasses />} />
-                
-                {/* Helpdesk Messaging */}
-                <Route path="/tickets" element={<Tickets />} />
+        {/* 2. PROTECTED PRIVATE ROUTES */}
+        <Route
+          path="/*"
+          element={
+            <PrivateRoute>
+              <DashboardLayout>
+                <Suspense fallback={<SuspenseFallback />}>
+                  <Routes>
+                    {/* Dashboards Base */}
+                    <Route path="/dashboard" element={<DashboardRedirector />} />
+                    <Route path="/change-password" element={<ChangePassword />} />
+                    
+                    {/* Student Dashboard explicitly */}
+                    <Route 
+                      path="/student/dashboard" 
+                      element={
+                        <RoleGuard allowedRoles={['Student']}>
+                          <StudentDashboard />
+                        </RoleGuard>
+                      } 
+                    />
 
-                {/* Students paths */}
-                <Route
-                  path="/certificates"
-                  element={
-                    <RoleGuard allowedRoles={['Student']}>
-                      <Certificates />
-                    </RoleGuard>
-                  }
-                />
+                    {/* Course Details Details */}
+                    <Route path="/courses/:id" element={<CourseDetails />} />
+                    
+                    {/* Shared calendar live list */}
+                    <Route path="/live-classes" element={<LiveClasses />} />
+                    
+                    {/* Helpdesk Messaging */}
+                    <Route path="/tickets" element={<Tickets />} />
 
-                {/* Mentor paths */}
-                <Route
-                  path="/mentor/courses"
-                  element={
-                    <RoleGuard allowedRoles={['Mentor']}>
-                      <MentorCourses />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/mentor/submissions"
-                  element={
-                    <RoleGuard allowedRoles={['Mentor', 'Admin', 'SuperAdmin']}>
-                      <MentorSubmissions />
-                    </RoleGuard>
-                  }
-                />
+                    {/* Students paths */}
+                    <Route
+                      path="/certificates"
+                      element={
+                        <RoleGuard allowedRoles={['Student']}>
+                          <Certificates />
+                        </RoleGuard>
+                      }
+                    />
 
-                {/* Admin paths */}
-                <Route
-                  path="/admin/overview"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <AdminOverview />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/admin/courses"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <AdminCourses />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/admin/plans"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <AdminPlans />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/admin/students"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <AdminStudents />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/admin/onboarding"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <AdminOnboarding />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/admin/settings"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <AdminSettings />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/admin/google-sync"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <GoogleFormSync />
-                    </RoleGuard>
-                  }
-                />
-                <Route
-                  path="/admin/notifications"
-                  element={
-                    <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
-                      <AdminNotifications />
-                    </RoleGuard>
-                  }
-                />
+                    {/* Mentor paths */}
+                    <Route
+                      path="/mentor/dashboard"
+                      element={
+                        <RoleGuard allowedRoles={['Mentor']}>
+                          <MentorCourses />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/mentor/submissions"
+                      element={
+                        <RoleGuard allowedRoles={['Mentor', 'Admin', 'SuperAdmin']}>
+                          <MentorSubmissions />
+                        </RoleGuard>
+                      }
+                    />
 
-                {/* Catch-all redirect to Dashboard */}
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </DashboardLayout>
-          </PrivateRoute>
-        }
-      />
-    </Routes>
+                    {/* Admin paths */}
+                    <Route
+                      path="/admin/dashboard"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminOverview />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/courses"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminCourses />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/plans"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminPlans />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/students"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminStudents />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/onboarding"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminOnboarding />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/settings"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminSettings />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/google-sync"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <GoogleFormSync />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/notifications"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminNotifications />
+                        </RoleGuard>
+                      }
+                    />
+
+                    {/* Catch-all redirect to Dashboard */}
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                  </Routes>
+                </Suspense>
+              </DashboardLayout>
+            </PrivateRoute>
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 };
 

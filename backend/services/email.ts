@@ -59,7 +59,7 @@ export const sendWelcomeEmail = async (
   otpCode?: string
 ): Promise<{ success: boolean; messageId: string }> => {
   const appName = process.env.APP_NAME || "Techzon LMS";
-  const loginUrl = `${process.env.FRONTEND_URL || "https://lms-system-techzon.vercel.app"}/login`;
+  const LOGIN_URL = `${process.env.FRONTEND_URL}/login`;
   const supportEmail = "support@techzonwide.com";
 
   const passwordBlock = tempPassword
@@ -87,7 +87,7 @@ export const sendWelcomeEmail = async (
   ${passwordBlock}
   ${otpBlock}
   <div style="text-align: center; margin: 35px 0;">
-    <a href="${loginUrl}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+    <a href="${LOGIN_URL}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
       Login to LMS
     </a>
   </div>
