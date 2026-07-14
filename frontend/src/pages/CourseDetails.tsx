@@ -22,7 +22,7 @@ interface Lesson {
   title: string;
   description?: string;
   videoUrl?: string;
-  videoId?: { secureUrl: string; duration: number };
+  videoId?: { secureUrl: string; duration: number; thumbnail: string };
   videoDuration?: number;
   notesUrl?: string;
   downloads?: Array<{ title: string; url: string }>;
@@ -270,6 +270,11 @@ const CourseDetails: React.FC = () => {
                           }`}
                         >
                           <span className="truncate pr-2">{les.title}</span>
+                          {les.videoId?.duration ? (
+                            <span className="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded mr-2">
+                              {Math.floor(les.videoId.duration / 60)}:{(Math.floor(les.videoId.duration % 60)).toString().padStart(2, '0')}
+                            </span>
+                          ) : null}
                           {isDone ? (
                             <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-green-500'}`} />
                           ) : (
@@ -295,6 +300,7 @@ const CourseDetails: React.FC = () => {
               {selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl ? (
                 <video
                   src={selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl}
+                  poster={selectedLesson?.videoId?.thumbnail}
                   controls
                   controlsList="nodownload"
                   className="w-full h-full object-contain"

@@ -65,14 +65,27 @@ const AdminCourses: React.FC = () => {
   };
 
   const handleSyncCloudinary = async () => {
-    if (!window.confirm('Sync with Cloudinary? This will fetch all videos from the web-development folder.')) return;
+    if (!window.confirm('Sync with Cloudinary? This will fetch all videos and update the Full Stack MERN Development course.')) return;
     setLoading(true);
     try {
       const res = await api.post('/courses/sync-cloudinary');
-      alert(res.data.message || 'Synced successfully!');
+      const stats = res.data.stats;
+      if (stats) {
+        alert(
+          `Sync Completed!\n` +
+          `Total Videos Found: ${stats.fetched}\n` +
+          `Imported: ${stats.imported}\n` +
+          `Updated: ${stats.updated}\n` +
+          `Skipped: ${stats.skipped}\n` +
+          `Deleted: ${stats.deleted}`
+        );
+      } else {
+        alert(res.data.message || 'Synced successfully!');
+      }
       fetchCourses();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to sync with Cloudinary');
+    } finally {
       setLoading(false);
     }
   };

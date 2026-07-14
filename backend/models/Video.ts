@@ -1,11 +1,14 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IVideo extends Document {
+  title?: string;
   publicId: string;
   secureUrl: string;
   duration: number;
+  bytes?: number;
+  format?: string;
   thumbnail?: string;
-  folder: string;
+  assetFolder?: string;
   order: number;
   moduleId?: mongoose.Types.ObjectId;
   courseId: mongoose.Types.ObjectId;
@@ -15,11 +18,14 @@ export interface IVideo extends Document {
 
 const VideoSchema: Schema<IVideo> = new Schema(
   {
+    title: { type: String },
     publicId: { type: String, required: true, unique: true },
     secureUrl: { type: String, required: true },
     duration: { type: Number, default: 0 },
+    bytes: { type: Number },
+    format: { type: String },
     thumbnail: { type: String },
-    folder: { type: String, required: true, index: true },
+    assetFolder: { type: String, index: true },
     order: { type: Number, default: 0 },
     moduleId: { type: Schema.Types.ObjectId, ref: 'Module', index: true },
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
