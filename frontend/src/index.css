@@ -39,7 +39,7 @@
 
   /* Glassmorphism Input Field */
   .glass-input {
-    @apply w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-md outline-none focus:border-accent transition duration-200;
+    @apply w-full px-4 py-3 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-md outline-none focus:border-accent transition duration-200 min-h-[44px];
   }
 
   .dark .glass-input {
@@ -48,15 +48,15 @@
 
   /* Glassmorphism Buttons */
   .btn-primary {
-    @apply px-6 py-3 rounded-xl bg-primary text-white font-poppins font-medium hover:bg-primary-light transition-all duration-300 shadow-lg shadow-primary/10 hover:shadow-primary/20 transform hover:-translate-y-[2px];
+    @apply px-6 py-3 rounded-xl bg-primary text-white font-poppins font-medium hover:bg-primary-light transition-all duration-300 shadow-lg shadow-primary/10 hover:shadow-primary/20 transform hover:-translate-y-[2px] min-h-[44px] flex items-center justify-center;
   }
 
   .btn-accent {
-    @apply px-6 py-3 rounded-xl bg-accent text-white font-poppins font-medium hover:bg-accent-hover transition-all duration-300 shadow-lg shadow-accent/20 hover:shadow-accent/30 transform hover:-translate-y-[2px];
+    @apply px-6 py-3 rounded-xl bg-accent text-white font-poppins font-medium hover:bg-accent-hover transition-all duration-300 shadow-lg shadow-accent/20 hover:shadow-accent/30 transform hover:-translate-y-[2px] min-h-[44px] flex items-center justify-center;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-poppins font-medium hover:bg-slate-50 transition-all duration-300 transform hover:-translate-y-[2px];
+    @apply px-6 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-poppins font-medium hover:bg-slate-50 transition-all duration-300 transform hover:-translate-y-[2px] min-h-[44px] flex items-center justify-center;
   }
 
   .dark .btn-secondary {
