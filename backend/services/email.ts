@@ -8,10 +8,6 @@ if (!process.env.BREVO_API_KEY) {
 const EMAIL_FROM_NAME = process.env.BREVO_SENDER_NAME || "Tech";
 const EMAIL_FROM_EMAIL = process.env.BREVO_SENDER_EMAIL || "v.hari2812@gmail.com";
 
-console.log("Brevo Sender:");
-console.log(EMAIL_FROM_NAME);
-console.log(EMAIL_FROM_EMAIL);
-
 const brevo = new BrevoClient({
   apiKey: process.env.BREVO_API_KEY as string,
 });
@@ -59,7 +55,7 @@ export const sendWelcomeEmail = async (
   otpCode?: string
 ): Promise<{ success: boolean; messageId: string }> => {
   const appName = process.env.APP_NAME || "Techzon LMS";
-  const LOGIN_URL = `${process.env.FRONTEND_URL}/login`;
+  const LOGIN_URL = "https://lms-system-techzon.vercel.app/login";
   const supportEmail = "support@techzonwide.com";
 
   const passwordBlock = tempPassword
@@ -132,7 +128,7 @@ export const sendPasswordResetEmail = async (
   resetToken: string
 ): Promise<{ success: boolean; messageId: string }> => {
   const appName = process.env.APP_NAME || "Techzon LMS";
-  const resetUrl = `${process.env.FRONTEND_URL || "https://lms-system-techzon.vercel.app"}/reset-password?token=${resetToken}`;
+  const resetUrl = `https://lms-system-techzon.vercel.app/reset-password?token=${resetToken}`;
 
   const html = `
 <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">

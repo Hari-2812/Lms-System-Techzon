@@ -25,7 +25,7 @@ export const getSocket = (): Socket => {
 
   socket.on('connect', () => {
     connectErrorLogged = false;
-    console.log('[Socket.IO] Connected:', socket?.id);
+
   });
 
   socket.on('disconnect', (reason) => {

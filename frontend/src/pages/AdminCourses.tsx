@@ -11,7 +11,8 @@ import {
   ListOrdered,
   Loader2,
   X,
-  PlusCircle
+  PlusCircle,
+  RefreshCw
 } from 'lucide-react';
 
 const AdminCourses: React.FC = () => {
@@ -59,6 +60,19 @@ const AdminCourses: React.FC = () => {
     } catch (error) {
       console.error(error);
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncCloudinary = async () => {
+    if (!window.confirm('Sync with Cloudinary? This will fetch all videos from the web-development folder.')) return;
+    setLoading(true);
+    try {
+      const res = await api.post('/courses/sync-cloudinary');
+      alert(res.data.message || 'Synced successfully!');
+      fetchCourses();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to sync with Cloudinary');
       setLoading(false);
     }
   };
@@ -227,19 +241,27 @@ const AdminCourses: React.FC = () => {
           <p className="text-xs text-slate-500">Edit course models, duplicate layout skeletons, or upload lecture notes.</p>
         </div>
         
-        <button
-          onClick={() => {
-            setCourseFormId(null);
-            setCourseTitle('');
-            setCourseCategory('');
-            setCourseDesc('');
-            setCourseThumbnail('');
-            setShowCourseForm(true);
-          }}
-          className="btn-accent py-2.5 px-5 text-xs flex items-center gap-1.5"
-        >
-          <Plus className="w-4 h-4" /> Create Course
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSyncCloudinary}
+            className="btn-primary py-2.5 px-5 text-xs flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-4 h-4" /> Sync Cloudinary
+          </button>
+          <button
+            onClick={() => {
+              setCourseFormId(null);
+              setCourseTitle('');
+              setCourseCategory('');
+              setCourseDesc('');
+              setCourseThumbnail('');
+              setShowCourseForm(true);
+            }}
+            className="btn-accent py-2.5 px-5 text-xs flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" /> Create Course
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

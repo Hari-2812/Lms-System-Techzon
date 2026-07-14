@@ -59,7 +59,7 @@ const NotificationBell: React.FC = () => {
       const socket = getSocket();
 
       const handleNewNotification = (notification: any) => {
-        console.log("Notification received", notification);
+
         
         // Handle custom data payload (Task 5 requirement) which lacks _id
         if (!notification._id) {

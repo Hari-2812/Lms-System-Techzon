@@ -5,13 +5,7 @@ export interface ILesson extends Document {
   courseId: mongoose.Types.ObjectId;
   title: string;
   description?: string;
-  video?: {
-    url?: string;
-    publicId?: string;
-    duration?: number;
-  };
-  videoUrl?: string;
-  videoDuration?: number; // duration in seconds
+  videoId?: mongoose.Types.ObjectId;
   notesUrl?: string; // PDF link
   downloads?: Array<{
     title: string;
@@ -28,13 +22,7 @@ const LessonSchema: Schema<ILesson> = new Schema(
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String },
-    video: {
-      url: { type: String },
-      publicId: { type: String },
-      duration: { type: Number, default: 0 },
-    },
-    videoUrl: { type: String },
-    videoDuration: { type: Number, default: 0 },
+    videoId: { type: Schema.Types.ObjectId, ref: 'Video' },
     notesUrl: { type: String },
     downloads: [
       {

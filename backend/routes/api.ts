@@ -51,6 +51,7 @@ import {
   deleteLesson,
   trackLessonProgress,
   uploadLessonVideo,
+  syncCloudinary,
 } from '../controllers/courseController';
 import {
   getLiveClasses,
@@ -255,6 +256,7 @@ const upload = multer({ dest: uploadDir });
 router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.post('/courses/:id/duplicate', duplicateCourse);
+router.post('/courses/sync-cloudinary', syncCloudinary);
 
 // Modules CRUD
 router.post('/modules', createModule);

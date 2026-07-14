@@ -9,6 +9,7 @@ import AuditLog from '../models/AuditLog';
 import { generateCertificateOffline } from './certificateController';
 import logger from '../config/logger';
 import cloudinary from '../config/cloudinary';
+import { syncCloudinaryFolder } from '../services/CloudinaryService';
 
 // Seed default course if needed
 export const seedDefaultCourses = async (): Promise<void> => {
@@ -141,7 +142,7 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
 
     // Fetch modules & lessons
     const modules = await Module.find({ courseId: course._id }).sort('order').lean();
-    const lessons = await Lesson.find({ courseId: course._id }).sort('order').lean();
+    const lessons = await Lesson.find({ courseId: course._id }).populate('videoId').sort('order').lean();
 
     let completedLessons: string[] = [];
     if (req.user?.role === 'Student') {
@@ -256,8 +257,7 @@ export const duplicateCourse = async (req: any, res: Response): Promise<void> =>
           courseId: duplicatedCourse._id,
           title: les.title,
           description: les.description,
-          videoUrl: les.videoUrl,
-          videoDuration: les.videoDuration,
+          videoId: les.videoId,
           notesUrl: les.notesUrl,
           downloads: les.downloads,
           order: les.order,
@@ -418,6 +418,15 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     });
   } catch (error: any) {
     logger.error('Progress tracking error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const syncCloudinary = async (req: any, res: Response): Promise<void> => {
+  try {
+    const result = await syncCloudinaryFolder('web-development');
+    res.status(200).json(result);
+  } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 };
