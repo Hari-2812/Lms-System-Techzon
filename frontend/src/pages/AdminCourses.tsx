@@ -74,7 +74,7 @@ const AdminCourses: React.FC = () => {
       if (stats) {
         alert(
           `Sync Completed!\n` +
-          `Tags Found: ${stats.tagsFound}\n` +
+          `Folders Found: ${stats.foldersFound}\n` +
           `Videos Found: ${stats.fetched}\n` +
           `Imported: ${stats.imported}\n` +
           `Updated: ${stats.updated}\n` +
@@ -255,12 +255,12 @@ const AdminCourses: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Dynamic Course Management</h2>
           <p className="text-xs text-slate-500">Edit course models, duplicate layout skeletons, or upload lecture notes.</p>
           <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg max-w-xl">
-            <h4 className="text-xs font-bold text-blue-700 dark:text-blue-300">Cloudinary Upload Guide:</h4>
+            <h4 className="text-xs font-bold text-blue-700 dark:text-blue-300">Cloudinary Folder Guide:</h4>
             <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
-              To sync a video, you MUST assign one of these exact tags in your Cloudinary Dashboard: <br/>
-              <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded">web-development</span>, 
-              <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded mx-1">full-stack-development</span>, or 
-              <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded">mern-stack-development</span>.
+              To sync a video, you must upload it into one of these exact folders in your Cloudinary Dashboard: <br/>
+              <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded">Web Development</span>, 
+              <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded mx-1">Full Stack Development</span>, or 
+              <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded">MERN Stack Development</span>.
             </p>
           </div>
         </div>

@@ -11,15 +11,19 @@ cloudinary.config({
   secure: true
 });
 
-const TAG_MAPPINGS = [
-  { tag: 'web-development', courseTitle: 'Web Development' },
-  { tag: 'full-stack-development', courseTitle: 'Full Stack Development Course' },
-  { tag: 'mern-stack-development', courseTitle: 'MERN Stack Development Course' },
+const normalizeString = (str: string) => {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
+const FOLDER_MAPPINGS = [
+  { folderKeys: ['webdevelopment'], courseTitle: 'Web Development' },
+  { folderKeys: ['fullstackdevelopment'], courseTitle: 'Full Stack Development Course' },
+  { folderKeys: ['mernstackdevelopment'], courseTitle: 'MERN Stack Development Course' },
 ];
 
 export const syncCloudinaryFolder = async () => {
   console.log(`\n==========================================`);
-  console.log(`Cloudinary Sync Started (Tags Mode)`);
+  console.log(`Cloudinary Sync Started (Asset Folder Mode)`);
   console.log(`==========================================`);
   
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'MISSING';
@@ -89,13 +93,13 @@ export const syncCloudinaryFolder = async () => {
     return { 
       success: false, 
       message: "No videos found in Cloudinary account.",
-      stats: { tagsFound: 0, fetched: 0, imported: 0, updated: 0, skipped: 0, deleted: 0, lastSync: new Date().toISOString() }
+      stats: { foldersFound: 0, fetched: 0, imported: 0, updated: 0, skipped: 0, deleted: 0, lastSync: new Date().toISOString() }
     };
   }
 
   console.log(`\nVideos Found: ${allResources.length}`);
   
-  // 3. Print the COMPLETE response for the first 5 resources
+  // Print top 5 resources for debug
   console.log(`\n--- TOP 5 RAW RESOURCES DUMP ---`);
   const top5 = allResources.slice(0, 5);
   top5.forEach((res, idx) => {
@@ -109,24 +113,26 @@ export const syncCloudinaryFolder = async () => {
   let globalSkipped = 0;
   let globalDeleted = 0;
   const processedPublicIds = new Set();
-  const validTagsFound = new Set<string>();
+  const validFoldersFound = new Set<string>();
 
-  // Extract metadata and group by courses
-  for (const mapping of TAG_MAPPINGS) {
-    console.log(`\nProcessing Tag: ${mapping.tag}`);
+  // Extract metadata and group by courses based on asset_folder
+  for (const mapping of FOLDER_MAPPINGS) {
+    console.log(`\nProcessing Folder Mapping: ${mapping.courseTitle}`);
     
-    // Filter videos that actually have this tag
+    // Filter videos matching the target folder string
     const mappedVideos = allResources.filter(r => {
-      const tags = r.tags || [];
-      return tags.includes(mapping.tag);
+      const folderRaw = r.asset_folder || r.folder || '';
+      if (!folderRaw) return false;
+      const normalizedFolder = normalizeString(folderRaw);
+      return mapping.folderKeys.includes(normalizedFolder);
     });
 
     if (mappedVideos.length === 0) {
-      console.log(`No videos found with tag: ${mapping.tag}`);
+      console.log(`No videos found for course: ${mapping.courseTitle}`);
       continue;
     }
 
-    validTagsFound.add(mapping.tag);
+    validFoldersFound.add(mapping.courseTitle);
     console.log(`Found ${mappedVideos.length} videos for course "${mapping.courseTitle}"`);
 
     // Ensure Course exists
@@ -135,7 +141,7 @@ export const syncCloudinaryFolder = async () => {
       targetCourse = await Course.create({
         title: mapping.courseTitle,
         slug: mapping.courseTitle.toLowerCase().replace(/\s+/g, '-'),
-        description: `${mapping.courseTitle} automatically synced from Cloudinary based on tag '${mapping.tag}'.`,
+        description: `${mapping.courseTitle} automatically synced from Cloudinary folder.`,
         category: 'Development',
         status: 'published',
       });
@@ -151,7 +157,7 @@ export const syncCloudinaryFolder = async () => {
       order: 1,
     });
 
-    // Cleanup Deleted Videos
+    // Cleanup Deleted Videos (from DB)
     const existingVideos = await Video.find({ courseId: targetCourse._id });
     const fetchedPublicIds = mappedVideos.map(r => r.public_id);
     
@@ -166,15 +172,12 @@ export const syncCloudinaryFolder = async () => {
     let lessonOrderCounter = 1;
 
     for (const resource of mappedVideos) {
-      // 4. Detect Display Name / Location / Context dynamically
-      // Since asset_folder is useless for this account, we rely on standard fields
       const displayName = resource.display_name || (resource.context && resource.context.custom && resource.context.custom.caption) || resource.public_id.split('/').pop()?.replace(/_/g, ' ') || 'Untitled Video';
       
       console.log(`\nVideo Name: ${displayName}`);
       console.log(`Public ID: ${resource.public_id}`);
       console.log(`Secure URL: ${resource.secure_url}`);
-      console.log(`Tags: ${resource.tags ? resource.tags.join(', ') : 'None'}`);
-
+      
       // Skip duplicates in response
       if (processedPublicIds.has(resource.public_id)) {
           globalSkipped++;
@@ -187,7 +190,12 @@ export const syncCloudinaryFolder = async () => {
       let thumbnailUrl = resource.secure_url;
       if (thumbnailUrl && resource.format) {
         thumbnailUrl = thumbnailUrl.replace(`.${resource.format}`, '.jpg');
+        // generate thumbnail using Cloudinary transformation
         thumbnailUrl = thumbnailUrl.replace('/upload/', '/upload/so_auto,w_640,h_360,c_fill/');
+      } else if (thumbnailUrl && !resource.format) {
+         // fallback if format missing
+         thumbnailUrl = thumbnailUrl + ".jpg";
+         thumbnailUrl = thumbnailUrl.replace('/upload/', '/upload/so_auto,w_640,h_360,c_fill/');
       }
 
       // Upsert into MongoDB
@@ -205,7 +213,6 @@ export const syncCloudinaryFolder = async () => {
           version: String(resource.version),
           resourceType: resource.resource_type,
           thumbnail: thumbnailUrl,
-          tags: resource.tags || [],
           courseId: targetCourse._id,
         });
         globalImported++;
@@ -220,7 +227,6 @@ export const syncCloudinaryFolder = async () => {
         video.version = String(resource.version || video.version);
         video.resourceType = resource.resource_type || video.resourceType;
         video.thumbnail = thumbnailUrl;
-        video.tags = resource.tags || [];
         video.courseId = targetCourse._id;
         await video.save();
         globalUpdated++;
@@ -242,7 +248,7 @@ export const syncCloudinaryFolder = async () => {
   console.log(`Final Verification Summary`);
   console.log(`==========================================`);
   console.log(`Videos Found: ${allResources.length}`);
-  console.log(`Valid Tags Found: ${validTagsFound.size}`);
+  console.log(`Folders Mapped: ${validFoldersFound.size}`);
   console.log(`Videos Imported: ${globalImported}`);
   console.log(`Videos Updated: ${globalUpdated}`);
   console.log(`Videos Skipped: ${globalSkipped}`);
@@ -252,7 +258,7 @@ export const syncCloudinaryFolder = async () => {
     success: true, 
     message: `Sync complete. Fetched ${allResources.length}.`,
     stats: { 
-      tagsFound: validTagsFound.size,
+      foldersFound: validFoldersFound.size,
       fetched: allResources.length, 
       imported: globalImported, 
       updated: globalUpdated, 
