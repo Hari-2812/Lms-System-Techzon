@@ -10,66 +10,109 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export const syncCloudinaryFolder = async (folderName: string = 'web-development') => {
-  console.log(`Starting Cloudinary sync for folder: ${folderName}`);
+export const syncCloudinaryFolder = async () => {
+  console.log(`--- CLOUDINARY INTEGRATION AUDIT ---`);
   
-  // 1. Fetch resources from Cloudinary
+  // 1. Print the active Cloudinary Cloud Name and API Key prefix.
+  const apiKey = process.env.CLOUDINARY_API_KEY || '';
+  const maskedApiKey = apiKey.length > 4 ? `${apiKey.substring(0, 4)}***` : 'MISSING';
+  
+  console.log(`Cloud Name: ${process.env.CLOUDINARY_CLOUD_NAME}`);
+  console.log(`API Key Prefix: ${maskedApiKey}`);
+  console.log(`Starting global fetch for all videos without folder filter...`);
+  
   let allResources: any[] = [];
   let nextCursor = undefined;
   
-  do {
-    const result: any = await cloudinary.api.resources({
-      type: 'upload',
-      prefix: `${folderName}/`, // Filter by folder
-      resource_type: 'video',
-      max_results: 500,
-      next_cursor: nextCursor,
-      context: true,
-      tags: true,
-    });
-    allResources = allResources.concat(result.resources);
-    nextCursor = result.next_cursor;
-  } while (nextCursor);
-
-  console.log(`Found ${allResources.length} videos in Cloudinary folder: ${folderName}`);
-
-  // 2. Ensure Course exists
-  const courseTitle = folderName === 'web-development' ? 'Web Development' : folderName;
-  let course = await Course.findOne({ title: courseTitle });
-  if (!course) {
-    course = await Course.create({
-      title: courseTitle,
-      slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
-      description: `Complete ${courseTitle} course automatically synced from Cloudinary.`,
-      category: 'Development',
-      status: 'published',
-    });
+  try {
+    do {
+      // 2. Fetch ALL uploaded video resources without using any folder filter
+      const result: any = await cloudinary.api.resources({
+        type: 'upload',
+        resource_type: 'video',
+        max_results: 500,
+        next_cursor: nextCursor,
+      });
+      allResources = allResources.concat(result.resources);
+      nextCursor = result.next_cursor;
+    } while (nextCursor);
+  } catch (error: any) {
+    console.error("Cloudinary API Error:", error.message || error);
+    throw error;
   }
 
-  // Group videos by some logic or just create a single module if there's no subfolder structure.
-  // We'll parse the filename to see if we can guess the module, otherwise put it in "Main Module"
-  // Example filename: "HTML Introduction.mp4" -> Module could be "HTML" based on first word?
-  // User example: "HTML Introduction.mp4" -> Module: HTML, Lesson: HTML Introduction
+  // 6. If no videos exist, clearly report that
+  if (allResources.length === 0) {
+      console.log("No videos found! The configured Cloudinary account has no uploaded video resources.");
+      return { success: false, message: "No uploaded videos found in this Cloudinary account." };
+  }
+
+  let videosImported = 0;
+  let videosUpdated = 0;
+  let videosSkipped = 0;
+  const processedPublicIds = new Set();
   
+  console.log(`\nFound ${allResources.length} total videos in Cloudinary.`);
+  console.log(`--- LOGGING DISCOVERED RESOURCES ---`);
+
+  // We will track unique folders detected
+  const detectedFolders = new Set<string>();
+
   for (const resource of allResources) {
-    // 3. Sync Video model
+    // 3. Log every video's properties
+    const resourceFolder = resource.folder || resource.asset_folder || (resource.public_id.includes('/') ? resource.public_id.split('/')[0] : 'Uncategorized');
+    detectedFolders.add(resourceFolder);
+
+    console.log(`Video: public_id=${resource.public_id}, folder=${resourceFolder}, secure_url=${resource.secure_url}, resource_type=${resource.resource_type}`);
+    
+    // 9. Remove duplicates
+    if (processedPublicIds.has(resource.public_id)) {
+        videosSkipped++;
+        continue;
+    }
+    processedPublicIds.add(resource.public_id);
+
+    // 4 & 5. Dynamically detect folder and use it for Course creation
+    const courseTitle = resourceFolder;
+
+    // Ensure Course exists based on the detected folder
+    let course = await Course.findOne({ title: courseTitle });
+    if (!course) {
+      course = await Course.create({
+        title: courseTitle,
+        slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
+        description: `Complete ${courseTitle} course automatically synced from Cloudinary.`,
+        category: 'Development',
+        status: 'published',
+      });
+    }
+
+    // 8. Save every discovered video into MongoDB.
     let video = await Video.findOne({ publicId: resource.public_id });
     if (!video) {
       video = await Video.create({
         publicId: resource.public_id,
         secureUrl: resource.secure_url,
         duration: resource.duration || 0,
-        folder: resource.folder || folderName,
+        folder: resourceFolder,
         courseId: course._id,
       });
+      videosImported++;
+    } else {
+      video.secureUrl = resource.secure_url;
+      video.duration = resource.duration || video.duration;
+      video.folder = resourceFolder;
+      video.courseId = course._id;
+      await video.save();
+      videosUpdated++;
     }
 
-    // Determine Module Title
+    // Determine Module Title from filename
     const filename = resource.public_id.split('/').pop() || '';
     const firstWord = filename.split(' ')[0] || 'General';
-    const moduleTitle = firstWord; // Basic heuristic based on user example (HTML, CSS, React)
+    const moduleTitle = firstWord; 
 
-    // 4. Ensure Module exists
+    // Ensure Module exists
     let module = await Module.findOne({ courseId: course._id, title: moduleTitle });
     if (!module) {
       const lastModule = await Module.findOne({ courseId: course._id }).sort({ order: -1 });
@@ -81,7 +124,7 @@ export const syncCloudinaryFolder = async (folderName: string = 'web-development
       });
     }
 
-    // 5. Ensure Lesson exists
+    // Ensure Lesson exists
     const lessonTitle = filename.replace(/_/g, ' ');
     let lesson = await Lesson.findOne({ videoId: video._id });
     if (!lesson) {
@@ -97,6 +140,24 @@ export const syncCloudinaryFolder = async (folderName: string = 'web-development
     }
   }
 
-  console.log('Cloudinary sync completed successfully.');
-  return { success: true, message: `Synced ${allResources.length} videos.` };
+  // 9. Print Final Summary
+  console.log(`\n--- CLOUDINARY SYNC SUMMARY ---`);
+  console.log(`Detected Folders: ${Array.from(detectedFolders).join(', ')}`);
+  console.log(`Total videos in Cloudinary: ${allResources.length}`);
+  console.log(`Videos matched: ${allResources.length}`); // We matched all videos fetched
+  console.log(`Videos imported: ${videosImported}`);
+  console.log(`Videos updated: ${videosUpdated}`);
+  console.log(`Videos skipped (duplicates): ${videosSkipped}`);
+
+  return { 
+    success: true, 
+    message: `Audit complete. Synced ${allResources.length} videos from folders: ${Array.from(detectedFolders).join(', ')}`,
+    stats: { 
+      total: allResources.length, 
+      imported: videosImported, 
+      updated: videosUpdated, 
+      skipped: videosSkipped,
+      folders: Array.from(detectedFolders)
+    }
+  };
 };

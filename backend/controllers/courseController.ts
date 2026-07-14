@@ -424,7 +424,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 
 export const syncCloudinary = async (req: any, res: Response): Promise<void> => {
   try {
-    const result = await syncCloudinaryFolder('web-development');
+    const result = await syncCloudinaryFolder();
     res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
