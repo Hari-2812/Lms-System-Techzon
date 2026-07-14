@@ -11,22 +11,20 @@ cloudinary.config({
 });
 
 export const syncCloudinaryFolder = async () => {
-  console.log(`--- CLOUDINARY INTEGRATION AUDIT ---`);
+  console.log(`--- CLOUDINARY SYNC (DYNAMIC FOLDERS) ---`);
   
-  // 1. Print the active Cloudinary Cloud Name and API Key prefix.
   const apiKey = process.env.CLOUDINARY_API_KEY || '';
   const maskedApiKey = apiKey.length > 4 ? `${apiKey.substring(0, 4)}***` : 'MISSING';
   
   console.log(`Cloud Name: ${process.env.CLOUDINARY_CLOUD_NAME}`);
   console.log(`API Key Prefix: ${maskedApiKey}`);
-  console.log(`Starting global fetch for all videos without folder filter...`);
+  console.log(`Fetching ALL videos without folder filters...`);
   
   let allResources: any[] = [];
   let nextCursor = undefined;
   
   try {
     do {
-      // 2. Fetch ALL uploaded video resources without using any folder filter
       const result: any = await cloudinary.api.resources({
         type: 'upload',
         resource_type: 'video',
@@ -41,7 +39,6 @@ export const syncCloudinaryFolder = async () => {
     throw error;
   }
 
-  // 6. If no videos exist, clearly report that
   if (allResources.length === 0) {
       console.log("No videos found! The configured Cloudinary account has no uploaded video resources.");
       return { success: false, message: "No uploaded videos found in this Cloudinary account." };
@@ -55,109 +52,91 @@ export const syncCloudinaryFolder = async () => {
   console.log(`\nFound ${allResources.length} total videos in Cloudinary.`);
   console.log(`--- LOGGING DISCOVERED RESOURCES ---`);
 
-  // We will track unique folders detected
-  const detectedFolders = new Set<string>();
+  // Ensure "Web Development" Course exists
+  const courseTitle = "Web Development";
+  let course = await Course.findOne({ title: courseTitle });
+  if (!course) {
+    course = await Course.create({
+      title: courseTitle,
+      slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
+      description: `Complete ${courseTitle} course automatically synced from Cloudinary.`,
+      category: 'Development',
+      status: 'published',
+    });
+  }
+
+  // Task 7: Remove old dummy lessons from the LMS (clean slate for this course's modules and lessons)
+  // We'll only delete lessons that don't have a valid videoId in our new Video collection.
+  // Actually, wiping all existing modules/lessons for this course is safest to remove dummy structure.
+  console.log(`Clearing old dummy modules and lessons for ${courseTitle}...`);
+  await Lesson.deleteMany({ courseId: course._id });
+  await Module.deleteMany({ courseId: course._id });
+  
+  // We recreate one main module for all videos
+  const mainModule = await Module.create({
+    courseId: course._id,
+    title: "Course Content",
+    order: 1,
+  });
+
+  let lessonOrderCounter = 1;
 
   for (const resource of allResources) {
-    // 3. Log every video's properties
-    const resourceFolder = resource.folder || resource.asset_folder || (resource.public_id.includes('/') ? resource.public_id.split('/')[0] : 'Uncategorized');
-    detectedFolders.add(resourceFolder);
-
-    console.log(`Video: public_id=${resource.public_id}, folder=${resourceFolder}, secure_url=${resource.secure_url}, resource_type=${resource.resource_type}`);
+    // Log video details
+    console.log(`Video: public_id=${resource.public_id}, secure_url=${resource.secure_url}, duration=${resource.duration}, bytes=${resource.bytes}, created_at=${resource.created_at}`);
     
-    // 9. Remove duplicates
+    // Deduplicate
     if (processedPublicIds.has(resource.public_id)) {
         videosSkipped++;
         continue;
     }
     processedPublicIds.add(resource.public_id);
 
-    // 4 & 5. Dynamically detect folder and use it for Course creation
-    const courseTitle = resourceFolder;
-
-    // Ensure Course exists based on the detected folder
-    let course = await Course.findOne({ title: courseTitle });
-    if (!course) {
-      course = await Course.create({
-        title: courseTitle,
-        slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
-        description: `Complete ${courseTitle} course automatically synced from Cloudinary.`,
-        category: 'Development',
-        status: 'published',
-      });
-    }
-
-    // 8. Save every discovered video into MongoDB.
+    // Upsert Video
     let video = await Video.findOne({ publicId: resource.public_id });
     if (!video) {
       video = await Video.create({
         publicId: resource.public_id,
         secureUrl: resource.secure_url,
         duration: resource.duration || 0,
-        folder: resourceFolder,
+        folder: "Web Development", // Hardcode assigned folder
         courseId: course._id,
       });
       videosImported++;
     } else {
       video.secureUrl = resource.secure_url;
       video.duration = resource.duration || video.duration;
-      video.folder = resourceFolder;
+      video.folder = "Web Development";
       video.courseId = course._id;
       await video.save();
       videosUpdated++;
     }
 
-    // Determine Module Title from filename
-    const filename = resource.public_id.split('/').pop() || '';
-    const firstWord = filename.split(' ')[0] || 'General';
-    const moduleTitle = firstWord; 
-
-    // Ensure Module exists
-    let module = await Module.findOne({ courseId: course._id, title: moduleTitle });
-    if (!module) {
-      const lastModule = await Module.findOne({ courseId: course._id }).sort({ order: -1 });
-      const nextOrder = lastModule ? lastModule.order + 1 : 1;
-      module = await Module.create({
-        courseId: course._id,
-        title: moduleTitle,
-        order: nextOrder,
-      });
-    }
-
-    // Ensure Lesson exists
-    const lessonTitle = filename.replace(/_/g, ' ');
-    let lesson = await Lesson.findOne({ videoId: video._id });
-    if (!lesson) {
-      const lastLesson = await Lesson.findOne({ moduleId: module._id }).sort({ order: -1 });
-      const nextOrder = lastLesson ? lastLesson.order + 1 : 1;
-      lesson = await Lesson.create({
-        moduleId: module._id,
-        courseId: course._id,
-        title: lessonTitle,
-        videoId: video._id,
-        order: nextOrder,
-      });
-    }
+    // Create Lesson (all grouped under mainModule for now, since we have no folder structure)
+    const lessonTitle = resource.public_id.replace(/_/g, ' ') || 'Untitled Video';
+    await Lesson.create({
+      moduleId: mainModule._id,
+      courseId: course._id,
+      title: lessonTitle,
+      videoId: video._id,
+      order: lessonOrderCounter++,
+    });
   }
 
-  // 9. Print Final Summary
   console.log(`\n--- CLOUDINARY SYNC SUMMARY ---`);
-  console.log(`Detected Folders: ${Array.from(detectedFolders).join(', ')}`);
-  console.log(`Total videos in Cloudinary: ${allResources.length}`);
-  console.log(`Videos matched: ${allResources.length}`); // We matched all videos fetched
+  console.log(`Total videos fetched: ${allResources.length}`);
   console.log(`Videos imported: ${videosImported}`);
   console.log(`Videos updated: ${videosUpdated}`);
   console.log(`Videos skipped (duplicates): ${videosSkipped}`);
 
   return { 
     success: true, 
-    message: `Audit complete. Synced ${allResources.length} videos from folders: ${Array.from(detectedFolders).join(', ')}`,
+    message: `Sync complete. Fetched ${allResources.length}. Imported: ${videosImported}, Updated: ${videosUpdated}.`,
     stats: { 
-      total: allResources.length, 
+      fetched: allResources.length, 
       imported: videosImported, 
       updated: videosUpdated, 
-      skipped: videosSkipped,
-      folders: Array.from(detectedFolders)
+      skipped: videosSkipped
     }
   };
 };
