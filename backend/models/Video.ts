@@ -9,7 +9,7 @@ export interface IVideo extends Document {
   bytes?: number;
   format?: string;
   thumbnail?: string;
-  assetFolder?: string;
+  tags?: string[];
   version?: string;
   resourceType?: string;
   displayName?: string;
@@ -30,7 +30,7 @@ const VideoSchema: Schema<IVideo> = new Schema(
     bytes: { type: Number },
     format: { type: String },
     thumbnail: { type: String },
-    assetFolder: { type: String, index: true },
+    tags: [{ type: String }],
     version: { type: String },
     resourceType: { type: String },
     displayName: { type: String },
