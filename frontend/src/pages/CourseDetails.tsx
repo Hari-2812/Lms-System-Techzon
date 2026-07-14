@@ -15,6 +15,7 @@ import {
   Trophy,
   GitBranch
 } from 'lucide-react';
+import CustomVideoPlayer from '../components/CustomVideoPlayer';
 
 interface Lesson {
   _id: string;
@@ -227,8 +228,28 @@ const CourseDetails: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="flex flex-col lg:flex-row gap-8 font-poppins min-h-[80vh] w-full animate-pulse">
+        {/* Skeleton Sidebar */}
+        <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
+          <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3"></div>
+          <div className="glass-card p-6 space-y-6 border-none">
+            <div className="space-y-2">
+              <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-3/4"></div>
+              <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
+            </div>
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-10 bg-slate-200 dark:bg-slate-800 rounded-xl w-full"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Skeleton Main Content */}
+        <div className="flex-1 flex flex-col gap-6 min-w-0">
+          <div className="w-full aspect-video bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+          <div className="glass-card p-6 h-32 border-none"></div>
+          <div className="glass-card p-6 h-64 border-none"></div>
+        </div>
       </div>
     );
   }
@@ -299,43 +320,19 @@ const CourseDetails: React.FC = () => {
         {!activeQuiz ? (
           <>
             {/* Media Block / Video Player */}
-            <div className="glass-card overflow-hidden bg-black border-none aspect-video relative flex items-center justify-center w-full shadow-2xl">
+            <div className="glass-card overflow-hidden bg-black border-none relative flex items-center justify-center w-full shadow-2xl">
               {selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl ? (
-                videoError ? (
-                  <div className="text-center text-slate-400 space-y-3 p-6">
-                    <AlertCircle className="w-12 h-12 mx-auto text-red-500 animate-pulse" />
-                    <p className="text-sm font-semibold text-white">Unable to load the video.</p>
-                    <p className="text-xs text-red-400">{videoError}</p>
-                    <button onClick={() => setVideoError(null)} className="mt-2 px-4 py-2 bg-slate-800 rounded-lg text-xs hover:bg-slate-700 transition">
-                      Retry
-                    </button>
-                  </div>
-                ) : (
-                  <video
-                    key={selectedLesson._id} // Forces re-render on lesson change
-                    poster={selectedLesson?.videoId?.thumbnail}
-                    controls
-                    controlsList="nodownload"
-                    preload="metadata"
-                    playsInline
-                    className="w-full h-full object-contain"
-                    onEnded={() => selectedLesson && toggleProgress(selectedLesson._id, true)}
-                    onError={(e: any) => {
-                      const errMessage = e.target.error ? e.target.error.message || `Code ${e.target.error.code}` : 'Unknown playback error';
-                      console.error('Video Error Details:', {
-                        lesson: selectedLesson.title,
-                        playbackUrl: selectedLesson?.videoId?.playbackUrl,
-                        secureUrl: selectedLesson?.videoId?.secureUrl,
-                        error: errMessage
-                      });
-                      setVideoError(errMessage);
-                    }}
-                  >
-                    <source src={selectedLesson?.videoId?.playbackUrl || selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl} type="video/mp4" />
-                  </video>
-                )
+                <CustomVideoPlayer 
+                  playbackUrl={selectedLesson?.videoId?.playbackUrl}
+                  secureUrl={selectedLesson?.videoId?.secureUrl}
+                  videoUrl={selectedLesson?.videoUrl}
+                  poster={selectedLesson?.videoId?.thumbnail}
+                  lessonId={selectedLesson._id}
+                  lessonTitle={selectedLesson.title}
+                  onEnded={() => toggleProgress(selectedLesson._id, true)}
+                />
               ) : (
-                <div className="text-center text-slate-400 space-y-2 p-6">
+                <div className="w-full aspect-video flex flex-col items-center justify-center text-center text-slate-400 space-y-2 p-6">
                   <Play className="w-12 h-12 mx-auto text-slate-500 animate-float" />
                   <p className="text-xs">No video stream configured for this lesson</p>
                 </div>

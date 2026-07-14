@@ -50,8 +50,28 @@ const StudentDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="space-y-8 font-poppins animate-pulse">
+        {/* Banner Skeleton */}
+        <div className="h-40 bg-slate-200 dark:bg-slate-800 rounded-xl w-full"></div>
+        {/* Stats Row Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-24 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+          ))}
+        </div>
+        {/* Main Area Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[1, 2].map(i => (
+              <div key={i} className="h-80 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+            ))}
+          </div>
+          <div className="space-y-4">
+            {[1, 2].map(i => (
+              <div key={i} className="h-32 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
