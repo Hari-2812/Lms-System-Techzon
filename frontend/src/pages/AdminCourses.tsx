@@ -18,6 +18,7 @@ import {
 const AdminCourses: React.FC = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
 
   // Module & Lesson states
@@ -65,19 +66,20 @@ const AdminCourses: React.FC = () => {
   };
 
   const handleSyncCloudinary = async () => {
-    if (!window.confirm('Sync with Cloudinary? This will fetch all videos and update the Full Stack MERN Development course.')) return;
-    setLoading(true);
+    if (!window.confirm('Sync with Cloudinary? This will fetch all videos and update the mapped courses.')) return;
+    setIsSyncing(true);
     try {
       const res = await api.post('/courses/sync-cloudinary');
       const stats = res.data.stats;
       if (stats) {
         alert(
           `Sync Completed!\n` +
-          `Total Videos Found: ${stats.fetched}\n` +
+          `Folders Found: ${stats.foldersFound}\n` +
+          `Videos Found: ${stats.fetched}\n` +
           `Imported: ${stats.imported}\n` +
           `Updated: ${stats.updated}\n` +
-          `Skipped: ${stats.skipped}\n` +
-          `Deleted: ${stats.deleted}`
+          `Deleted: ${stats.deleted}\n` +
+          `Last Sync Time: ${stats.lastSync}`
         );
       } else {
         alert(res.data.message || 'Synced successfully!');
@@ -86,7 +88,7 @@ const AdminCourses: React.FC = () => {
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to sync with Cloudinary');
     } finally {
-      setLoading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -254,12 +256,21 @@ const AdminCourses: React.FC = () => {
           <p className="text-xs text-slate-500">Edit course models, duplicate layout skeletons, or upload lecture notes.</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {isSyncing && (
+            <div className="flex items-center gap-2 mr-4">
+              <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full bg-accent animate-pulse" style={{ width: '100%' }}></div>
+              </div>
+              <span className="text-xs text-slate-500 font-bold">Syncing...</span>
+            </div>
+          )}
           <button
             onClick={handleSyncCloudinary}
-            className="btn-primary py-2.5 px-5 text-xs flex items-center gap-1.5"
+            disabled={isSyncing}
+            className="btn-primary py-2.5 px-5 text-xs flex items-center gap-1.5 disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" /> Sync Cloudinary
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> Sync Cloudinary
           </button>
           <button
             onClick={() => {
