@@ -13,9 +13,13 @@ import {
   Download,
   AlertCircle,
   Trophy,
-  GitBranch
+  GitBranch,
+  Lock,
+  Menu,
+  X
 } from 'lucide-react';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
+import Confetti from 'react-confetti';
 
 interface Lesson {
   _id: string;
@@ -68,6 +72,19 @@ const CourseDetails: React.FC = () => {
   const [quizResultInfo, setQuizResultInfo] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
+  // Mobile drawer state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Confetti
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     fetchCourseDetails();
     fetchAssignmentsAndQuizzes();
@@ -81,9 +98,11 @@ const CourseDetails: React.FC = () => {
       setLessons(res.data.data.lessons);
       setCompletedLessons(res.data.data.completedLessons || []);
       
-      // Auto-select first lesson
+      // Auto-select first lesson or first uncompleted lesson
       if (res.data.data.lessons?.length > 0) {
-        setSelectedLesson(res.data.data.lessons[0]);
+        const completed = res.data.data.completedLessons || [];
+        const firstUncompleted = res.data.data.lessons.find((l: any) => !completed.includes(l._id));
+        setSelectedLesson(firstUncompleted || res.data.data.lessons[0]);
         setVideoError(null);
       }
     } catch (error) {
@@ -113,13 +132,29 @@ const CourseDetails: React.FC = () => {
         lessonId: lesId,
         isCompleted
       });
-      setCompletedLessons(res.data.data.completedLessons);
+      const newCompleted = res.data.data.completedLessons;
+      setCompletedLessons(newCompleted);
+
+      // Check course completion
+      if (lessons.length > 0 && newCompleted.length === lessons.length) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 8000);
+      }
     } catch (error) {
       console.error('Error updating progress:', error);
     }
   };
 
-  // Handle Assignment Submission
+  const handleAutoPlayNext = () => {
+    if (!selectedLesson) return;
+    const idx = lessons.findIndex(l => l._id === selectedLesson._id);
+    if (idx >= 0 && idx < lessons.length - 1) {
+      setSelectedLesson(lessons[idx + 1]);
+      setVideoError(null);
+    }
+  };
+
+  // Assignment & Quiz logic...
   const handleAssignSubmit = async (assignId: string) => {
     if (!subUrl) return;
     setSubmittingAssignment(true);
@@ -144,7 +179,6 @@ const CourseDetails: React.FC = () => {
     }
   };
 
-  // Quiz Handling
   const startQuiz = (quiz: any) => {
     setActiveQuiz(quiz);
     setCurrentQuestionIdx(0);
@@ -153,7 +187,6 @@ const CourseDetails: React.FC = () => {
     setQuizResultInfo(null);
     setQuizTimer(quiz.durationMinutes * 60);
 
-    // Timer Interval
     const intId = setInterval(() => {
       setQuizTimer((prev) => {
         if (prev <= 1) {
@@ -166,7 +199,6 @@ const CourseDetails: React.FC = () => {
     }, 1000);
     setQuizIntervalId(intId);
     
-    // Fetch leaderboard
     fetchLeaderboard(quiz._id);
   };
 
@@ -179,16 +211,11 @@ const CourseDetails: React.FC = () => {
     }
   };
 
-  // Accumulate answer answers in progress
   const [evaluatedAnswersAccumulator, setEvaluatedAnswersAccumulator] = useState<any[]>([]);
 
   const saveCurrentQuestionAnswer = () => {
     const question = activeQuiz.questions[currentQuestionIdx];
-    const item = {
-      questionId: question._id,
-      selectedAnswers,
-    };
-    
+    const item = { questionId: question._id, selectedAnswers };
     const updated = [...evaluatedAnswersAccumulator.filter(x => x.questionId !== question._id), item];
     setEvaluatedAnswersAccumulator(updated);
     return updated;
@@ -208,9 +235,7 @@ const CourseDetails: React.FC = () => {
 
   const submitQuiz = async (quizId: string, finalAnswers: any[]) => {
     if (quizIntervalId) clearInterval(quizIntervalId);
-    
     const totalTimeSpent = activeQuiz.durationMinutes * 60 - quizTimer;
-
     try {
       const res = await api.post('/quizzes/submit', {
         courseId: id,
@@ -218,109 +243,69 @@ const CourseDetails: React.FC = () => {
         answers: finalAnswers,
         completedInSeconds: totalTimeSpent,
       });
-
       setQuizResultInfo(res.data.data);
-      fetchAssignmentsAndQuizzes(); // Refresh list to update status
+      fetchAssignmentsAndQuizzes();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Error submitting quiz');
     }
   };
 
+  const isLessonLocked = (lesId: string) => {
+    try {
+      // Allow admins to bypass
+      const userRole = localStorage.getItem('role') || 'Student'; // Using localStorage heuristic if API doesn't provide
+      if (['Admin', 'SuperAdmin', 'Mentor'].includes(userRole)) return false;
+      
+      const idx = lessons.findIndex(l => l._id === lesId);
+      if (idx <= 0) return false;
+      
+      const prevLesson = lessons[idx - 1];
+      return !completedLessons.includes(prevLesson._id);
+    } catch {
+      return false;
+    }
+  };
+
+  const progressPercent = lessons.length > 0 ? Math.round((completedLessons.length / lessons.length) * 100) : 0;
+
   if (loading) {
     return (
-      <div className="flex flex-col lg:flex-row gap-8 font-poppins min-h-[80vh] w-full animate-pulse">
-        {/* Skeleton Sidebar */}
+      <div className="flex flex-col lg:flex-row gap-8 font-poppins min-h-[80vh] w-full animate-pulse p-4 lg:p-0">
         <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
-          <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3"></div>
-          <div className="glass-card p-6 space-y-6 border-none">
-            <div className="space-y-2">
-              <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-3/4"></div>
-              <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
-            </div>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-10 bg-slate-200 dark:bg-slate-800 rounded-xl w-full"></div>
-              ))}
-            </div>
-          </div>
+          <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+          <div className="glass-card p-6 h-96"></div>
         </div>
-        {/* Skeleton Main Content */}
-        <div className="flex-1 flex flex-col gap-6 min-w-0">
-          <div className="w-full aspect-video bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
-          <div className="glass-card p-6 h-32 border-none"></div>
-          <div className="glass-card p-6 h-64 border-none"></div>
+        <div className="flex-1 flex flex-col gap-6">
+          <div className="w-full aspect-video bg-slate-200 rounded-xl"></div>
+          <div className="glass-card p-6 h-32"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 font-poppins min-h-[80vh] w-full">
-      {/* 1. LEFT COLUMN: MODULE NAVIGATION SIDEBAR */}
-      <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
-        <Link to="/dashboard" className="text-xs font-semibold text-accent hover:underline flex items-center gap-1">
-          ← Back to Dashboard
-        </Link>
-
-        <div className="glass-card p-6 space-y-4">
-          <div>
-            <h3 className="font-extrabold text-slate-800 dark:text-white line-clamp-1 leading-6">{course?.title}</h3>
-            <span className="text-[10px] text-accent font-bold uppercase tracking-wider">{course?.category}</span>
-          </div>
-
-          <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-            {modules.map((mod) => {
-              const modLessons = lessons.filter((l) => l.moduleId === mod._id);
-              return (
-                <div key={mod._id} className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{mod.title}</h4>
-                  <div className="space-y-1">
-                    {modLessons.map((les) => {
-                      const isActive = selectedLesson?._id === les._id;
-                      const isDone = completedLessons.includes(les._id);
-                      return (
-                        <button
-                          key={les._id}
-                          onClick={() => {
-                            setSelectedLesson(les);
-                            setVideoError(null);
-                            setActiveQuiz(null);
-                            setQuizResultInfo(null);
-                          }}
-                          className={`w-full flex items-center justify-between text-left p-3 rounded-xl text-xs font-semibold transition ${
-                            isActive
-                              ? 'bg-accent text-white shadow-lg shadow-accent/15'
-                              : 'hover:bg-slate-100 dark:hover:bg-border-dark text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          <span className="truncate pr-2">{les.title}</span>
-                          {les.videoId?.duration ? (
-                            <span className="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded mr-2">
-                              {Math.floor(les.videoId.duration / 60)}:{(Math.floor(les.videoId.duration % 60)).toString().padStart(2, '0')}
-                            </span>
-                          ) : null}
-                          {isDone ? (
-                            <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-green-500'}`} />
-                          ) : (
-                            <Play className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 font-poppins min-h-[80vh] w-full pb-20">
+      
+      {showConfetti && (
+        <div className="fixed inset-0 z-[100] pointer-events-none">
+          <Confetti width={windowSize.width} height={windowSize.height} recycle={false} numberOfPieces={500} gravity={0.15} />
         </div>
+      )}
+
+      {/* MOBILE HEADER FOR SIDEBAR DRAWER */}
+      <div className="lg:hidden flex items-center justify-between glass-card p-4 mx-4 mt-4">
+        <span className="font-bold text-sm truncate">{course?.title}</span>
+        <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center">
+          <Menu className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* 2. RIGHT COLUMN: VIDEO, QUIZ, OR ASSIGNMENT WORKSPACE */}
-      <div className="flex-1 flex flex-col gap-6 min-w-0">
+      {/* 2. RIGHT COLUMN: VIDEO, QUIZ, OR ASSIGNMENT WORKSPACE (Order 1 on Mobile, 2 on Desktop) */}
+      <div className="flex-1 flex flex-col gap-4 lg:gap-6 min-w-0 order-1 lg:order-2 px-4 lg:px-0">
         {!activeQuiz ? (
           <>
             {/* Media Block / Video Player */}
-            <div className="glass-card overflow-hidden bg-black border-none relative flex items-center justify-center w-full shadow-2xl">
+            <div className="glass-card overflow-hidden bg-black border-none relative flex items-center justify-center w-full shadow-2xl rounded-none sm:rounded-xl">
               {selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl ? (
                 <CustomVideoPlayer 
                   playbackUrl={selectedLesson?.videoId?.playbackUrl}
@@ -329,7 +314,10 @@ const CourseDetails: React.FC = () => {
                   poster={selectedLesson?.videoId?.thumbnail}
                   lessonId={selectedLesson._id}
                   lessonTitle={selectedLesson.title}
-                  onEnded={() => toggleProgress(selectedLesson._id, true)}
+                  isAlreadyCompleted={completedLessons.includes(selectedLesson._id)}
+                  onLessonComplete={() => toggleProgress(selectedLesson._id, true)}
+                  hasNextLesson={lessons.findIndex(l => l._id === selectedLesson?._id) < lessons.length - 1}
+                  onAutoPlayNext={handleAutoPlayNext}
                 />
               ) : (
                 <div className="w-full aspect-video flex flex-col items-center justify-center text-center text-slate-400 space-y-2 p-6">
@@ -339,34 +327,40 @@ const CourseDetails: React.FC = () => {
               )}
             </div>
 
-            {/* Lesson Title & Checkbox */}
+            {/* Lesson Title & Progress (Mobile order: Video -> Title -> Progress -> List) */}
             {selectedLesson && (
-              <div className="glass-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="glass-card p-5 lg:p-6 flex flex-col justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800 dark:text-white leading-6">{selectedLesson.title}</h2>
-                  <p className="text-xs text-slate-500 mt-1">{selectedLesson.description || 'Watch the lecture and complete resources.'}</p>
+                  <h2 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-white leading-tight">{selectedLesson.title}</h2>
+                  <div className="flex items-center gap-2 mt-2">
+                    {completedLessons.includes(selectedLesson._id) && (
+                      <span className="flex items-center gap-1 text-xs font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded-full">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Completed
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => toggleProgress(selectedLesson._id, !completedLessons.includes(selectedLesson._id))}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold font-poppins border transition ${
-                    completedLessons.includes(selectedLesson._id)
-                      ? 'bg-green-500/10 border-green-500/30 text-green-500'
-                      : 'border-slate-200 text-slate-600 dark:border-border-dark dark:text-slate-300'
-                  }`}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {completedLessons.includes(selectedLesson._id) ? 'Completed' : 'Mark Completed'}
-                </button>
+
+                {/* Progress Bar (Visible on mobile here) */}
+                <div className="w-full mt-2 lg:hidden">
+                  <div className="flex justify-between text-xs font-bold mb-1">
+                    <span>Course Progress</span>
+                    <span className="text-accent">{progressPercent}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                    <div className="bg-accent h-2 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Tab Controls */}
-            <div className="flex border-b border-slate-200 dark:border-border-dark font-poppins">
+            {/* Tab Controls (Scrollable on mobile) */}
+            <div className="flex overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-border-dark font-poppins -mx-4 lg:mx-0 px-4 lg:px-0">
               {(['video', 'resources', 'assignment', 'quiz'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 transition ${
+                  className={`px-4 lg:px-6 py-3 text-xs font-semibold uppercase tracking-wider border-b-2 transition whitespace-nowrap min-h-[44px] ${
                     activeTab === tab
                       ? 'border-accent text-accent'
                       : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'
@@ -378,10 +372,10 @@ const CourseDetails: React.FC = () => {
             </div>
 
             {/* Tab Content Display */}
-            <div className="glass-card p-6 min-h-[200px]">
+            <div className="glass-card p-5 lg:p-6 min-h-[200px]">
               {activeTab === 'video' && (
-                <div className="space-y-2 text-xs text-slate-500 leading-relaxed">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-sm">About this Lecture</h4>
+                <div className="space-y-2 text-xs lg:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                  <h4 className="font-bold text-slate-800 dark:text-white">About this Lecture</h4>
                   <p>{selectedLesson?.description || 'No detailed description available.'}</p>
                 </div>
               )}
@@ -395,7 +389,7 @@ const CourseDetails: React.FC = () => {
                       href={selectedLesson.notesUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                      className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 min-h-[44px]"
                     >
                       <span className="flex items-center gap-2">
                         <FileText className="w-5 h-5 text-accent" />
@@ -408,11 +402,11 @@ const CourseDetails: React.FC = () => {
                   {selectedLesson?.downloads && selectedLesson.downloads.length > 0 ? (
                     selectedLesson.downloads.map((item, idx) => (
                       <a
-                        key={idx}
+                         key={idx}
                         href={item.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                        className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 min-h-[44px]"
                       >
                         <span className="flex items-center gap-2">
                           <GitBranch className="w-5 h-5 text-accent" />
@@ -438,21 +432,18 @@ const CourseDetails: React.FC = () => {
                   ) : (
                     assignments.map((assign) => (
                       <div key={assign._id} className="p-5 border border-slate-100 dark:border-border-dark rounded-xl space-y-4">
-                        <div className="flex justify-between items-start gap-4">
-                          <div>
-                            <h5 className="font-bold text-sm text-slate-800 dark:text-white">{assign.title}</h5>
-                            <p className="text-xs text-slate-500 mt-1">{assign.description}</p>
-                            <div className="flex gap-4 text-[10px] text-slate-400 font-semibold mt-2">
-                              <span>Max Marks: {assign.maxMarks}</span>
-                              <span>•</span>
-                              <span>Deadline: {new Date(assign.deadline).toLocaleDateString()}</span>
-                            </div>
+                        <div className="flex flex-col gap-2">
+                          <h5 className="font-bold text-sm text-slate-800 dark:text-white">{assign.title}</h5>
+                          <p className="text-xs text-slate-500">{assign.description}</p>
+                          <div className="flex flex-wrap gap-3 text-[10px] text-slate-400 font-semibold mt-1">
+                            <span>Max Marks: {assign.maxMarks}</span>
+                            <span>•</span>
+                            <span>Deadline: {new Date(assign.deadline).toLocaleDateString()}</span>
                           </div>
                         </div>
 
-                        {/* Submission status or form */}
                         {assign.submission ? (
-                          <div className="p-3 bg-slate-50 dark:bg-border-dark/30 rounded-lg text-xs space-y-1">
+                          <div className="p-4 bg-slate-50 dark:bg-border-dark/30 rounded-lg text-xs space-y-2">
                             <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
                               <span>Submission status:</span>
                               <span className="uppercase text-accent">{assign.submission.status}</span>
@@ -461,16 +452,16 @@ const CourseDetails: React.FC = () => {
                               <p className="font-semibold text-green-500">Marks: {assign.submission.marksObtained} / {assign.maxMarks}</p>
                             )}
                             {assign.submission.feedback && (
-                              <p className="text-[11px] text-slate-500 font-medium italic mt-1">Feedback: "{assign.submission.feedback}"</p>
+                              <p className="text-[11px] text-slate-500 font-medium italic mt-1 bg-slate-200/50 dark:bg-slate-800/50 p-2 rounded">Feedback: "{assign.submission.feedback}"</p>
                             )}
                           </div>
                         ) : (
                           <div className="space-y-3 pt-2">
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2">
                               <select
                                 value={subType}
                                 onChange={(e: any) => setSubType(e.target.value)}
-                                className="px-3 py-2 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent"
+                                className="p-3 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent min-h-[44px]"
                               >
                                 <option value="zip">ZIP File URL</option>
                                 <option value="pdf">PDF File URL</option>
@@ -483,19 +474,19 @@ const CourseDetails: React.FC = () => {
                                 placeholder="Paste submission link here..."
                                 value={subUrl}
                                 onChange={(e) => setSubUrl(e.target.value)}
-                                className="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent"
+                                className="flex-1 p-3 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent min-h-[44px]"
                               />
                             </div>
                             <textarea
                               placeholder="Add optional notes for your mentor..."
                               value={subNotes}
                               onChange={(e) => setSubNotes(e.target.value)}
-                              className="w-full p-3 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent h-20"
+                              className="w-full p-3 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent min-h-[80px]"
                             />
                             <button
                               onClick={() => handleAssignSubmit(assign._id)}
                               disabled={submittingAssignment}
-                              className="btn-accent py-2 px-4 rounded-lg text-xs flex items-center gap-1.5"
+                              className="btn-accent py-3 px-6 rounded-lg text-xs font-bold w-full sm:w-auto flex justify-center items-center gap-2 min-h-[44px]"
                             >
                               <UploadCloud className="w-4 h-4" /> Submit Assignment
                             </button>
@@ -526,8 +517,8 @@ const CourseDetails: React.FC = () => {
                         </div>
 
                         {quiz.attempted ? (
-                          <div className="flex items-center gap-4">
-                            <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${
+                          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                            <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase ${
                               quiz.passed ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
                             }`}>
                               {quiz.passed ? 'Passed' : 'Failed'}
@@ -537,7 +528,7 @@ const CourseDetails: React.FC = () => {
                         ) : (
                           <button
                             onClick={() => startQuiz(quiz)}
-                            className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold"
+                            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold min-h-[44px]"
                           >
                             Start Quiz
                           </button>
@@ -551,20 +542,18 @@ const CourseDetails: React.FC = () => {
           </>
         ) : (
           /* ACTIVE TIMER QUIZ TAKE SCREEN */
-          <div className="glass-card p-6 space-y-6">
-            {/* Header info */}
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-border-dark pb-4">
+          <div className="glass-card p-4 lg:p-6 space-y-6">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-border-dark pb-4 gap-4">
               <div>
                 <h3 className="font-extrabold text-slate-800 dark:text-white text-lg leading-6">{activeQuiz.title}</h3>
-                <p className="text-[10px] text-slate-500">Question {currentQuestionIdx + 1} of {activeQuiz.questions.length}</p>
+                <p className="text-[10px] text-slate-500 mt-1">Question {currentQuestionIdx + 1} of {activeQuiz.questions.length}</p>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-500 text-xs font-bold font-inter">
+              <div className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange-500/10 text-orange-500 text-xs font-bold font-inter">
                 <Clock className="w-4 h-4" />
                 {Math.floor(quizTimer / 60)}:{(quizTimer % 60).toString().padStart(2, '0')}
               </div>
             </div>
 
-            {/* If result is ready */}
             {quizResultInfo ? (
               <div className="space-y-6 text-center py-6">
                 <Trophy className="w-16 h-16 mx-auto text-accent animate-float" />
@@ -576,12 +565,11 @@ const CourseDetails: React.FC = () => {
                   {quizResultInfo.passed ? 'PASSED (GRADUATED)' : 'FAILED (TRY AGAIN)'}
                 </div>
                 
-                {/* Leaderboard panel */}
                 <div className="max-w-md mx-auto border border-slate-100 dark:border-border-dark rounded-xl p-4 text-left space-y-3">
                   <h5 className="font-bold text-xs uppercase text-slate-400 tracking-wider">Top Leaderboard Rank</h5>
                   <div className="space-y-1 text-xs">
                     {leaderboard.map((userL) => (
-                      <div key={userL.rank} className="flex justify-between py-1 border-b border-slate-50/50">
+                      <div key={userL.rank} className="flex justify-between py-2 border-b border-slate-50/50">
                         <span>{userL.rank}. {userL.name}</span>
                         <span className="font-semibold text-accent">{userL.score} pts ({userL.completedInSeconds}s)</span>
                       </div>
@@ -595,24 +583,22 @@ const CourseDetails: React.FC = () => {
                     setQuizResultInfo(null);
                     fetchAssignmentsAndQuizzes();
                   }}
-                  className="btn-primary py-2 px-6 rounded-lg text-xs"
+                  className="btn-primary py-3 px-8 rounded-lg text-xs font-bold min-h-[44px] w-full sm:w-auto"
                 >
                   Return to Lectures
                 </button>
               </div>
             ) : (
-              /* Question block */
               <div className="space-y-6">
-                <div className="space-y-2">
-                  <span className="text-[10px] bg-primary/10 text-primary dark:bg-primary-light/20 dark:text-primary-light font-bold px-2.5 py-1 rounded-full uppercase">
+                <div className="space-y-3">
+                  <span className="inline-block text-[10px] bg-primary/10 text-primary dark:bg-primary-light/20 dark:text-primary-light font-bold px-3 py-1 rounded-full uppercase">
                     {activeQuiz.questions[currentQuestionIdx].questionType}
                   </span>
-                  <h4 className="font-bold text-slate-800 dark:text-white text-base">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-base leading-relaxed">
                     {activeQuiz.questions[currentQuestionIdx].questionText}
                   </h4>
                 </div>
 
-                {/* Answers Choice selections */}
                 <div className="grid grid-cols-1 gap-3">
                   {activeQuiz.questions[currentQuestionIdx].options?.map((option: string) => {
                     const isSelected = selectedAnswers.includes(option);
@@ -630,7 +616,7 @@ const CourseDetails: React.FC = () => {
                             setSelectedAnswers([option]);
                           }
                         }}
-                        className={`w-full text-left p-4 rounded-xl text-xs font-semibold border transition ${
+                        className={`w-full text-left p-4 rounded-xl text-xs sm:text-sm font-semibold border transition min-h-[52px] ${
                           isSelected
                             ? 'border-accent bg-accent/5 text-accent shadow-md shadow-accent/5'
                             : 'border-slate-200 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
@@ -642,11 +628,10 @@ const CourseDetails: React.FC = () => {
                   })}
                 </div>
 
-                {/* Actions row */}
                 <div className="flex justify-end pt-4">
                   <button
                     onClick={nextQuestion}
-                    className="btn-accent px-6 py-2.5 text-xs font-semibold rounded-lg"
+                    className="btn-accent px-8 py-3 text-xs font-bold rounded-lg min-h-[44px] w-full sm:w-auto"
                   >
                     {currentQuestionIdx === activeQuiz.questions.length - 1 ? 'Submit Quiz' : 'Next Question →'}
                   </button>
@@ -656,6 +641,112 @@ const CourseDetails: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 1. LEFT COLUMN: MODULE NAVIGATION SIDEBAR (Order 2 on Mobile, 1 on Desktop) */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-80 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-in-out
+        lg:relative lg:transform-none lg:w-80 lg:flex lg:flex-col lg:gap-6 lg:order-1 flex-shrink-0
+        ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        {/* Mobile Sidebar Header */}
+        <div className="lg:hidden flex justify-between items-center p-4 border-b dark:border-border-dark">
+          <span className="font-bold">Course Curriculum</span>
+          <button onClick={() => setIsSidebarOpen(false)} className="p-2 min-h-[44px] min-w-[44px] flex justify-center items-center">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 lg:p-0 h-full overflow-y-auto lg:overflow-visible">
+          <Link to="/dashboard" className="hidden lg:flex text-xs font-semibold text-accent hover:underline items-center gap-1 mb-6">
+            ← Back to Dashboard
+          </Link>
+
+          <div className="glass-card p-5 lg:p-6 space-y-5 lg:sticky lg:top-4 border-none lg:border-solid rounded-none lg:rounded-2xl bg-transparent lg:bg-white lg:dark:bg-slate-900">
+            <div>
+              <h3 className="font-extrabold text-slate-800 dark:text-white line-clamp-2 leading-tight text-sm lg:text-base">{course?.title}</h3>
+              <span className="text-[10px] text-accent font-bold uppercase tracking-wider mt-1 block">{course?.category}</span>
+            </div>
+
+            {/* Desktop Progress Bar */}
+            <div className="hidden lg:block w-full">
+              <div className="flex justify-between text-[10px] font-bold mb-1.5 uppercase text-slate-500">
+                <span>Course Progress</span>
+                <span className="text-accent">{progressPercent}%</span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
+                <div className="bg-accent h-1.5 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+              </div>
+            </div>
+
+            <div className="space-y-6 lg:max-h-[calc(100vh-250px)] lg:overflow-y-auto pr-1 custom-scrollbar pb-10 lg:pb-0">
+              {modules.map((mod) => {
+                const modLessons = lessons.filter((l) => l.moduleId === mod._id);
+                return (
+                  <div key={mod._id} className="space-y-2.5">
+                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{mod.title}</h4>
+                    <div className="space-y-1.5">
+                      {modLessons.map((les) => {
+                        const isActive = selectedLesson?._id === les._id;
+                        const isDone = completedLessons.includes(les._id);
+                        const locked = isLessonLocked(les._id);
+
+                        return (
+                          <button
+                            key={les._id}
+                            disabled={locked}
+                            onClick={() => {
+                              setSelectedLesson(les);
+                              setVideoError(null);
+                              setActiveQuiz(null);
+                              setQuizResultInfo(null);
+                              if(window.innerWidth < 1024) setIsSidebarOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between text-left p-3 rounded-xl text-xs font-semibold transition min-h-[44px] ${
+                              isActive
+                                ? 'bg-accent text-white shadow-lg shadow-accent/20'
+                                : locked 
+                                ? 'opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-800/50 text-slate-400'
+                                : 'hover:bg-slate-100 dark:hover:bg-border-dark text-slate-700 dark:text-slate-300'
+                            }`}
+                            title={locked ? "Complete previous lesson to unlock" : ""}
+                          >
+                            <span className="truncate pr-2 flex-1">{les.title}</span>
+                            
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {les.videoId?.duration && !isActive ? (
+                                <span className="text-[9px] text-slate-500 font-mono">
+                                  {Math.floor(les.videoId.duration / 60)}:{(Math.floor(les.videoId.duration % 60)).toString().padStart(2, '0')}
+                                </span>
+                              ) : null}
+                              
+                              {locked ? (
+                                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                              ) : isDone ? (
+                                <CheckCircle2 className={`w-4 h-4 ${isActive ? 'text-white' : 'text-green-500'}`} />
+                              ) : (
+                                <Play className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Drawer Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
     </div>
   );
 };

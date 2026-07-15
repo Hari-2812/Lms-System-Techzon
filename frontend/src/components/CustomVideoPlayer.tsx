@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
-  Settings, Loader2, AlertCircle, RefreshCw, PictureInPicture 
+  Settings, Loader2, AlertCircle, RefreshCw, PictureInPicture,
+  SkipBack, SkipForward, Subtitles, CheckCircle, ArrowRight
 } from 'lucide-react';
 
 interface CustomVideoPlayerProps {
@@ -14,13 +15,23 @@ interface CustomVideoPlayerProps {
   publicId?: string;
   onEnded?: () => void;
   className?: string;
+  
+  // New props for LMS progression
+  onLessonComplete?: () => void;
+  onAutoPlayNext?: () => void;
+  hasNextLesson?: boolean;
+  isAlreadyCompleted?: boolean;
+  subtitlesUrl?: string; // e.g., a .vtt file url
 }
 
 const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ 
-  playbackUrl, secureUrl, videoUrl, poster, lessonId, lessonTitle, publicId, onEnded, className 
+  playbackUrl, secureUrl, videoUrl, poster, lessonId, lessonTitle, publicId, 
+  onEnded, className, onLessonComplete, onAutoPlayNext, hasNextLesson, 
+  isAlreadyCompleted, subtitlesUrl 
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -33,6 +44,20 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   const [isBuffering, setIsBuffering] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
+  
+  // Captions
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  
+  // Resume watching state
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [savedResumeTime, setSavedResumeTime] = useState(0);
+
+  // Auto-play state
+  const [showAutoPlayOverlay, setShowAutoPlayOverlay] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+
+  // Watched tracking
+  const [watchedSeconds, setWatchedSeconds] = useState<Set<number>>(new Set());
 
   // Auto-hide controls timer
   let controlsTimeout: NodeJS.Timeout;
@@ -45,27 +70,65 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   const finalSrc = playbackUrl || secureUrl || videoUrl;
 
   useEffect(() => {
-    // Reset states when source changes
+    // Reset states when source (lesson) changes
     setIsPlaying(false);
     setProgress(0);
     setCurrentTime(0);
     setVideoError(null);
     setIsBuffering(true);
+    setShowAutoPlayOverlay(false);
+    setWatchedSeconds(new Set());
+    setCaptionsEnabled(false);
     
-    console.log('[Player Debug] Initializing Lesson:', lessonTitle);
-    console.log('[Player Debug] URL Selected:', finalSrc);
-    if (publicId) console.log('[Player Debug] Cloudinary Public ID:', publicId);
-
     if (videoRef.current) {
       videoRef.current.load();
     }
-  }, [finalSrc, lessonId, lessonTitle, publicId]);
+
+    // Check for saved resume time
+    const savedTime = localStorage.getItem(`resume_time_${lessonId}`);
+    if (savedTime) {
+      const parsedTime = parseFloat(savedTime);
+      if (parsedTime > 5) { // Only prompt if they watched more than 5 seconds
+        setSavedResumeTime(parsedTime);
+        setShowResumePrompt(true);
+      }
+    }
+  }, [finalSrc, lessonId]);
+
+  // Handle countdown for autoplay
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showAutoPlayOverlay && hasNextLesson) {
+      if (countdown > 0) {
+        timer = setTimeout(() => setCountdown(prev => prev - 1), 1000);
+      } else {
+        if (onAutoPlayNext) onAutoPlayNext();
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [showAutoPlayOverlay, countdown, hasNextLesson, onAutoPlayNext]);
+
+  // Periodic save of progress to localStorage
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      if (videoRef.current && !videoRef.current.paused && currentTime > 0) {
+        // Save to local storage
+        if (duration - currentTime > 10) { // don't save if almost at the end
+          localStorage.setItem(`resume_time_${lessonId}`, currentTime.toString());
+        } else {
+          localStorage.removeItem(`resume_time_${lessonId}`);
+        }
+      }
+    }, 5000); // save every 5 seconds
+
+    return () => clearInterval(saveInterval);
+  }, [currentTime, duration, lessonId]);
 
   // Keyboard Event Listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      if (showResumePrompt || showAutoPlayOverlay) return; // disable shortcuts when overlays are active
 
       const video = videoRef.current;
       if (!video) return;
@@ -78,11 +141,11 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
           break;
         case 'arrowright':
           e.preventDefault();
-          video.currentTime = Math.min(video.currentTime + 10, video.duration);
+          skipTime(5);
           break;
         case 'arrowleft':
           e.preventDefault();
-          video.currentTime = Math.max(video.currentTime - 10, 0);
+          skipTime(-5);
           break;
         case 'arrowup':
           e.preventDefault();
@@ -100,24 +163,61 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
           e.preventDefault();
           toggleMute();
           break;
+        case 'c':
+          e.preventDefault();
+          toggleCaptions();
+          break;
+        case '>':
+        case '.':
+          e.preventDefault();
+          changeSpeed(Math.min(playbackSpeed + 0.25, 2));
+          break;
+        case '<':
+        case ',':
+          e.preventDefault();
+          changeSpeed(Math.max(playbackSpeed - 0.25, 0.5));
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, volume, isMuted, isFullScreen]);
+  }, [isPlaying, volume, isMuted, isFullScreen, playbackSpeed, showResumePrompt, showAutoPlayOverlay]);
 
   // Video Event Handlers
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
-    setCurrentTime(videoRef.current.currentTime);
-    setProgress((videoRef.current.currentTime / videoRef.current.duration) * 100);
+    const ct = videoRef.current.currentTime;
+    setCurrentTime(ct);
+    
+    if (duration > 0) {
+      setProgress((ct / duration) * 100);
+    }
+
+    // Track watched seconds
+    if (isPlaying) {
+      setWatchedSeconds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(Math.floor(ct));
+        return newSet;
+      });
+    }
   };
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
       setIsBuffering(false);
+      // Auto-enable track if we enabled captions before it loaded
+      updateTrackMode(captionsEnabled);
+    }
+  };
+
+  const updateTrackMode = (enabled: boolean) => {
+    if (!videoRef.current) return;
+    const tracks = videoRef.current.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = enabled ? 'showing' : 'hidden';
     }
   };
 
@@ -125,7 +225,33 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     setIsBuffering(false);
     const msg = e.target.error ? e.target.error.message || `Code ${e.target.error.code}` : 'Unknown playback error';
     setVideoError(msg);
-    console.error('[Player Debug] Playback Error:', msg, 'for lesson:', lessonTitle);
+  };
+
+  const handleVideoEnded = () => {
+    setIsPlaying(false);
+    if (onEnded) onEnded();
+
+    // Remove saved resume time
+    localStorage.removeItem(`resume_time_${lessonId}`);
+
+    // Determine completion
+    let watchedRatio = 0;
+    if (duration > 0) {
+      watchedRatio = watchedSeconds.size / duration;
+    }
+
+    // If watched at least 90% or already completed previously
+    if (watchedRatio > 0.90 || isAlreadyCompleted) {
+      if (!isAlreadyCompleted && onLessonComplete) {
+        onLessonComplete();
+      }
+      
+      // Trigger Autoplay overlay if there's a next lesson
+      if (hasNextLesson) {
+        setCountdown(3);
+        setShowAutoPlayOverlay(true);
+      }
+    }
   };
 
   // User Actions
@@ -145,7 +271,12 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     const bar = e.currentTarget;
     const rect = bar.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
-    videoRef.current.currentTime = pos * videoRef.current.duration;
+    videoRef.current.currentTime = pos * duration;
+  };
+
+  const skipTime = (seconds: number) => {
+    if (!videoRef.current) return;
+    videoRef.current.currentTime = Math.min(Math.max(videoRef.current.currentTime + seconds, 0), duration);
   };
 
   const toggleMute = () => {
@@ -172,6 +303,12 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     videoRef.current.playbackRate = speed;
     setPlaybackSpeed(speed);
     setShowSettings(false);
+  };
+
+  const toggleCaptions = () => {
+    const newState = !captionsEnabled;
+    setCaptionsEnabled(newState);
+    updateTrackMode(newState);
   };
 
   const toggleFullScreen = async () => {
@@ -212,6 +349,25 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Resume functions
+  const acceptResume = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = savedResumeTime;
+      videoRef.current.play();
+      setIsPlaying(true);
+    }
+    setShowResumePrompt(false);
+  };
+
+  const declineResume = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play();
+      setIsPlaying(true);
+    }
+    setShowResumePrompt(false);
+  };
+
   if (!finalSrc) {
     return (
       <div className={`w-full aspect-video bg-black flex flex-col items-center justify-center text-slate-400 p-6 ${className}`}>
@@ -238,10 +394,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
-        onEnded={() => {
-          setIsPlaying(false);
-          if (onEnded) onEnded();
-        }}
+        onEnded={handleVideoEnded}
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => setIsBuffering(false)}
         onError={handleError}
@@ -249,10 +402,68 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         playsInline
         controlsList="nodownload"
         crossOrigin="anonymous"
-      />
+      >
+        {subtitlesUrl && (
+          <track 
+            kind="subtitles" 
+            src={subtitlesUrl} 
+            srcLang="en" 
+            label="English" 
+            default={captionsEnabled} 
+          />
+        )}
+      </video>
+
+      {/* Resume Prompt Overlay */}
+      {showResumePrompt && (
+        <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm">
+          <h3 className="text-2xl font-bold text-white mb-2">Resume Watching?</h3>
+          <p className="text-slate-300 mb-6">Do you want to resume from {formatTime(savedResumeTime)}?</p>
+          <div className="flex gap-4">
+            <button 
+              onClick={acceptResume}
+              className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition flex items-center gap-2"
+            >
+              <Play className="w-4 h-4" /> Resume
+            </button>
+            <button 
+              onClick={declineResume}
+              className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition"
+            >
+              Restart
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-play Next Overlay */}
+      {showAutoPlayOverlay && !showResumePrompt && (
+        <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm">
+          <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
+          <h3 className="text-2xl font-bold text-white mb-2">Lesson Completed!</h3>
+          <p className="text-slate-300 mb-8">Next Lesson starts in {countdown}...</p>
+          <div className="flex gap-4">
+            <button 
+              onClick={() => {
+                setShowAutoPlayOverlay(false);
+                if (onAutoPlayNext) onAutoPlayNext();
+              }}
+              className="px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition flex items-center gap-2 shadow-lg shadow-accent/20"
+            >
+              <Play className="w-5 h-5" /> Play Now
+            </button>
+            <button 
+              onClick={() => setShowAutoPlayOverlay(false)}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Buffering Overlay */}
-      {isBuffering && !videoError && (
+      {isBuffering && !videoError && !showResumePrompt && !showAutoPlayOverlay && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
           <Loader2 className="w-12 h-12 text-accent animate-spin" />
         </div>
@@ -279,74 +490,105 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
 
       {/* Custom Controls Overlay */}
       <div 
-        className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent transition-opacity duration-300 ${
-          showControls || !isPlaying || videoError ? 'opacity-100' : 'opacity-0'
+        className={`absolute bottom-0 left-0 right-0 p-4 pt-16 bg-gradient-to-t from-black via-black/60 to-transparent transition-opacity duration-300 z-20 ${
+          showControls || !isPlaying || videoError || showAutoPlayOverlay || showResumePrompt ? 'opacity-100' : 'opacity-0'
         }`}
-        onClick={(e) => e.stopPropagation()} // Prevent full screen toggle when clicking controls
+        onClick={(e) => e.stopPropagation()} 
       >
         {/* Progress Bar */}
         <div 
-          className="w-full h-1.5 bg-slate-600/50 rounded-full mb-4 cursor-pointer relative hover:h-2 transition-all"
+          className="w-full h-1.5 bg-slate-600/50 rounded-full mb-4 cursor-pointer relative hover:h-2.5 transition-all group/progress flex items-center"
           onClick={handleProgressClick}
         >
+          {/* Buffer Bar (Simplified) */}
           <div 
-            className="absolute top-0 left-0 h-full bg-accent rounded-full"
+            className="absolute top-0 left-0 h-full bg-slate-400/50 rounded-full"
+            style={{ width: `${videoRef.current?.buffered.length ? (videoRef.current.buffered.end(videoRef.current.buffered.length - 1) / duration) * 100 : 0}%` }}
+          />
+          {/* Play Progress */}
+          <div 
+            className="absolute top-0 left-0 h-full bg-accent rounded-full transition-all"
             style={{ width: `${progress}%` }}
+          />
+          {/* Scrubber Knob */}
+          <div 
+            className="absolute h-3.5 w-3.5 bg-white rounded-full shadow opacity-0 group-hover/progress:opacity-100 transition-opacity transform -translate-x-1/2"
+            style={{ left: `${progress}%` }}
           />
         </div>
 
         {/* Control Buttons Row */}
         <div className="flex items-center justify-between text-white">
-          <div className="flex items-center gap-4">
-            <button onClick={togglePlay} className="hover:text-accent transition">
-              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+          <div className="flex items-center gap-4 sm:gap-6">
+            <button onClick={togglePlay} className="hover:text-accent transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full">
+              {isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current ml-0.5" />}
             </button>
             
-            <div className="flex items-center gap-2 group/volume">
-              <button onClick={toggleMute} className="hover:text-accent transition">
+            <button onClick={() => skipTime(-5)} className="hover:text-accent transition focus:outline-none" title="Rewind 5s">
+              <SkipBack className="w-5 h-5" />
+            </button>
+            <button onClick={() => skipTime(5)} className="hover:text-accent transition focus:outline-none" title="Forward 5s">
+              <SkipForward className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 group/volume relative">
+              <button onClick={toggleMute} className="hover:text-accent transition focus:outline-none">
                 {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
               </button>
               <input
                 type="range"
-                min="0" max="1" step="0.1"
+                min="0" max="1" step="0.05"
                 value={isMuted ? 0 : volume}
                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-0 overflow-hidden group-hover/volume:w-20 transition-all duration-300 h-1 accent-accent"
+                className="w-0 overflow-hidden group-hover/volume:w-24 focus:w-24 transition-all duration-300 h-1.5 rounded-lg appearance-none bg-slate-600 outline-none accent-accent cursor-pointer"
+                title="Volume"
               />
             </div>
 
-            <div className="text-xs font-medium font-poppins">
+            <div className="text-xs font-medium font-poppins hidden sm:block tracking-wide">
               {formatTime(currentTime)} / {formatTime(duration)}
             </div>
           </div>
 
-          <div className="flex items-center gap-4 relative">
+          <div className="flex items-center gap-4 sm:gap-5 relative">
+            
+            {/* Captions */}
+            <button 
+              onClick={toggleCaptions} 
+              className={`hover:text-accent transition focus:outline-none flex flex-col items-center ${captionsEnabled ? 'text-accent' : 'text-slate-300'}`} 
+              title="Captions (C)"
+            >
+              <Subtitles className="w-5 h-5" />
+              {captionsEnabled && <span className="w-1 h-1 bg-accent rounded-full mt-0.5"></span>}
+            </button>
+
             {/* Settings Menu (Playback Speed) */}
             <div className="relative">
-              <button onClick={() => setShowSettings(!showSettings)} className="hover:text-accent transition">
+              <button onClick={() => setShowSettings(!showSettings)} className="hover:text-accent transition focus:outline-none">
                 <Settings className="w-5 h-5" />
               </button>
               {showSettings && (
-                <div className="absolute bottom-full right-0 mb-2 bg-slate-900/95 border border-slate-700 rounded-lg p-2 flex flex-col gap-1 z-50 min-w-[120px] backdrop-blur-md">
-                  <span className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase tracking-wider">Speed</span>
-                  {[0.5, 1, 1.25, 1.5, 2].map((s) => (
+                <div className="absolute bottom-full right-0 mb-3 bg-slate-900/95 border border-slate-700/50 rounded-xl p-2 flex flex-col gap-1 z-50 w-32 shadow-2xl backdrop-blur-xl">
+                  <span className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase tracking-wider mb-1">Speed</span>
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((s) => (
                     <button 
                       key={s}
                       onClick={() => changeSpeed(s)}
-                      className={`text-xs text-left px-3 py-1.5 rounded hover:bg-slate-800 ${playbackSpeed === s ? 'text-accent font-bold' : 'text-slate-300'}`}
+                      className={`text-xs text-left px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-between ${playbackSpeed === s ? 'text-accent font-bold bg-accent/10' : 'text-slate-300'}`}
                     >
                       {s === 1 ? 'Normal' : `${s}x`}
+                      {playbackSpeed === s && <CheckCircle className="w-3 h-3" />}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <button onClick={togglePiP} className="hover:text-accent transition hidden sm:block" title="Picture in Picture">
+            <button onClick={togglePiP} className="hover:text-accent transition focus:outline-none hidden sm:block" title="Picture in Picture">
               <PictureInPicture className="w-5 h-5" />
             </button>
 
-            <button onClick={toggleFullScreen} className="hover:text-accent transition">
+            <button onClick={toggleFullScreen} className="hover:text-accent transition focus:outline-none" title="Full Screen (F)">
               {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
             </button>
           </div>
@@ -356,4 +598,4 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   );
 };
 
-export default CustomVideoPlayer;
+export default React.memo(CustomVideoPlayer);
