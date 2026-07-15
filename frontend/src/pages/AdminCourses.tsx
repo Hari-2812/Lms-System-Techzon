@@ -95,7 +95,7 @@ const AdminCourses: React.FC = () => {
     if (!window.confirm('Run Curriculum Repair? This will reconstruct missing modules and lessons for orphaned videos across all courses.')) return;
     setIsSyncing(true);
     try {
-      const res = await api.post('/courses/repair-curriculum');
+      const res = await api.post('/admin/courses/repair-curriculum');
       alert(res.data.message || 'Curriculum repaired successfully!');
       fetchCourses();
       if (selectedCourse) {
@@ -449,7 +449,10 @@ const AdminCourses: React.FC = () => {
                   <p className="text-center text-xs text-slate-400 py-12">No curriculum modules developed yet.</p>
                 ) : (
                   modules.map((mod) => {
-                    const modLessons = lessons.filter((l) => l.moduleId === mod._id);
+                    const modLessons = lessons.filter((l) => {
+                      const lModId = typeof l.moduleId === 'object' && l.moduleId !== null ? (l.moduleId as any)._id : l.moduleId;
+                      return lModId === mod._id;
+                    });
                     return (
                       <div key={mod._id} className="p-4 border border-slate-100 dark:border-border-dark/60 rounded-xl space-y-3">
                         <div className="flex justify-between items-center bg-slate-50 dark:bg-card-dark/30 p-2.5 rounded-lg">

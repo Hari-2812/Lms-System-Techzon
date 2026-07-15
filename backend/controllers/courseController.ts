@@ -218,6 +218,7 @@ export const repairCurriculum = async (req: any, res: Response): Promise<void> =
     let totalCoursesRepaired = 0;
     let totalModulesCreated = 0;
     let totalLessonsCreated = 0;
+    let totalBrokenLessonsFixed = 0;
     let totalVideosLinked = 0;
 
     for (const course of courses) {
@@ -248,14 +249,21 @@ export const repairCurriculum = async (req: any, res: Response): Promise<void> =
             courseId: course._id,
             title: video.title || `Lesson ${orderCounter}`,
             videoId: video._id,
-            order: orderCounter
+            order: orderCounter,
+            isPublished: true,
           });
           totalLessonsCreated++;
         } else {
+          let wasBroken = false;
+          if (lesson.moduleId?.toString() !== mainModule._id.toString() || lesson.videoId?.toString() !== video._id.toString()) {
+            wasBroken = true;
+          }
           lesson.moduleId = mainModule._id;
           lesson.videoId = video._id;
           lesson.order = orderCounter;
+          lesson.isPublished = true;
           await lesson.save();
+          if (wasBroken) totalBrokenLessonsFixed++;
         }
 
         // Deep link video to module and lesson
@@ -266,16 +274,15 @@ export const repairCurriculum = async (req: any, res: Response): Promise<void> =
         totalVideosLinked++;
         orderCounter++;
       }
-      totalCoursesRepaired++;
-    }
+      
+      // Delete orphaned lessons for this course
+      const validVideoIds = videos.map(v => v._id.toString());
+      const orphans = await Lesson.find({ courseId: course._id, videoId: { $nin: validVideoIds } });
+      if (orphans.length > 0) {
+        await Lesson.deleteMany({ _id: { $in: orphans.map(o => o._id) } });
+      }
 
-    // Cleanup orphaned enrollments (enrollments pointing to non-existent courses)
-    const validCourseIds = courses.map(c => c._id.toString());
-    const orphanedEnrollments = await Enrollment.find({ courseId: { $nin: validCourseIds } });
-    let totalEnrollmentsRepaired = 0;
-    if (orphanedEnrollments.length > 0) {
-      await Enrollment.deleteMany({ courseId: { $nin: validCourseIds } });
-      totalEnrollmentsRepaired = orphanedEnrollments.length;
+      totalCoursesRepaired++;
     }
 
     res.status(200).json({
@@ -285,8 +292,8 @@ export const repairCurriculum = async (req: any, res: Response): Promise<void> =
         coursesRepaired: totalCoursesRepaired,
         modulesCreated: totalModulesCreated,
         lessonsCreated: totalLessonsCreated,
-        videosLinked: totalVideosLinked,
-        enrollmentsRepaired: totalEnrollmentsRepaired
+        brokenLessonsFixed: totalBrokenLessonsFixed,
+        videosLinked: totalVideosLinked
       }
     });
   } catch (error: any) {

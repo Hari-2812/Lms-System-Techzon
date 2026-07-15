@@ -254,7 +254,7 @@ router.put('/courses/:id', updateCourse);
 router.post('/courses/:id/duplicate', duplicateCourse);
 router.delete('/courses/:id', deleteCourse);
 router.post('/courses/sync-cloudinary', syncCloudinary);
-router.post('/courses/repair-curriculum', repairCurriculum);
+router.post('/admin/courses/repair-curriculum', repairCurriculum);
 
 // Modules CRUD
 router.post('/modules', createModule);

@@ -232,10 +232,10 @@ export const syncCloudinaryFolder = async () => {
          thumbnailUrl = thumbnailUrl.replace('/upload/', '/upload/so_auto,w_640,h_360,c_fill/');
       }
 
-      // 1. Identify Video Document (if exists) to potentially lookup existing lesson by videoId
+      // 1. Identify Video Document (if exists)
       let video = await Video.findOne({ publicId: resource.public_id });
       
-      // 2. Identify or Create Lesson BEFORE updating video, to get lesson._id
+      // 2. Identify or Create Lesson 
       let existingLesson = null;
       if (video) {
         existingLesson = await Lesson.findOne({ videoId: video._id, courseId: targetCourse._id });
@@ -248,23 +248,25 @@ export const syncCloudinaryFolder = async () => {
         });
       }
 
+      // Upsert Lesson
       if (!existingLesson) {
         existingLesson = await Lesson.create({
           moduleId: mainModule._id,
           courseId: targetCourse._id,
           title: displayName,
-          videoId: video ? video._id : null, // will update later if video doesn't exist yet
+          videoId: video ? video._id : null,
           order: lessonOrderCounter,
+          isPublished: true,
         });
         globalLessonsCreated++;
       } else {
         existingLesson.title = displayName;
         existingLesson.order = lessonOrderCounter;
-        existingLesson.moduleId = mainModule._id; // Ensure it's in the module
-        // We update videoId below after video is upserted
+        existingLesson.moduleId = mainModule._id; 
+        existingLesson.isPublished = true;
       }
 
-      // 3. Create or Update Video with lessonId and moduleId
+      // 3. Create or Update Video
       if (!video) {
         video = await Video.create({
           title: displayName,
@@ -301,7 +303,7 @@ export const syncCloudinaryFolder = async () => {
         globalUpdated++;
       }
 
-      // 4. Update the Lesson with the correct videoId to cement the link
+      // 4. Cement the link
       existingLesson.videoId = video._id;
       await existingLesson.save();
       globalVideosLinked++;

@@ -12,6 +12,7 @@ export interface ILesson extends Document {
     url: string;
   }>;
   order: number;
+  isPublished?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +32,7 @@ const LessonSchema: Schema<ILesson> = new Schema(
       },
     ],
     order: { type: Number, required: true },
+    isPublished: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

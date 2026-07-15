@@ -718,7 +718,10 @@ const CourseDetails: React.FC = () => {
 
             <div className="space-y-6 lg:max-h-[calc(100vh-250px)] lg:overflow-y-auto pr-1 custom-scrollbar pb-10 lg:pb-0">
               {modules.map((mod) => {
-                const modLessons = lessons.filter((l) => l.moduleId === mod._id);
+                const modLessons = lessons.filter((l) => {
+                  const lModId = typeof l.moduleId === 'object' && l.moduleId !== null ? (l.moduleId as any)._id : l.moduleId;
+                  return lModId === mod._id;
+                });
                 return (
                   <div key={mod._id} className="space-y-2.5">
                     <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{mod.title}</h4>
