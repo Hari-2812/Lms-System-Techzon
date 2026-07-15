@@ -106,6 +106,9 @@ export const syncCloudinaryFolder = async () => {
   let globalDeleted = 0;
   let globalCoursesCreated = 0;
   let globalModulesCreated = 0;
+  let globalLessonsCreated = 0;
+  let globalVideosLinked = 0;
+  let globalBrokenLessons = 0;
   const processedPublicIds = new Set();
   const validFoldersFound = new Set<string>();
   const courseStats: { courseName: string; count: number }[] = [];
@@ -229,8 +232,39 @@ export const syncCloudinaryFolder = async () => {
          thumbnailUrl = thumbnailUrl.replace('/upload/', '/upload/so_auto,w_640,h_360,c_fill/');
       }
 
-      // Upsert Video into MongoDB
+      // 1. Identify Video Document (if exists) to potentially lookup existing lesson by videoId
       let video = await Video.findOne({ publicId: resource.public_id });
+      
+      // 2. Identify or Create Lesson BEFORE updating video, to get lesson._id
+      let existingLesson = null;
+      if (video) {
+        existingLesson = await Lesson.findOne({ videoId: video._id, courseId: targetCourse._id });
+      }
+      
+      if (!existingLesson) {
+        existingLesson = await Lesson.findOne({ 
+          title: new RegExp(`^${displayName}$`, 'i'),
+          courseId: targetCourse._id 
+        });
+      }
+
+      if (!existingLesson) {
+        existingLesson = await Lesson.create({
+          moduleId: mainModule._id,
+          courseId: targetCourse._id,
+          title: displayName,
+          videoId: video ? video._id : null, // will update later if video doesn't exist yet
+          order: lessonOrderCounter,
+        });
+        globalLessonsCreated++;
+      } else {
+        existingLesson.title = displayName;
+        existingLesson.order = lessonOrderCounter;
+        existingLesson.moduleId = mainModule._id; // Ensure it's in the module
+        // We update videoId below after video is upserted
+      }
+
+      // 3. Create or Update Video with lessonId and moduleId
       if (!video) {
         video = await Video.create({
           title: displayName,
@@ -245,6 +279,8 @@ export const syncCloudinaryFolder = async () => {
           resourceType: resource.resource_type,
           thumbnail: thumbnailUrl,
           courseId: targetCourse._id,
+          moduleId: mainModule._id,
+          lessonId: existingLesson._id,
         });
         globalImported++;
       } else {
@@ -259,34 +295,16 @@ export const syncCloudinaryFolder = async () => {
         video.resourceType = resource.resource_type || video.resourceType;
         video.thumbnail = thumbnailUrl;
         video.courseId = targetCourse._id;
+        video.moduleId = mainModule._id;
+        video.lessonId = existingLesson._id;
         await video.save();
         globalUpdated++;
       }
 
-      // Upsert Lesson to PRESERVE _id and student progress
-      let existingLesson = await Lesson.findOne({ videoId: video._id, courseId: targetCourse._id });
-      
-      if (!existingLesson) {
-        existingLesson = await Lesson.findOne({ 
-          title: new RegExp(`^${displayName}$`, 'i'),
-          courseId: targetCourse._id 
-        });
-      }
-
-      if (!existingLesson) {
-        await Lesson.create({
-          moduleId: mainModule._id,
-          courseId: targetCourse._id,
-          title: displayName,
-          videoId: video._id,
-          order: lessonOrderCounter,
-        });
-      } else {
-        existingLesson.title = displayName;
-        existingLesson.videoId = video._id;
-        existingLesson.order = lessonOrderCounter;
-        await existingLesson.save();
-      }
+      // 4. Update the Lesson with the correct videoId to cement the link
+      existingLesson.videoId = video._id;
+      await existingLesson.save();
+      globalVideosLinked++;
       
       lessonOrderCounter++;
     }
@@ -324,6 +342,9 @@ export const syncCloudinaryFolder = async () => {
   console.log(`Videos Skipped: ${globalSkipped}`);
   console.log(`Videos Deleted: ${globalDeleted}`);
   console.log(`Modules Created: ${globalModulesCreated}`);
+  console.log(`Lessons Created: ${globalLessonsCreated}`);
+  console.log(`Videos Linked: ${globalVideosLinked}`);
+  console.log(`Broken Lessons: ${globalBrokenLessons}`);
 
   const syncDate = new Date();
 
@@ -337,14 +358,17 @@ export const syncCloudinaryFolder = async () => {
     deleted: globalDeleted,
     coursesCreated: globalCoursesCreated,
     modulesCreated: globalModulesCreated,
+    lessonsCreated: globalLessonsCreated,
+    videosLinked: globalVideosLinked,
+    brokenLessons: globalBrokenLessons,
     courseStats: courseStats
   });
   await syncStat.save();
 
   return { 
     success: true, 
-    message: `Sync complete. Fetched ${allResources.length} videos across ${validFoldersFound.size} courses.`,
-    stats: { 
+    message: "Cloudinary sync completed successfully",
+    stats: {
       foldersFound: validFoldersFound.size,
       fetched: allResources.length, 
       imported: globalImported, 
@@ -353,6 +377,9 @@ export const syncCloudinaryFolder = async () => {
       deleted: globalDeleted,
       coursesCreated: globalCoursesCreated,
       modulesCreated: globalModulesCreated,
+      lessonsCreated: globalLessonsCreated,
+      videosLinked: globalVideosLinked,
+      brokenLessons: globalBrokenLessons,
       lastSync: syncDate.toISOString(),
       courseStats: courseStats
     }

@@ -91,6 +91,23 @@ const AdminCourses: React.FC = () => {
     }
   };
 
+  const handleRepairCurriculum = async () => {
+    if (!window.confirm('Run Curriculum Repair? This will reconstruct missing modules and lessons for orphaned videos across all courses.')) return;
+    setIsSyncing(true);
+    try {
+      const res = await api.post('/courses/repair-curriculum');
+      alert(res.data.message || 'Curriculum repaired successfully!');
+      fetchCourses();
+      if (selectedCourse) {
+        handleSelectCourse(selectedCourse);
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to repair curriculum');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSelectCourse = async (course: any) => {
     setSelectedCourse(course);
     setLoading(true);
@@ -404,6 +421,13 @@ const AdminCourses: React.FC = () => {
                 </div>
                 
                 <div className="flex gap-2">
+                  <button
+                    onClick={handleRepairCurriculum}
+                    className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-600 dark:border-border-dark dark:text-slate-300 text-xs font-semibold flex items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-850"
+                    disabled={isSyncing}
+                  >
+                    <RefreshCw className={`w-4 h-4 text-amber-500 ${isSyncing ? 'animate-spin' : ''}`} /> Repair Curriculum
+                  </button>
                   <button
                     onClick={() => setShowModForm(true)}
                     className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-600 dark:border-border-dark dark:text-slate-300 text-xs font-semibold flex items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-850"
@@ -761,12 +785,28 @@ const AdminCourses: React.FC = () => {
                 <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.imported}</p>
               </div>
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Modules Created</p>
+                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.modulesCreated || 0}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Lessons Created</p>
+                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.lessonsCreated || 0}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Linked</p>
+                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.videosLinked || 0}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Updated</p>
                 <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.updated}</p>
               </div>
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Broken Lessons</p>
+                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.brokenLessons || 0}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Deleted</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.deleted}</p>
+                <p className="text-xl font-extrabold text-red-500">{syncStats.deleted}</p>
               </div>
             </div>
 

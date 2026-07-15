@@ -212,6 +212,79 @@ export const createCourse = async (req: any, res: Response): Promise<void> => {
   }
 };
 
+export const repairCurriculum = async (req: any, res: Response): Promise<void> => {
+  try {
+    const courses = await Course.find();
+    let totalCoursesRepaired = 0;
+    let totalModulesCreated = 0;
+    let totalLessonsCreated = 0;
+    let totalVideosLinked = 0;
+
+    for (const course of courses) {
+      // Find all videos for this course
+      const videos = await Video.find({ courseId: course._id }).sort({ version: 1, title: 1 });
+      if (videos.length === 0) continue;
+
+      let mainModule = await Module.findOne({ courseId: course._id });
+      if (!mainModule) {
+        mainModule = await Module.create({
+          courseId: course._id,
+          title: "Course Content",
+          order: 1,
+        });
+        totalModulesCreated++;
+      }
+
+      let orderCounter = 1;
+      for (const video of videos) {
+        let lesson = await Lesson.findOne({ videoId: video._id, courseId: course._id });
+        if (!lesson) {
+          lesson = await Lesson.findOne({ title: new RegExp(`^${video.title}$`, 'i'), courseId: course._id });
+        }
+        
+        if (!lesson) {
+          lesson = await Lesson.create({
+            moduleId: mainModule._id,
+            courseId: course._id,
+            title: video.title || `Lesson ${orderCounter}`,
+            videoId: video._id,
+            order: orderCounter
+          });
+          totalLessonsCreated++;
+        } else {
+          lesson.moduleId = mainModule._id;
+          lesson.videoId = video._id;
+          lesson.order = orderCounter;
+          await lesson.save();
+        }
+
+        // Deep link video to module and lesson
+        video.moduleId = mainModule._id;
+        video.lessonId = lesson._id;
+        await video.save();
+        
+        totalVideosLinked++;
+        orderCounter++;
+      }
+      totalCoursesRepaired++;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Curriculum repaired successfully',
+      stats: {
+        coursesRepaired: totalCoursesRepaired,
+        modulesCreated: totalModulesCreated,
+        lessonsCreated: totalLessonsCreated,
+        videosLinked: totalVideosLinked
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error repairing curriculum:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 export const updateCourse = async (req: any, res: Response): Promise<void> => {
   const { id } = req.params;
   try {

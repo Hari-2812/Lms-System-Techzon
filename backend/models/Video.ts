@@ -15,6 +15,7 @@ export interface IVideo extends Document {
   displayName?: string;
   order: number;
   moduleId?: mongoose.Types.ObjectId;
+  lessonId?: mongoose.Types.ObjectId;
   courseId: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +37,7 @@ const VideoSchema: Schema<IVideo> = new Schema(
     displayName: { type: String },
     order: { type: Number, default: 0 },
     moduleId: { type: Schema.Types.ObjectId, ref: 'Module', index: true },
+    lessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', index: true },
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
   },
   { timestamps: true }

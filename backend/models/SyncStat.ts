@@ -10,6 +10,9 @@ export interface ISyncStat extends Document {
   deleted: number;
   coursesCreated: number;
   modulesCreated: number;
+  lessonsCreated: number;
+  videosLinked: number;
+  brokenLessons: number;
   courseStats: Array<{
     courseName: string;
     count: number;
@@ -27,6 +30,9 @@ const syncStatSchema: Schema = new Schema(
     deleted: { type: Number, default: 0 },
     coursesCreated: { type: Number, default: 0 },
     modulesCreated: { type: Number, default: 0 },
+    lessonsCreated: { type: Number, default: 0 },
+    videosLinked: { type: Number, default: 0 },
+    brokenLessons: { type: Number, default: 0 },
     courseStats: [
       {
         courseName: { type: String },
