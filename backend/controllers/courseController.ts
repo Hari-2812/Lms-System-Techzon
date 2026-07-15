@@ -109,7 +109,12 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
 
     // Fetch modules & lessons
     const modules = await Module.find({ courseId: course._id }).sort('order').lean();
-    const lessons = await Lesson.find({ courseId: course._id }).populate('videoId').sort('order').lean();
+    const lessons = await Lesson.find({ courseId: course._id })
+      .populate('videoId')
+      .populate('moduleId')
+      .populate('courseId')
+      .sort('order')
+      .lean();
 
     let completedLessons: string[] = [];
     if (req.user?.role === 'Student') {
@@ -124,7 +129,10 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
 
     const modulesWithLessons = modules.map((mod: any) => ({
       ...mod,
-      lessons: lessons.filter((lesson: any) => lesson.moduleId.toString() === mod._id.toString()),
+      lessons: lessons.filter((lesson: any) => {
+        const lessonModId = lesson.moduleId && lesson.moduleId._id ? lesson.moduleId._id.toString() : lesson.moduleId.toString();
+        return lessonModId === mod._id.toString();
+      }),
     }));
 
     res.status(200).json({

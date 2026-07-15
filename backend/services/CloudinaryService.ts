@@ -168,9 +168,8 @@ export const syncCloudinaryFolder = async () => {
     for (const exVid of existingVideos) {
       if (!fetchedPublicIds.includes(exVid.publicId)) {
         await Video.deleteOne({ _id: exVid._id });
-        await Lesson.deleteOne({ videoId: exVid._id });
         globalDeleted++;
-        console.log(`Deleted missing video and its lesson from DB: ${exVid.publicId}`);
+        console.log(`Deleted missing video from DB: ${exVid.publicId}`);
       }
     }
 
@@ -237,7 +236,17 @@ export const syncCloudinaryFolder = async () => {
       }
 
       // Upsert Lesson to PRESERVE _id and student progress
-      const existingLesson = await Lesson.findOne({ videoId: video._id, courseId: targetCourse._id });
+      // First try to find by exact videoId to avoid duplicating if title changed slightly
+      let existingLesson = await Lesson.findOne({ videoId: video._id, courseId: targetCourse._id });
+      
+      // If not found by videoId, check by exact Title (case-insensitive) to link orphans
+      if (!existingLesson) {
+        existingLesson = await Lesson.findOne({ 
+          title: new RegExp(`^${displayName}$`, 'i'),
+          courseId: targetCourse._id 
+        });
+      }
+
       if (!existingLesson) {
         await Lesson.create({
           moduleId: mainModule._id,
@@ -248,6 +257,7 @@ export const syncCloudinaryFolder = async () => {
         });
       } else {
         existingLesson.title = displayName;
+        existingLesson.videoId = video._id; // <-- Fix link!
         existingLesson.order = lessonOrderCounter;
         await existingLesson.save();
       }
@@ -257,6 +267,27 @@ export const syncCloudinaryFolder = async () => {
     
     courseStats.push({ courseName: courseTitle, count: courseVideoCount });
     console.log(`Course '${courseTitle}' Updated successfully with ${courseVideoCount} videos`);
+
+    // FINAL CLEANUP: Delete Orphan Lessons
+    // Any lesson in this course that still does NOT have a populated videoId matching the ones we just created
+    // or has NO videoId at all should be deleted.
+    const validVideoIds = mappedVideos.map(async (r) => {
+      const v = await Video.findOne({ publicId: r.public_id });
+      return v?._id;
+    });
+    const resolvedVideoIds = (await Promise.all(validVideoIds)).filter(Boolean);
+
+    const orphanLessons = await Lesson.find({
+      courseId: targetCourse._id,
+      videoId: { $nin: resolvedVideoIds }
+    });
+
+    if (orphanLessons.length > 0) {
+      for (const orphan of orphanLessons) {
+        await Lesson.deleteOne({ _id: orphan._id });
+        console.log(`Deleted orphan lesson without active video link: ${orphan.title}`);
+      }
+    }
   }
 
   console.log(`\n==========================================`);
