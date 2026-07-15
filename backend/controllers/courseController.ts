@@ -108,8 +108,8 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
     }
 
     // Fetch modules & lessons
-    const modules = await Module.find({ courseId: course._id }).sort('order').lean();
-    const lessons = await Lesson.find({ courseId: course._id })
+    let modules = await Module.find({ courseId: course._id }).sort('order').lean();
+    let lessons = await Lesson.find({ courseId: course._id })
       .populate('videoId')
       .populate('moduleId')
       .populate('courseId')
@@ -126,6 +126,49 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
         completedLessons = enrollment.progress.completedLessons.map((l) => l.toString());
       }
     }
+
+    // --- CURRICULUM SELF-HEALING ENGINE ---
+    if (modules.length === 0) {
+      const videos = await Video.find({ courseId: course._id }).sort('title');
+      if (videos.length > 0) {
+        logger.info(`Auto-healing curriculum for course: ${course.title}`);
+        
+        // 1. Clean broken orphans
+        await Lesson.deleteMany({ courseId: course._id });
+        
+        // 2. Create default module
+        const mainModule = await Module.create({
+          courseId: course._id,
+          title: "Course Content",
+          order: 1,
+        });
+
+        // 3. Create lessons linked to videos, sorted by publicId/filename
+        videos.sort((a, b) => (a.publicId || '').localeCompare(b.publicId || ''));
+        
+        let orderCounter = 1;
+        for (const vid of videos) {
+          await Lesson.create({
+            moduleId: mainModule._id,
+            courseId: course._id,
+            title: vid.displayName || vid.title || `Lesson ${orderCounter}`,
+            videoId: vid._id,
+            order: orderCounter,
+          });
+          orderCounter++;
+        }
+
+        // 4. Refetch curriculum
+        modules = await Module.find({ courseId: course._id }).sort('order').lean();
+        lessons = await Lesson.find({ courseId: course._id })
+          .populate('videoId')
+          .populate('moduleId')
+          .populate('courseId')
+          .sort('order')
+          .lean();
+      }
+    }
+    // --- END HEALING ENGINE ---
 
     const modulesWithLessons = modules.map((mod: any) => ({
       ...mod,
@@ -333,7 +376,7 @@ export const deleteLesson = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// Track student progress
+// Track student progress with sequential validation
 export const trackLessonProgress = async (req: any, res: Response): Promise<void> => {
   const { courseId, lessonId, isCompleted } = req.body;
 
@@ -350,33 +393,60 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
       return;
     }
 
+    // 2. Fetch all lessons sorted by order to validate sequence
+    const allLessons = await Lesson.find({ courseId }).sort('order').lean();
+    const currentLessonIndex = allLessons.findIndex(l => l._id.toString() === lessonId);
+    
+    if (currentLessonIndex === -1) {
+      res.status(404).json({ success: false, message: 'Lesson not found in this course' });
+      return;
+    }
+
     if (isCompleted) {
+      // 3. Sequential Lock Validation: Only allow if it's the first lesson OR previous lesson is completed
+      if (currentLessonIndex > 0) {
+        const previousLesson = allLessons[currentLessonIndex - 1];
+        const isPrevCompleted = enrollment.progress.completedLessons.some(
+          (id: any) => id.toString() === previousLesson._id.toString()
+        );
+        if (!isPrevCompleted) {
+          res.status(403).json({ 
+            success: false, 
+            message: 'You must complete previous lessons before marking this as complete.' 
+          });
+          return;
+        }
+      }
+
+      // 4. Atomically add to set
       await Enrollment.updateOne(
         { _id: enrollment._id },
         { $addToSet: { 'progress.completedLessons': lessonId } }
       );
     } else {
+      // Remove lesson completion if unchecked (optional but handled)
       await Enrollment.updateOne(
         { _id: enrollment._id },
         { $pull: { 'progress.completedLessons': lessonId } }
       );
     }
 
+    // 5. Recalculate progress
     const updatedEnrollment = await Enrollment.findById(enrollment._id);
-    if (!updatedEnrollment) throw new Error("Enrollment not found");
+    if (!updatedEnrollment) return;
 
-    const totalLessons = await Lesson.countDocuments({ courseId });
-    if (totalLessons > 0) {
-      updatedEnrollment.progress.percentComplete = Math.round((updatedEnrollment.progress.completedLessons.length / totalLessons) * 100);
-    } else {
-      updatedEnrollment.progress.percentComplete = 0;
-    }
+    const totalLessons = allLessons.length;
+    const completedCount = updatedEnrollment.progress.completedLessons.length;
+    const newPercent = totalLessons === 0 ? 0 : Math.round((completedCount / totalLessons) * 100);
 
-    if (updatedEnrollment.progress.percentComplete === 100 && !updatedEnrollment.certificateIssued) {
+    updatedEnrollment.progress.percentComplete = newPercent;
+    
+    // Auto-issue certificate if 100%
+    if (newPercent === 100 && !updatedEnrollment.certificateIssued) {
       try {
         const cert = await generateCertificateOffline(req.user._id, courseId, updatedEnrollment._id);
         updatedEnrollment.certificateIssued = true;
-        updatedEnrollment.certificateId = cert._id as any;
+        updatedEnrollment.certificateId = cert.certificateId;
         logger.info(`Graduation Certificate auto-issued to ${req.user.email} for course ${courseId}`);
       } catch (certErr) {
         logger.error('Failed to auto-issue certificate:', certErr);
@@ -385,6 +455,12 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 
     await updatedEnrollment.save();
 
+    // Determine the next lesson to unlock dynamically
+    let nextLessonId = null;
+    if (currentLessonIndex < totalLessons - 1) {
+      nextLessonId = allLessons[currentLessonIndex + 1]._id;
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -392,6 +468,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
         completedLessons: updatedEnrollment.progress.completedLessons,
         certificateIssued: updatedEnrollment.certificateIssued,
         certificateId: updatedEnrollment.certificateId,
+        nextLessonId: nextLessonId
       },
     });
   } catch (error: any) {
