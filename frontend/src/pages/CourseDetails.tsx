@@ -682,7 +682,7 @@ const CourseDetails: React.FC = () => {
 
       {/* 1. LEFT COLUMN: MODULE NAVIGATION SIDEBAR (Order 2 on Mobile, 1 on Desktop) */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-80 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-50 w-full sm:w-80 bg-white dark:bg-slate-900 transform transition-transform duration-300 ease-in-out
         lg:relative lg:transform-none lg:w-80 lg:flex lg:flex-col lg:gap-6 lg:order-1 flex-shrink-0
         ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
       `}>

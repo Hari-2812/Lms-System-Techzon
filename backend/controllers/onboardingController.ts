@@ -241,7 +241,6 @@ export const rejectOnboarding = async (req: any, res: Response): Promise<void> =
 
 // 7. Approve Onboarding Request & Provision Account (ADMIN)
 export const approveOnboarding = async (req: any, res: Response): Promise<void> => {
-  console.log('Approval Started');
   const { id } = req.params;
   const { courses, learningPlan, batch, mentorId, durationMonths, remarks } = req.body;
 
@@ -275,7 +274,6 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
     const tempPassword = generateTempPassword();
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('Generated Password:', tempPassword);
     }
 
     if (!user) {
@@ -289,7 +287,6 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
         needsPasswordChange: true,
       });
       await user.save();
-      console.log('Student Created');
       logger.info(`Onboarding approval spawned new student user: ${request.email}`);
     } else {
       user.password = tempPassword;
@@ -297,48 +294,18 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
       user.status = 'active';
       await user.save();
       if (process.env.NODE_ENV === 'development') {
-        console.log('Password Hash Exists:', !!user.password);
       }
-      console.log('Existing student account password reset');
       logger.info(`Existing student account updated during onboarding approval: ${emailLower}`);
     }
 
-    // 2. Spawning Enrollments (spawns one enrollment per selected course)
-    const startDate = new Date();
-    const expiryDate = new Date();
-    const activeDuration = durationMonths || plan.durationMonths || 6;
-    expiryDate.setMonth(startDate.getMonth() + activeDuration);
-
-    const enrollmentResults = [];
-    for (const courseId of finalCourseIds) {
-      const dbCourse = await Course.findById(courseId);
-      if (!dbCourse) continue;
-
-      // Spawns/updates course enrollment
-      const enrollment = await Enrollment.findOneAndUpdate(
-        { studentId: user._id, courseId: dbCourse._id },
-        {
-          learningPlanId: plan._id,
-          batch: finalBatch,
-          mentorId: finalMentorId || undefined,
-          createdBy: req.user._id,
-          startDate,
-          expiryDate,
-          status: 'active',
-          progress: { completedLessons: [], percentComplete: 0 },
-        },
-        { upsert: true, new: true }
-      );
-      enrollmentResults.push(enrollment);
-    }
-
+    // 2. No Longer Spawning Enrollments Here (Moved to Admin Dashboard)
+    // The onboarding form ONLY provisions the user account.
     // 3. Mark Onboarding Request as Approved
     request.status = 'approved';
     request.remarks = remarks;
     request.approvedBy = req.user._id;
     request.approvedAt = new Date();
     await request.save();
-    console.log('Enrollment Created');
 
     // 4. Send Welcome Email Credentials
     const mainCourse = await Course.findById(finalCourseIds[0]);
@@ -346,10 +313,8 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
     let emailSent = false;
 
     let emailInfo: any = null;
-    console.log('Sending Email...');
     if (tempPassword) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Before Email Password:', tempPassword);
       }
       try {
         emailInfo = await sendWelcomeEmail(
@@ -359,7 +324,6 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
           undefined
         );
         emailSent = true;
-        console.log('Email Delivered');
       } catch (emailError: any) {
         emailSent = false;
         logger.error('Welcome email sending failed during onboarding approval:', {
@@ -368,7 +332,6 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
           response: emailError.response,
           stack: emailError.stack,
         });
-        console.log('SMTP error during approval email:', emailError.message);
       }
     }
 
@@ -415,16 +378,16 @@ export const approveOnboarding = async (req: any, res: Response): Promise<void> 
     await AuditLog.create({
       userId: req.user._id,
       action: 'APPROVE_ONBOARDING',
-      details: `Approved onboarding ID ${request._id} for ${request.fullName}. Spawned ${enrollmentResults.length} enrollments. Email sent: ${emailSent}`,
+      details: `Approved onboarding ID ${request._id} for ${request.fullName}. Email sent: ${emailSent}`,
     });
 
     res.status(200).json({
       success: true,
-      message: 'Onboarding approved successfully. Student access provisioned!',
+      message: 'Onboarding approved successfully. Student account provisioned!',
       emailSent,
       data: {
         user: { id: user._id, name: user.name, email: user.email },
-        enrollments: enrollmentResults,
+        enrollments: [],
       },
     });
   } catch (error: any) {
@@ -466,7 +429,6 @@ export const resendCredentials = async (req: any, res: Response): Promise<void> 
     let emailInfo: any = null;
     let emailSent = false;
     try {
-      console.log('Email Sending Started');
       emailInfo = await sendWelcomeEmail(
         user.email,
         user.name,

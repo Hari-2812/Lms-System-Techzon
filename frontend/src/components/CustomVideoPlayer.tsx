@@ -225,7 +225,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       setIsBuffering(false);
       updateTrackMode(captionsEnabled);
       
-      if (lastFetchedTime > 0 && !hasResumed) {
+      if (lastFetchedTime > 0 && !hasResumed && !isAlreadyCompleted) {
         videoRef.current.currentTime = lastFetchedTime;
         setHasResumed(true);
       }

@@ -269,6 +269,15 @@ export const repairCurriculum = async (req: any, res: Response): Promise<void> =
       totalCoursesRepaired++;
     }
 
+    // Cleanup orphaned enrollments (enrollments pointing to non-existent courses)
+    const validCourseIds = courses.map(c => c._id.toString());
+    const orphanedEnrollments = await Enrollment.find({ courseId: { $nin: validCourseIds } });
+    let totalEnrollmentsRepaired = 0;
+    if (orphanedEnrollments.length > 0) {
+      await Enrollment.deleteMany({ courseId: { $nin: validCourseIds } });
+      totalEnrollmentsRepaired = orphanedEnrollments.length;
+    }
+
     res.status(200).json({
       success: true,
       message: 'Curriculum repaired successfully',
@@ -276,7 +285,8 @@ export const repairCurriculum = async (req: any, res: Response): Promise<void> =
         coursesRepaired: totalCoursesRepaired,
         modulesCreated: totalModulesCreated,
         lessonsCreated: totalLessonsCreated,
-        videosLinked: totalVideosLinked
+        videosLinked: totalVideosLinked,
+        enrollmentsRepaired: totalEnrollmentsRepaired
       }
     });
   } catch (error: any) {
