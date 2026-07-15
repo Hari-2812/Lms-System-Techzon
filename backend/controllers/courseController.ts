@@ -12,45 +12,6 @@ import logger from '../config/logger';
 import cloudinary from '../config/cloudinary';
 import { syncCloudinaryFolder } from '../services/CloudinaryService';
 
-// Seed default course if needed
-export const seedDefaultCourses = async (): Promise<void> => {
-  const count = await Course.countDocuments();
-  if (count > 0) return;
-
-  const defaultCourse = new Course({
-    title: 'Full Stack MERN Development',
-    slug: 'full-stack-mern-development',
-    description: 'Learn modern web engineering using MongoDB, Express, React, and Node.js.',
-    category: 'Software Engineering',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=600&auto=format&fit=crop',
-    status: 'published',
-    seo: {
-      title: 'Full Stack MERN Course',
-      description: 'Master React, Express, MongoDB, Node',
-      keywords: ['MERN', 'Full Stack', 'Development'],
-    },
-  });
-  await defaultCourse.save();
-
-  const mod1 = new Module({
-    courseId: defaultCourse._id,
-    title: 'Introduction to MongoDB',
-    order: 1,
-  });
-  await mod1.save();
-
-  const les1 = new Lesson({
-    moduleId: mod1._id,
-    courseId: defaultCourse._id,
-    title: 'MongoDB Basics & Schema Design',
-    description: 'Understand document database foundations and Mongoose structures.',
-    order: 1,
-  });
-  await les1.save();
-
-  logger.info('Default courses seeded successfully.');
-};
-
 export const uploadLessonVideo = async (req: any, res: Response): Promise<void> => {
   logger.info('Upload video request received. File:', req.file?.originalname);
 

@@ -67,8 +67,6 @@ const processImportRecords = async (records: GoogleSheetsOnboardingRecord[]) => 
   let synced = 0;
   let duplicates = 0;
   let skipped = 0;
-
-  const defaultCourse = await Course.findOne();
   const defaultPlan = await LearningPlan.findOne();
 
   for (const record of records) {
@@ -78,10 +76,23 @@ const processImportRecords = async (records: GoogleSheetsOnboardingRecord[]) => 
       continue;
     }
 
-    // Match Course
-    let course = await Course.findOne({ title: new RegExp(record.courseName, 'i') });
-    if (!course) {
-      course = defaultCourse;
+    // Match Course dynamically
+    const normalizedCourseName = (record.courseName || '').trim();
+    let course = await Course.findOne({ title: new RegExp(`^${normalizedCourseName}$`, 'i') });
+    
+    if (!course && normalizedCourseName) {
+      function titleCase(str: string) {
+        return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.substring(1)).join(' ');
+      }
+      const courseTitle = titleCase(normalizedCourseName.replace(/[-_]/g, ' '));
+      course = await Course.create({
+        title: courseTitle,
+        slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
+        description: `${courseTitle} automatically created via Google Forms sync.`,
+        category: 'Uncategorized',
+        status: 'published'
+      });
+      console.log(`Course not found.\nCreating new course...\nCourse Created Successfully.`);
     }
 
     // Check if duplicate in User or Onboarding requests

@@ -18,7 +18,6 @@ import apiRoutes from './routes/api';
 
 // Seeding utilities
 import { seedDefaultPlans } from './controllers/planController';
-import { seedDefaultCourses } from './controllers/courseController';
 import { seedDefaultSettings } from './controllers/analyticsController';
 import { startExpiryScheduler } from './jobs/expiryJob';
 import { startGoogleSheetWatcher } from './jobs/googleSheetWatcher';
@@ -38,7 +37,6 @@ connectDB().then(async () => {
   try {
     // Run automated seeding
     await seedDefaultPlans();
-    await seedDefaultCourses();
     await seedDefaultSettings();
     startExpiryScheduler();
     startGoogleSheetWatcher();

@@ -15,15 +15,7 @@ const normalizeString = (str: string) => {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
-// Aliases mapping for known acronyms and specific titles
-const COURSE_NAME_MAP: Record<string, string> = {
-  'webdevelopment': 'Web Development',
-  'fullstackdevelopment': 'Full Stack Development',
-  'mernstackdevelopment': 'MERN Stack Development',
-  'cloudcomputing': 'Cloud Computing',
-  'aws': 'AWS Cloud Computing',
-  'awscloud': 'AWS Cloud Computing',
-};
+
 
 function titleCase(str: string) {
   return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.substring(1)).join(' ');
@@ -134,12 +126,10 @@ export const syncCloudinaryFolder = async () => {
     const mappedVideos = groupedVideos[folderRaw];
     const normalizedFolder = normalizeString(folderRaw);
     
-    // Determine the course title
-    let courseTitle = COURSE_NAME_MAP[normalizedFolder];
-    if (!courseTitle) {
-      // Fallback: Use the original folder name, formatted nicely
-      courseTitle = titleCase(folderRaw.replace(/[-_]/g, ' '));
-    }
+    // Determine the course title purely dynamically based on the folder name
+    // Example: "aws-cloud" or "AWS Cloud" -> "Aws Cloud"
+    let courseTitle = titleCase(folderRaw.replace(/[-_]/g, ' '));
+    if (courseTitle.toLowerCase() === 'aws') courseTitle = 'AWS';
 
     validFoldersFound.add(courseTitle);
     console.log(`\nProcessing Course: ${courseTitle} (Folder: ${folderRaw}) with ${mappedVideos.length} videos`);

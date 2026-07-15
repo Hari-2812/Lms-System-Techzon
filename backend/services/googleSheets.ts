@@ -4,6 +4,7 @@ import Onboarding from '../models/Onboarding';
 import Course from '../models/Course';
 import LearningPlan from '../models/LearningPlan';
 import User from '../models/User';
+import Enrollment from '../models/Enrollment';
 import logger from '../config/logger';
 import { createNotification } from './notificationService';
 
@@ -118,7 +119,6 @@ export const syncGoogleSheetsOnboardings = async (): Promise<{
     let duplicates = 0;
     let latestTimestamp: string | undefined;
 
-    const defaultCourse = await Course.findOne();
     const defaultPlan = await LearningPlan.findOne();
 
     for (const submission of submissions) {
@@ -140,7 +140,64 @@ export const syncGoogleSheetsOnboardings = async (): Promise<{
 
       latestTimestamp = submission.timestamp || latestTimestamp;
 
+      // 1. DYNAMIC COURSE MATCHING OR CREATION
+      const normalizedCourseName = (submission.courseName || '').trim();
+      let course = null;
+      if (normalizedCourseName) {
+        course = await Course.findOne({ title: new RegExp(`^${normalizedCourseName}$`, 'i') });
+        if (!course) {
+          console.log(`\nGoogle Form Email:\n${email}\nSelected Course:\n${normalizedCourseName}\nCourse not found.\nCreating new course...`);
+          function titleCase(str: string) {
+            return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.substring(1)).join(' ');
+          }
+          const courseTitle = titleCase(normalizedCourseName.replace(/[-_]/g, ' '));
+          course = await Course.create({
+            title: courseTitle,
+            slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
+            description: `${courseTitle} automatically created via Google Forms sync.`,
+            category: 'Uncategorized',
+            status: 'published'
+          });
+          console.log(`Course Created Successfully.`);
+        }
+      }
+
+      const courseIdStr = course ? course._id.toString() : 'N/A';
+      const courseTitleStr = course ? course.title : 'N/A';
+
+      // 2. CHECK EXISTING USER
       const existingUser = await User.findOne({ email });
+      if (existingUser && course) {
+        console.log(`\nGoogle Form Email:\n${email}\nSelected Course:\n${normalizedCourseName}\nMatched LMS Course:\n${courseTitleStr}\nCourse ID:\n${courseIdStr}`);
+        
+        // Update Enrollment
+        const currentEnrollments = await Enrollment.find({ studentId: existingUser._id });
+        const hasCourse = currentEnrollments.some(e => e.courseId.toString() === courseIdStr);
+        
+        if (!hasCourse) {
+          // The student's course changed, or they don't have this course.
+          // In dynamic Google Form sync, we replace their old enrollment with the new one
+          await Enrollment.deleteMany({ studentId: existingUser._id });
+          await Enrollment.create({
+            studentId: existingUser._id,
+            courseId: course._id,
+            learningPlanId: defaultPlan ? defaultPlan._id : undefined,
+            batch: 'Batch A',
+            startDate: new Date(),
+            expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 6)),
+            status: 'active',
+            progress: { completedLessons: [], percentComplete: 0 }
+          });
+          console.log(`Enrollment Updated:\nSUCCESS`);
+          updated++;
+        } else {
+          console.log(`Enrollment Updated:\nSKIPPED (Already Enrolled)`);
+          duplicates++;
+        }
+        continue;
+      }
+
+      // 3. HANDLE ONBOARDING FOR NEW USERS
       const existingOnboarding = await Onboarding.findOne({
         email,
         source: { $in: ['google-sheets', 'GOOGLE_FORM'] },
@@ -152,13 +209,6 @@ export const syncGoogleSheetsOnboardings = async (): Promise<{
         continue;
       }
 
-      if (existingUser && !existingOnboarding) {
-        logger.info('Skipping onboarding sync because a user account already exists for this email.', { email });
-        duplicates++;
-        continue;
-      }
-
-      const course = await Course.findOne({ title: new RegExp(submission.courseName || '', 'i') }) || defaultCourse;
       const rowId = `row-${submission.rowNumber}`;
       const onboardingPayload = {
         fullName: submission.fullName,
@@ -198,16 +248,15 @@ export const syncGoogleSheetsOnboardings = async (): Promise<{
       const newOnboarding = new Onboarding(onboardingPayload);
       await newOnboarding.save();
 
-      const courseTitle = course ? course.title : 'Full Stack Development';
       await createNotification({
         title: 'New Student Registration',
-        message: `${submission.fullName} registered for ${courseTitle}`,
+        message: `${submission.fullName} registered for ${courseTitleStr}`,
         type: 'NEW_STUDENT_ONBOARDING',
         recipientRole: ['Admin', 'SuperAdmin'],
         metadata: {
           studentName: submission.fullName,
           email,
-          course: courseTitle,
+          course: courseTitleStr,
           studentId: newOnboarding._id,
           googleRowId: onboardingPayload.googleRowId,
         },
