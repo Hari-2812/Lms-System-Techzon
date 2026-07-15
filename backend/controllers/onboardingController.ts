@@ -547,3 +547,70 @@ export const syncGoogleSheets = async (req: any, res: Response): Promise<void> =
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const updateStudentEnrollments = async (req: any, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { courses } = req.body; // Array of Course IDs
+
+  try {
+    const user = await User.findById(id);
+    if (!user || user.role !== 'Student') {
+      res.status(404).json({ success: false, message: 'Student not found' });
+      return;
+    }
+
+    if (!Array.isArray(courses)) {
+      res.status(400).json({ success: false, message: 'Courses must be an array of IDs' });
+      return;
+    }
+
+    // Identify current enrollments
+    const currentEnrollments = await Enrollment.find({ studentId: user._id });
+    const currentCourseIds = currentEnrollments.map(e => e.courseId.toString());
+
+    // Calculate additions and removals
+    const toAdd = courses.filter(c => !currentCourseIds.includes(c.toString()));
+    const toRemove = currentCourseIds.filter(c => !courses.includes(c));
+
+    // Remove old
+    if (toRemove.length > 0) {
+      await Enrollment.deleteMany({
+        studentId: user._id,
+        courseId: { $in: toRemove },
+      });
+    }
+
+    // Default plan if any addition
+    let defaultPlan = null;
+    if (toAdd.length > 0) {
+      defaultPlan = await LearningPlan.findOne();
+    }
+
+    // Add new
+    for (const newCourseId of toAdd) {
+      await Enrollment.create({
+        studentId: user._id,
+        courseId: newCourseId,
+        learningPlanId: defaultPlan ? defaultPlan._id : undefined,
+        batch: 'Batch A',
+        createdBy: req.user._id,
+        startDate: new Date(),
+        expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 6)),
+        status: 'active',
+        progress: { completedLessons: [], percentComplete: 0 }
+      });
+    }
+
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'UPDATE_STUDENT_ENROLLMENTS',
+      details: `Admin updated enrollments for student ${user.email}. Added: ${toAdd.length}, Removed: ${toRemove.length}`,
+    });
+
+    res.status(200).json({ success: true, message: 'Student enrollments updated successfully.' });
+  } catch (error: any) {
+    logger.error('Error updating student enrollments:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

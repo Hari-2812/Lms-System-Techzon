@@ -16,7 +16,8 @@ import {
   GitBranch,
   Lock,
   Menu,
-  X
+  X,
+  ShieldAlert
 } from 'lucide-react';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
 import Confetti from 'react-confetti';
@@ -51,6 +52,7 @@ const CourseDetails: React.FC = () => {
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'video' | 'resources' | 'assignment' | 'quiz'>('video');
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   // Modular resource variables
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -105,8 +107,13 @@ const CourseDetails: React.FC = () => {
         setSelectedLesson(firstUncompleted || res.data.data.lessons[0]);
         setVideoError(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching course:', error);
+      if (error.response?.status === 403) {
+        setGlobalError('Access Denied. You are not enrolled in this course.');
+      } else {
+        setGlobalError('Failed to load course details.');
+      }
     } finally {
       setLoading(false);
     }
@@ -279,6 +286,21 @@ const CourseDetails: React.FC = () => {
           <div className="w-full aspect-video bg-slate-200 rounded-xl"></div>
           <div className="glass-card p-6 h-32"></div>
         </div>
+      </div>
+    );
+  }
+
+  if (globalError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] font-poppins text-center space-y-4">
+        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mb-2">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Access Denied</h2>
+        <p className="text-sm text-slate-500 max-w-sm">{globalError}</p>
+        <Link to="/dashboard" className="btn-primary mt-4 py-2 px-6">
+          Return to Dashboard
+        </Link>
       </div>
     );
   }

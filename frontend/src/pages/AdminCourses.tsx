@@ -12,7 +12,8 @@ import {
   Loader2,
   X,
   PlusCircle,
-  RefreshCw
+  RefreshCw,
+  Users
 } from 'lucide-react';
 
 const AdminCourses: React.FC = () => {
@@ -139,6 +140,20 @@ const AdminCourses: React.FC = () => {
       fetchCourses();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to duplicate course');
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!window.confirm('Delete this course? This will remove all associated modules, lessons, and videos permanently from the database. (Cloudinary assets will remain intact). Proceed?')) return;
+    try {
+      await api.delete(`/courses/${courseId}`);
+      alert('Course deleted successfully!');
+      if (selectedCourse?._id === courseId) {
+        setSelectedCourse(null);
+      }
+      fetchCourses();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to delete course');
     }
   };
 
@@ -305,9 +320,23 @@ const AdminCourses: React.FC = () => {
                   }`}
                 >
                   <div className="space-y-1.5">
-                    <span className="text-[10px] text-accent font-bold uppercase tracking-wider">{c.category}</span>
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] text-accent font-bold uppercase tracking-wider">{c.category}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${c.status === 'published' ? 'bg-green-500/10 text-green-500' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                        {c.status === 'published' ? 'Published' : 'Draft'}
+                      </span>
+                    </div>
                     <h4 className="font-extrabold text-sm text-slate-800 dark:text-white line-clamp-1">{c.title}</h4>
                     <p className="text-[11px] text-slate-500 line-clamp-2">{c.description}</p>
+                    
+                    <div className="flex gap-3 pt-2 text-[10px] font-semibold text-slate-500">
+                      <div className="flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" /> {c.studentCount || 0} Students
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <BookOpen className="w-3.5 h-3.5" /> {c.lessonCount || 0} Lessons
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-2 border-t border-slate-100/50 pt-3">
@@ -315,7 +344,7 @@ const AdminCourses: React.FC = () => {
                       onClick={() => handleSelectCourse(c)}
                       className="text-[11px] font-bold text-primary dark:text-primary-light hover:underline flex items-center gap-1"
                     >
-                      <ListOrdered className="w-3.5 h-3.5" /> Manage Curriculum
+                      <ListOrdered className="w-3.5 h-3.5" /> View Lessons
                     </button>
                     
                     <div className="flex items-center gap-2">
@@ -339,6 +368,13 @@ const AdminCourses: React.FC = () => {
                         title="Duplicate entire course skeleton"
                       >
                         <Copy className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCourse(c._id)}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 dark:border-border-dark transition"
+                        title="Delete Course permanently"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

@@ -10,6 +10,7 @@ interface Student {
   status: string;
   isEmailVerified: boolean;
   createdAt: string;
+  enrolledCourses?: string[];
 }
 
 const AdminStudents: React.FC = () => {
@@ -26,6 +27,13 @@ const AdminStudents: React.FC = () => {
   const [role, setRole] = useState<'mentor' | 'admin'>('mentor');
   const [saving, setSaving] = useState(false);
 
+  // Manage Enrollments states
+  const [courses, setCourses] = useState<any[]>([]);
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
+  const [savingEnrollments, setSavingEnrollments] = useState(false);
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -37,6 +45,9 @@ const AdminStudents: React.FC = () => {
 
       const resMents = await api.get('/users/mentors');
       setMentors(resMents.data.data || []);
+      
+      const resCourses = await api.get('/courses');
+      setCourses(resCourses.data.data || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -84,6 +95,29 @@ const AdminStudents: React.FC = () => {
       alert(error.response?.data?.message || 'Failed to resend welcome credentials.');
     } finally {
       setResending(null);
+    }
+  };
+
+  const handleOpenEnrollments = (student: Student) => {
+    setSelectedStudent(student);
+    setSelectedCourses(student.enrolledCourses || []);
+    setShowEnrollmentModal(true);
+  };
+
+  const handleSaveEnrollments = async () => {
+    if (!selectedStudent) return;
+    setSavingEnrollments(true);
+    try {
+      await api.put(`/users/students/${selectedStudent._id}/enrollments`, {
+        courses: selectedCourses
+      });
+      alert('Student enrollments updated successfully!');
+      setShowEnrollmentModal(false);
+      fetchUsers();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to update enrollments.');
+    } finally {
+      setSavingEnrollments(false);
     }
   };
 
@@ -164,7 +198,13 @@ const AdminStudents: React.FC = () => {
                     {item.isEmailVerified ? 'Verified' : 'Pending OTP'}
                   </td>
                   {activeTab === 'students' && (
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <button
+                        onClick={() => handleOpenEnrollments(item)}
+                        className="px-2.5 py-1.5 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 text-[10px] font-bold"
+                      >
+                        Edit Course
+                      </button>
                       <button
                         onClick={() => handleResendCredentials(item._id)}
                         disabled={resending === item._id}
@@ -247,6 +287,62 @@ const AdminStudents: React.FC = () => {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Provision Profile'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Enrollments Modal */}
+      {showEnrollmentModal && selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 font-poppins">
+          <div className="w-full max-w-md glass-card p-6 border border-white/5 space-y-4 text-left relative dark:bg-card-dark max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowEnrollmentModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-extrabold text-slate-800 dark:text-white text-base">Manage Enrollments</h3>
+            <p className="text-xs text-slate-500">Assign or revoke course access for <strong>{selectedStudent.name}</strong>.</p>
+
+            <div className="space-y-3 mt-4">
+              {courses.map(course => (
+                <label key={course._id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-border-dark cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-accent border-slate-300 rounded focus:ring-accent"
+                    checked={selectedCourses.includes(course._id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedCourses([...selectedCourses, course._id]);
+                      } else {
+                        setSelectedCourses(selectedCourses.filter(id => id !== course._id));
+                      }
+                    }}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-800 dark:text-white">{course.title}</p>
+                    <p className="text-[10px] text-slate-500">{course.category}</p>
+                  </div>
+                </label>
+              ))}
+              
+              {courses.length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-4">No courses available in the system.</p>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-border-dark mt-4 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowEnrollmentModal(false)} 
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveEnrollments}
+                disabled={savingEnrollments} 
+                className="btn-accent py-2 px-6 text-xs flex items-center justify-center min-w-[100px]"
+              >
+                {savingEnrollments ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}

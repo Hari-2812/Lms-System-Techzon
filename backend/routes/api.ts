@@ -35,6 +35,7 @@ import {
   approveOnboarding,
   resendCredentials,
   syncGoogleSheets,
+  updateStudentEnrollments,
 } from '../controllers/onboardingController';
 import multer from 'multer';
 import {
@@ -43,6 +44,7 @@ import {
   createCourse,
   updateCourse,
   duplicateCourse,
+  deleteCourse,
   createModule,
   updateModule,
   deleteModule,
@@ -256,6 +258,7 @@ const upload = multer({ dest: uploadDir });
 router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.post('/courses/:id/duplicate', duplicateCourse);
+router.delete('/courses/:id', deleteCourse);
 router.post('/courses/sync-cloudinary', syncCloudinary);
 
 // Modules CRUD
@@ -276,11 +279,18 @@ router.post('/quizzes', createQuiz);
 router.get('/users/students', async (req, res) => {
   try {
     const students = await User.find({ role: 'Student' }).select('-password');
-    res.json({ success: true, data: students });
+    // Fetch enrollments for these students to show in admin panel
+    const studentsWithEnrollments = await Promise.all(students.map(async (student) => {
+      const enrollments = await mongoose.model('Enrollment').find({ studentId: student._id }).select('courseId');
+      return { ...student.toObject(), enrolledCourses: enrollments.map(e => e.courseId) };
+    }));
+    res.json({ success: true, data: studentsWithEnrollments });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+router.put('/users/students/:id/enrollments', authorize('SuperAdmin', 'Admin'), updateStudentEnrollments);
+
 router.get('/users/mentors', async (req, res) => {
   try {
     const mentors = await User.find({ role: 'Mentor' }).select('-password');

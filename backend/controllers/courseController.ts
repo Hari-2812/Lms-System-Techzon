@@ -4,6 +4,7 @@ import path from 'path';
 import Course from '../models/Course';
 import Module from '../models/Module';
 import Lesson from '../models/Lesson';
+import Video from '../models/Video';
 import Enrollment from '../models/Enrollment';
 import AuditLog from '../models/AuditLog';
 import { generateCertificateOffline } from './certificateController';
@@ -26,7 +27,7 @@ export const seedDefaultCourses = async (): Promise<void> => {
     seo: {
       title: 'Full Stack MERN Course',
       description: 'Master React, Express, MongoDB, Node',
-      keywords: ['MERN', 'Full Stack', 'Web Development'],
+      keywords: ['MERN', 'Full Stack', 'Development'],
     },
   });
   await defaultCourse.save();
@@ -98,7 +99,12 @@ export const getCourses = async (req: any, res: Response): Promise<void> => {
   try {
     let courses;
     if (['SuperAdmin', 'Admin', 'Mentor', 'Support'].includes(req.user?.role)) {
-      courses = await Course.find().populate('mentors', 'name email').lean();
+      const rawCourses = await Course.find().populate('mentors', 'name email').lean();
+      courses = await Promise.all(rawCourses.map(async (course) => {
+        const studentCount = await Enrollment.countDocuments({ courseId: course._id, status: 'active' });
+        const lessonCount = await Lesson.countDocuments({ courseId: course._id });
+        return { ...course, studentCount, lessonCount };
+      }));
     } else {
       // Students only see courses they are actively enrolled in
       const enrollments = await Enrollment.find({
@@ -427,6 +433,34 @@ export const syncCloudinary = async (req: any, res: Response): Promise<void> => 
     const result = await syncCloudinaryFolder();
     res.status(200).json(result);
   } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const deleteCourse = async (req: any, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const course = await Course.findById(id);
+    if (!course) {
+      res.status(404).json({ success: false, message: 'Course not found' });
+      return;
+    }
+
+    // Cascade delete related records securely
+    await Video.deleteMany({ courseId: id });
+    await Lesson.deleteMany({ courseId: id });
+    await Module.deleteMany({ courseId: id });
+    await Course.findByIdAndDelete(id);
+
+    // Note: We intentionally do not delete Cloudinary assets per instructions.
+    // We intentionally leave Enrollments intact or let the frontend display "No courses assigned" if they get orphaned,
+    // though typically admins manage enrollments manually via the new updateStudentEnrollments endpoint.
+
+    logger.info(`Course ${course.title} and all its modules, lessons, and video references were deleted by Admin ${req.user._id}.`);
+
+    res.status(200).json({ success: true, message: 'Course deleted successfully' });
+  } catch (error: any) {
+    logger.error('Error deleting course:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

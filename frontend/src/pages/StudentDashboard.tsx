@@ -158,8 +158,8 @@ const StudentDashboard: React.FC = () => {
           {enrollments.length === 0 ? (
             <div className="glass-card p-12 text-center space-y-3">
               <BookOpen className="w-12 h-12 mx-auto text-slate-400" />
-              <h4 className="text-lg font-bold text-slate-600 dark:text-slate-300">No enrolled courses found</h4>
-              <p className="text-xs text-slate-500">Accounts are created dynamically on Razorpay checkout verification.</p>
+              <h4 className="text-lg font-bold text-slate-600 dark:text-slate-300">No courses assigned yet.</h4>
+              <p className="text-xs text-slate-500">Please contact the administrator to assign courses to your account.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
