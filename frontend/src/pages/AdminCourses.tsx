@@ -35,6 +35,9 @@ const AdminCourses: React.FC = () => {
   const [courseCategory, setCourseCategory] = useState('');
   const [courseDesc, setCourseDesc] = useState('');
   const [courseThumbnail, setCourseThumbnail] = useState('');
+  const [courseCloudinaryFolder, setCourseCloudinaryFolder] = useState('');
+  const [courseDuration, setCourseDuration] = useState(0);
+  const [coursePrice, setCoursePrice] = useState(0);
 
   // Module Form states
   const [showModForm, setShowModForm] = useState(false);
@@ -111,6 +114,9 @@ const AdminCourses: React.FC = () => {
         category: courseCategory,
         description: courseDesc,
         thumbnailUrl: courseThumbnail,
+        cloudinaryFolder: courseCloudinaryFolder,
+        duration: courseDuration,
+        price: coursePrice,
       };
 
       if (courseFormId) {
@@ -355,6 +361,9 @@ const AdminCourses: React.FC = () => {
                           setCourseCategory(c.category);
                           setCourseDesc(c.description);
                           setCourseThumbnail(c.thumbnailUrl || '');
+                          setCourseCloudinaryFolder(c.cloudinaryFolder || '');
+                          setCourseDuration(c.duration || 0);
+                          setCoursePrice(c.price || 0);
                           setShowCourseForm(true);
                         }}
                         className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-800 dark:border-border-dark dark:hover:text-white"
@@ -525,6 +534,38 @@ const AdminCourses: React.FC = () => {
                   onChange={(e) => setCourseThumbnail(e.target.value)}
                   className="glass-input py-2 text-xs"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-400">Cloudinary Folder</label>
+                <input
+                  type="text"
+                  placeholder="AWS Cloud Computing"
+                  value={courseCloudinaryFolder}
+                  onChange={(e) => setCourseCloudinaryFolder(e.target.value)}
+                  className="glass-input py-2 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-slate-400">Duration (Hrs)</label>
+                  <input
+                    type="number"
+                    value={courseDuration}
+                    onChange={(e) => setCourseDuration(Number(e.target.value))}
+                    className="glass-input py-2 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400">Price ($)</label>
+                  <input
+                    type="number"
+                    value={coursePrice}
+                    onChange={(e) => setCoursePrice(Number(e.target.value))}
+                    className="glass-input py-2 text-xs"
+                  />
+                </div>
               </div>
 
               <button type="submit" className="btn-accent w-full py-2.5 text-xs">

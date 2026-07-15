@@ -14,6 +14,9 @@ export interface ICourse extends Document {
     description?: string;
     keywords?: string[];
   };
+  cloudinaryFolder?: string;
+  duration?: number;
+  price?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +40,9 @@ const CourseSchema: Schema<ICourse> = new Schema(
       description: { type: String },
       keywords: [{ type: String }],
     },
+    cloudinaryFolder: { type: String, trim: true },
+    duration: { type: Number, default: 0 },
+    price: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

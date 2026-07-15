@@ -509,11 +509,33 @@ const AdminOnboarding: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400 block text-[10px] uppercase">Course Context</label>
-                <div className="p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-secondary-dark flex flex-wrap gap-1">
-                  {selectedRequest.courses?.map(c => (
-                    <span key={c._id} className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">{c.title}</span>
-                  ))}
+                <label className="text-slate-500 block text-[10px] uppercase">Course Context (Editable)</label>
+                <div className="p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark space-y-2">
+                  <div className="flex flex-wrap gap-1">
+                    {approveCourses.map(id => {
+                      const c = courses.find(course => course._id === id);
+                      return c ? (
+                        <span key={id} className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                          {c.title}
+                          <button type="button" onClick={() => handleCourseToggle(id)} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value && !approveCourses.includes(e.target.value)) {
+                        handleCourseToggle(e.target.value);
+                      }
+                    }}
+                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-border-dark bg-slate-50 dark:bg-card-dark text-xs"
+                  >
+                    <option value="">+ Add course...</option>
+                    {courses.filter(c => !approveCourses.includes(c._id)).map((c) => (
+                      <option key={c._id} value={c._id}>{c.title}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
