@@ -335,6 +335,7 @@ const CourseDetails: React.FC = () => {
                   videoUrl={selectedLesson?.videoUrl}
                   poster={selectedLesson?.videoId?.thumbnail}
                   lessonId={selectedLesson._id}
+                  courseId={course?._id}
                   lessonTitle={selectedLesson.title}
                   isAlreadyCompleted={completedLessons.includes(selectedLesson._id)}
                   onLessonComplete={() => toggleProgress(selectedLesson._id, true)}
@@ -373,6 +374,21 @@ const CourseDetails: React.FC = () => {
                     <div className="bg-accent h-2 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
                   </div>
                 </div>
+
+                {/* Course Completion Overlay (if 100%) */}
+                {progressPercent === 100 && (
+                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-green-500 flex items-center gap-2">
+                        <Trophy className="w-4 h-4" /> Congratulations!
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">You completed {course?.title} 100%.</p>
+                    </div>
+                    <Link to="/student/certificates" className="px-4 py-2 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg flex-shrink-0">
+                      Download Certificate
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
@@ -735,6 +751,12 @@ const CourseDetails: React.FC = () => {
                             <span className="truncate pr-2 flex-1">{les.title}</span>
                             
                             <div className="flex items-center gap-2 flex-shrink-0">
+                              {isActive && (
+                                <span className="flex items-center gap-1 text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded animate-pulse shadow-sm shadow-red-500/50 mr-1">
+                                  <span className="w-1.5 h-1.5 bg-white rounded-full"></span> LIVE
+                                </span>
+                              )}
+
                               {les.videoId?.duration && !isActive ? (
                                 <span className="text-[9px] text-slate-500 font-mono">
                                   {Math.floor(les.videoId.duration / 60)}:{(Math.floor(les.videoId.duration % 60)).toString().padStart(2, '0')}

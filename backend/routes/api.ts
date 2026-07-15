@@ -68,22 +68,13 @@ import {
   getSubmissionsForGrading,
   gradeSubmission,
 } from '../controllers/assignmentController';
+import { getQuizLeaderboard, submitQuizAnswers, getQuizzes, createQuiz } from '../controllers/quizController';
 import {
-  createQuiz,
-  getQuizzes,
-  submitQuizAnswers,
-  getQuizLeaderboard,
-} from '../controllers/quizController';
-import {
-  getStudentCertificates,
-  verifyCertificate,
-} from '../controllers/certificateController';
-import {
-  createTicket,
-  getTickets,
-  addMessageToTicket,
-  updateTicketStatus,
-} from '../controllers/ticketController';
+  updateProgress,
+  getProgress,
+} from '../controllers/progressController';
+import { getStudentCertificates, verifyCertificate } from '../controllers/certificateController';
+import { createTicket, getTickets, addMessageToTicket, updateTicketStatus } from '../controllers/ticketController';
 import { syncGoogleSheetsOnboardings } from '../controllers/googleSheetsController';
 import { postRuntimeError } from '../controllers/logController';
 import {
@@ -190,6 +181,8 @@ router.get('/student/my-courses', authorize('Student'), async (req: any, res: Re
 });
 router.get('/courses/:id', getCourseDetails);
 router.post('/courses/track-progress', authorize('Student'), trackLessonProgress);
+router.post('/progress/update', authorize('Student'), updateProgress);
+router.get('/progress/:lessonId', authorize('Student'), getProgress);
 
 // Quiz Execution
 router.get('/quizzes', getQuizzes);

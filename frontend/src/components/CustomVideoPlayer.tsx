@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import api from '../utils/api';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
   Settings, Loader2, AlertCircle, RefreshCw, PictureInPicture,
@@ -11,6 +12,7 @@ interface CustomVideoPlayerProps {
   videoUrl?: string;
   poster?: string;
   lessonId: string;
+  courseId?: string;
   lessonTitle: string;
   publicId?: string;
   onEnded?: () => void;
@@ -25,7 +27,7 @@ interface CustomVideoPlayerProps {
 }
 
 const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ 
-  playbackUrl, secureUrl, videoUrl, poster, lessonId, lessonTitle, publicId, 
+  playbackUrl, secureUrl, videoUrl, poster, lessonId, courseId, lessonTitle, publicId, 
   onEnded, className, onLessonComplete, onAutoPlayNext, hasNextLesson, 
   isAlreadyCompleted, subtitlesUrl 
 }) => {
@@ -49,12 +51,12 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   
   // Resume watching state
-  const [showResumePrompt, setShowResumePrompt] = useState(false);
-  const [savedResumeTime, setSavedResumeTime] = useState(0);
+  const [lastFetchedTime, setLastFetchedTime] = useState(0);
+  const [hasResumed, setHasResumed] = useState(false);
 
   // Auto-play state
   const [showAutoPlayOverlay, setShowAutoPlayOverlay] = useState(false);
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(5);
 
   // Watched tracking
   const [watchedSeconds, setWatchedSeconds] = useState<Set<number>>(new Set());
@@ -79,20 +81,27 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     setShowAutoPlayOverlay(false);
     setWatchedSeconds(new Set());
     setCaptionsEnabled(false);
+    setHasResumed(false);
+    setLastFetchedTime(0);
     
     if (videoRef.current) {
       videoRef.current.load();
     }
 
-    // Check for saved resume time
-    const savedTime = localStorage.getItem(`resume_time_${lessonId}`);
-    if (savedTime) {
-      const parsedTime = parseFloat(savedTime);
-      if (parsedTime > 5) { // Only prompt if they watched more than 5 seconds
-        setSavedResumeTime(parsedTime);
-        setShowResumePrompt(true);
+    const fetchProgress = async () => {
+      try {
+        const res = await api.get(`/progress/${lessonId}`);
+        if (res.data.success && res.data.data) {
+          const fetchedTime = res.data.data.currentTime || 0;
+          if (fetchedTime > 5) {
+            setLastFetchedTime(fetchedTime);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch progress", err);
       }
-    }
+    };
+    fetchProgress();
   }, [finalSrc, lessonId]);
 
   // Handle countdown for autoplay
@@ -108,27 +117,33 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     return () => clearTimeout(timer);
   }, [showAutoPlayOverlay, countdown, hasNextLesson, onAutoPlayNext]);
 
-  // Periodic save of progress to localStorage
+  // Periodic save of progress to backend
   useEffect(() => {
     const saveInterval = setInterval(() => {
-      if (videoRef.current && !videoRef.current.paused && currentTime > 0) {
-        // Save to local storage
-        if (duration - currentTime > 10) { // don't save if almost at the end
-          localStorage.setItem(`resume_time_${lessonId}`, currentTime.toString());
-        } else {
-          localStorage.removeItem(`resume_time_${lessonId}`);
+      if (videoRef.current && !videoRef.current.paused) {
+        const ct = videoRef.current.currentTime;
+        const dur = videoRef.current.duration || 0;
+        if (ct > 0 && dur - ct > 10 && courseId) {
+          api.post('/progress/update', {
+            courseId,
+            lessonId,
+            videoId: publicId,
+            currentTime: ct,
+            duration: dur,
+            watchedPercentage: dur > 0 ? (ct / dur) * 100 : 0
+          }).catch(console.error);
         }
       }
     }, 5000); // save every 5 seconds
 
     return () => clearInterval(saveInterval);
-  }, [currentTime, duration, lessonId]);
+  }, [lessonId, courseId, publicId]);
 
   // Keyboard Event Listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      if (showResumePrompt || showAutoPlayOverlay) return; // disable shortcuts when overlays are active
+      if (showAutoPlayOverlay) return; // disable shortcuts when overlays are active
 
       const video = videoRef.current;
       if (!video) return;
@@ -182,7 +197,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, volume, isMuted, isFullScreen, playbackSpeed, showResumePrompt, showAutoPlayOverlay]);
+  }, [isPlaying, volume, isMuted, isFullScreen, playbackSpeed, showAutoPlayOverlay]);
 
   // Video Event Handlers
   const handleTimeUpdate = () => {
@@ -208,8 +223,12 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
       setIsBuffering(false);
-      // Auto-enable track if we enabled captions before it loaded
       updateTrackMode(captionsEnabled);
+      
+      if (lastFetchedTime > 0 && !hasResumed) {
+        videoRef.current.currentTime = lastFetchedTime;
+        setHasResumed(true);
+      }
     }
   };
 
@@ -231,24 +250,21 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     setIsPlaying(false);
     if (onEnded) onEnded();
 
-    // Remove saved resume time
-    localStorage.removeItem(`resume_time_${lessonId}`);
-
     // Determine completion
     let watchedRatio = 0;
     if (duration > 0) {
       watchedRatio = watchedSeconds.size / duration;
     }
 
-    // If watched at least 90% or already completed previously
-    if (watchedRatio > 0.90 || isAlreadyCompleted) {
+    // If watched at least 95% or already completed previously
+    if (watchedRatio >= 0.95 || isAlreadyCompleted) {
       if (!isAlreadyCompleted && onLessonComplete) {
         onLessonComplete();
       }
       
       // Trigger Autoplay overlay if there's a next lesson
       if (hasNextLesson) {
-        setCountdown(3);
+        setCountdown(5);
         setShowAutoPlayOverlay(true);
       }
     }
@@ -349,25 +365,6 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Resume functions
-  const acceptResume = () => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = savedResumeTime;
-      videoRef.current.play();
-      setIsPlaying(true);
-    }
-    setShowResumePrompt(false);
-  };
-
-  const declineResume = () => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play();
-      setIsPlaying(true);
-    }
-    setShowResumePrompt(false);
-  };
-
   if (!finalSrc) {
     return (
       <div className={`w-full aspect-video bg-black flex flex-col items-center justify-center text-slate-400 p-6 ${className}`}>
@@ -414,30 +411,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         )}
       </video>
 
-      {/* Resume Prompt Overlay */}
-      {showResumePrompt && (
-        <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm">
-          <h3 className="text-2xl font-bold text-white mb-2">Resume Watching?</h3>
-          <p className="text-slate-300 mb-6">Do you want to resume from {formatTime(savedResumeTime)}?</p>
-          <div className="flex gap-4">
-            <button 
-              onClick={acceptResume}
-              className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg font-semibold transition flex items-center gap-2"
-            >
-              <Play className="w-4 h-4" /> Resume
-            </button>
-            <button 
-              onClick={declineResume}
-              className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition"
-            >
-              Restart
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Auto-play Next Overlay */}
-      {showAutoPlayOverlay && !showResumePrompt && (
+      {showAutoPlayOverlay && (
         <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm">
           <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
           <h3 className="text-2xl font-bold text-white mb-2">Lesson Completed!</h3>
@@ -463,7 +438,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       )}
 
       {/* Buffering Overlay */}
-      {isBuffering && !videoError && !showResumePrompt && !showAutoPlayOverlay && (
+      {isBuffering && !videoError && !showAutoPlayOverlay && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
           <Loader2 className="w-12 h-12 text-accent animate-spin" />
         </div>
@@ -488,10 +463,9 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Custom Controls Overlay */}
       <div 
         className={`absolute bottom-0 left-0 right-0 p-4 pt-16 bg-gradient-to-t from-black via-black/60 to-transparent transition-opacity duration-300 z-20 ${
-          showControls || !isPlaying || videoError || showAutoPlayOverlay || showResumePrompt ? 'opacity-100' : 'opacity-0'
+          showControls || !isPlaying || videoError || showAutoPlayOverlay ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()} 
       >

@@ -342,45 +342,48 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
       return;
     }
 
-    const completedSet = new Set(enrollment.progress.completedLessons.map((id) => id.toString()));
-
     if (isCompleted) {
-      completedSet.add(lessonId);
+      await Enrollment.updateOne(
+        { _id: enrollment._id },
+        { $addToSet: { 'progress.completedLessons': lessonId } }
+      );
     } else {
-      completedSet.delete(lessonId);
+      await Enrollment.updateOne(
+        { _id: enrollment._id },
+        { $pull: { 'progress.completedLessons': lessonId } }
+      );
     }
 
-    enrollment.progress.completedLessons = Array.from(completedSet).map((id) => id as any);
+    const updatedEnrollment = await Enrollment.findById(enrollment._id);
+    if (!updatedEnrollment) throw new Error("Enrollment not found");
 
-    // Calculate percentage completion
     const totalLessons = await Lesson.countDocuments({ courseId });
     if (totalLessons > 0) {
-      enrollment.progress.percentComplete = Math.round((completedSet.size / totalLessons) * 100);
+      updatedEnrollment.progress.percentComplete = Math.round((updatedEnrollment.progress.completedLessons.length / totalLessons) * 100);
     } else {
-      enrollment.progress.percentComplete = 0;
+      updatedEnrollment.progress.percentComplete = 0;
     }
 
-    // Auto-issue certificate on 100% completion
-    if (enrollment.progress.percentComplete === 100 && !enrollment.certificateIssued) {
+    if (updatedEnrollment.progress.percentComplete === 100 && !updatedEnrollment.certificateIssued) {
       try {
-        const cert = await generateCertificateOffline(req.user._id, courseId, enrollment._id);
-        enrollment.certificateIssued = true;
-        enrollment.certificateId = cert._id as any;
+        const cert = await generateCertificateOffline(req.user._id, courseId, updatedEnrollment._id);
+        updatedEnrollment.certificateIssued = true;
+        updatedEnrollment.certificateId = cert._id as any;
         logger.info(`Graduation Certificate auto-issued to ${req.user.email} for course ${courseId}`);
       } catch (certErr) {
         logger.error('Failed to auto-issue certificate:', certErr);
       }
     }
 
-    await enrollment.save();
+    await updatedEnrollment.save();
 
     res.status(200).json({
       success: true,
       data: {
-        percentComplete: enrollment.progress.percentComplete,
-        completedLessons: enrollment.progress.completedLessons,
-        certificateIssued: enrollment.certificateIssued,
-        certificateId: enrollment.certificateId,
+        percentComplete: updatedEnrollment.progress.percentComplete,
+        completedLessons: updatedEnrollment.progress.completedLessons,
+        certificateIssued: updatedEnrollment.certificateIssued,
+        certificateId: updatedEnrollment.certificateId,
       },
     });
   } catch (error: any) {
