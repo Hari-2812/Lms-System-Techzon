@@ -15,15 +15,23 @@ const normalizeString = (str: string) => {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
-const FOLDER_MAPPINGS = [
-  { folderKeys: ['webdevelopment'], courseTitle: 'Web Development' },
-  { folderKeys: ['fullstackdevelopment'], courseTitle: 'Full Stack Development Course' },
-  { folderKeys: ['mernstackdevelopment'], courseTitle: 'MERN Stack Development Course' },
-];
+// Aliases mapping for known acronyms and specific titles
+const COURSE_NAME_MAP: Record<string, string> = {
+  'webdevelopment': 'Web Development',
+  'fullstackdevelopment': 'Full Stack Development',
+  'mernstackdevelopment': 'MERN Stack Development',
+  'cloudcomputing': 'Cloud Computing',
+  'aws': 'AWS Cloud Computing',
+  'awscloud': 'AWS Cloud Computing',
+};
+
+function titleCase(str: string) {
+  return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.substring(1)).join(' ');
+}
 
 export const syncCloudinaryFolder = async () => {
   console.log(`\n==========================================`);
-  console.log(`Cloudinary Sync Started (Asset Folder Mode)`);
+  console.log(`Cloudinary Sync Started (Dynamic Mode)`);
   console.log(`==========================================`);
   
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'MISSING';
@@ -93,90 +101,97 @@ export const syncCloudinaryFolder = async () => {
     return { 
       success: false, 
       message: "No videos found in Cloudinary account.",
-      stats: { foldersFound: 0, fetched: 0, imported: 0, updated: 0, skipped: 0, deleted: 0, lastSync: new Date().toISOString() }
+      stats: { foldersFound: 0, fetched: 0, imported: 0, updated: 0, skipped: 0, deleted: 0, lastSync: new Date().toISOString(), coursesCreated: 0, courseStats: [] }
     };
   }
 
   console.log(`\nVideos Found: ${allResources.length}`);
-  
-  // Print top 5 resources for debug
-  console.log(`\n--- TOP 5 RAW RESOURCES DUMP ---`);
-  const top5 = allResources.slice(0, 5);
-  top5.forEach((res, idx) => {
-    console.log(`\nResource #${idx + 1}:`);
-    console.log(JSON.stringify(res, null, 2));
-  });
-  console.log(`--------------------------------\n`);
 
   let globalImported = 0;
   let globalUpdated = 0;
   let globalSkipped = 0;
   let globalDeleted = 0;
+  let globalCoursesCreated = 0;
   const processedPublicIds = new Set();
   const validFoldersFound = new Set<string>();
+  const courseStats: { courseName: string; count: number }[] = [];
 
-  // Extract metadata and group by courses based on asset_folder
-  for (const mapping of FOLDER_MAPPINGS) {
-    console.log(`\nProcessing Folder Mapping: ${mapping.courseTitle}`);
+  // Dynamically group videos by their asset_folder (or folder)
+  const groupedVideos: Record<string, any[]> = {};
+
+  for (const r of allResources) {
+    const folderRaw = r.asset_folder || r.folder || '';
+    if (!folderRaw) continue; // Skip videos not in any folder
+    if (!groupedVideos[folderRaw]) {
+      groupedVideos[folderRaw] = [];
+    }
+    groupedVideos[folderRaw].push(r);
+  }
+
+  const folderNames = Object.keys(groupedVideos);
+
+  for (const folderRaw of folderNames) {
+    const mappedVideos = groupedVideos[folderRaw];
+    const normalizedFolder = normalizeString(folderRaw);
     
-    // Filter videos matching the target folder string
-    const mappedVideos = allResources.filter(r => {
-      const folderRaw = r.asset_folder || r.folder || '';
-      if (!folderRaw) return false;
-      const normalizedFolder = normalizeString(folderRaw);
-      return mapping.folderKeys.includes(normalizedFolder);
-    });
-
-    if (mappedVideos.length === 0) {
-      console.log(`No videos found for course: ${mapping.courseTitle}`);
-      continue;
+    // Determine the course title
+    let courseTitle = COURSE_NAME_MAP[normalizedFolder];
+    if (!courseTitle) {
+      // Fallback: Use the original folder name, formatted nicely
+      courseTitle = titleCase(folderRaw.replace(/[-_]/g, ' '));
     }
 
-    validFoldersFound.add(mapping.courseTitle);
-    console.log(`Found ${mappedVideos.length} videos for course "${mapping.courseTitle}"`);
+    validFoldersFound.add(courseTitle);
+    console.log(`\nProcessing Course: ${courseTitle} (Folder: ${folderRaw}) with ${mappedVideos.length} videos`);
 
     // Ensure Course exists
-    let targetCourse = await Course.findOne({ title: mapping.courseTitle });
+    let targetCourse = await Course.findOne({ title: courseTitle });
     if (!targetCourse) {
       targetCourse = await Course.create({
-        title: mapping.courseTitle,
-        slug: mapping.courseTitle.toLowerCase().replace(/\s+/g, '-'),
-        description: `${mapping.courseTitle} automatically synced from Cloudinary folder.`,
-        category: 'Development',
+        title: courseTitle,
+        slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
+        description: `${courseTitle} automatically synced from Cloudinary.`,
+        category: 'Cloud Computing', // Default generic category
         status: 'published',
+      });
+      globalCoursesCreated++;
+      console.log(`Created new course: ${courseTitle}`);
+    }
+
+    // Ensure the main "Course Content" module exists
+    let mainModule = await Module.findOne({ courseId: targetCourse._id, title: "Course Content" });
+    if (!mainModule) {
+      mainModule = await Module.create({
+        courseId: targetCourse._id,
+        title: "Course Content",
+        order: 1,
       });
     }
 
-    // Clear old dummy data and orphaned lessons
-    await Lesson.deleteMany({ courseId: targetCourse._id });
-    await Module.deleteMany({ courseId: targetCourse._id });
-    
-    const mainModule = await Module.create({
-      courseId: targetCourse._id,
-      title: "Course Content",
-      order: 1,
-    });
-
-    // Cleanup Deleted Videos (from DB)
+    // Identify existing DB records for this course to calculate deletions later
     const existingVideos = await Video.find({ courseId: targetCourse._id });
+    const existingLessons = await Lesson.find({ courseId: targetCourse._id });
+    
     const fetchedPublicIds = mappedVideos.map(r => r.public_id);
     
+    // Cleanup Deleted Videos (from DB)
     for (const exVid of existingVideos) {
       if (!fetchedPublicIds.includes(exVid.publicId)) {
         await Video.deleteOne({ _id: exVid._id });
+        await Lesson.deleteOne({ videoId: exVid._id });
         globalDeleted++;
-        console.log(`Deleted missing video from DB: ${exVid.publicId}`);
+        console.log(`Deleted missing video and its lesson from DB: ${exVid.publicId}`);
       }
     }
 
     let lessonOrderCounter = 1;
+    let courseVideoCount = 0;
+
+    // We sort mapped videos by public_id or display name so they appear in a predictable order
+    mappedVideos.sort((a, b) => a.public_id.localeCompare(b.public_id));
 
     for (const resource of mappedVideos) {
       const displayName = resource.display_name || (resource.context && resource.context.custom && resource.context.custom.caption) || resource.public_id.split('/').pop()?.replace(/_/g, ' ') || 'Untitled Video';
-      
-      console.log(`\nVideo Name: ${displayName}`);
-      console.log(`Public ID: ${resource.public_id}`);
-      console.log(`Secure URL: ${resource.secure_url}`);
       
       // Skip duplicates in response
       if (processedPublicIds.has(resource.public_id)) {
@@ -184,21 +199,20 @@ export const syncCloudinaryFolder = async () => {
           continue;
       }
       processedPublicIds.add(resource.public_id);
+      courseVideoCount++;
 
       // Extract playback URL & Thumbnail
       let playbackUrl = resource.secure_url;
       let thumbnailUrl = resource.secure_url;
       if (thumbnailUrl && resource.format) {
         thumbnailUrl = thumbnailUrl.replace(`.${resource.format}`, '.jpg');
-        // generate thumbnail using Cloudinary transformation
         thumbnailUrl = thumbnailUrl.replace('/upload/', '/upload/so_auto,w_640,h_360,c_fill/');
       } else if (thumbnailUrl && !resource.format) {
-         // fallback if format missing
          thumbnailUrl = thumbnailUrl + ".jpg";
          thumbnailUrl = thumbnailUrl.replace('/upload/', '/upload/so_auto,w_640,h_360,c_fill/');
       }
 
-      // Upsert into MongoDB
+      // Upsert Video into MongoDB
       let video = await Video.findOne({ publicId: resource.public_id });
       if (!video) {
         video = await Video.create({
@@ -232,16 +246,27 @@ export const syncCloudinaryFolder = async () => {
         globalUpdated++;
       }
 
-      // Assign to Lesson
-      await Lesson.create({
-        moduleId: mainModule._id,
-        courseId: targetCourse._id,
-        title: displayName,
-        videoId: video._id,
-        order: lessonOrderCounter++,
-      });
+      // Upsert Lesson to PRESERVE _id and student progress
+      const existingLesson = await Lesson.findOne({ videoId: video._id, courseId: targetCourse._id });
+      if (!existingLesson) {
+        await Lesson.create({
+          moduleId: mainModule._id,
+          courseId: targetCourse._id,
+          title: displayName,
+          videoId: video._id,
+          order: lessonOrderCounter,
+        });
+      } else {
+        existingLesson.title = displayName;
+        existingLesson.order = lessonOrderCounter;
+        await existingLesson.save();
+      }
+      
+      lessonOrderCounter++;
     }
-    console.log(`\nCourse '${mapping.courseTitle}' Updated`);
+    
+    courseStats.push({ courseName: courseTitle, count: courseVideoCount });
+    console.log(`Course '${courseTitle}' Updated successfully with ${courseVideoCount} videos`);
   }
 
   console.log(`\n==========================================`);
@@ -249,6 +274,7 @@ export const syncCloudinaryFolder = async () => {
   console.log(`==========================================`);
   console.log(`Videos Found: ${allResources.length}`);
   console.log(`Folders Mapped: ${validFoldersFound.size}`);
+  console.log(`Courses Created: ${globalCoursesCreated}`);
   console.log(`Videos Imported: ${globalImported}`);
   console.log(`Videos Updated: ${globalUpdated}`);
   console.log(`Videos Skipped: ${globalSkipped}`);
@@ -256,7 +282,7 @@ export const syncCloudinaryFolder = async () => {
 
   return { 
     success: true, 
-    message: `Sync complete. Fetched ${allResources.length}.`,
+    message: `Sync complete. Fetched ${allResources.length} videos across ${validFoldersFound.size} courses.`,
     stats: { 
       foldersFound: validFoldersFound.size,
       fetched: allResources.length, 
@@ -264,7 +290,9 @@ export const syncCloudinaryFolder = async () => {
       updated: globalUpdated, 
       skipped: globalSkipped,
       deleted: globalDeleted,
-      lastSync: new Date().toISOString()
+      coursesCreated: globalCoursesCreated,
+      lastSync: new Date().toISOString(),
+      courseStats: courseStats
     }
   };
 };
