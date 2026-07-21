@@ -260,23 +260,32 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     setIsPlaying(false);
     if (onEnded) onEnded();
 
+    console.log("[PLAYER] VIDEO ENDED");
+
     // Determine completion
     let watchedRatio = 0;
     if (duration > 0) {
       watchedRatio = watchedSeconds.size / duration;
     }
+    
+    console.log(`[PLAYER] Watched Ratio: ${watchedRatio} (watched: ${watchedSeconds.size}, duration: ${duration})`);
+    console.log(`[PLAYER] Is Already Completed: ${isAlreadyCompleted}`);
 
     // If watched at least 95% or already completed previously
     if (watchedRatio >= 0.95 || isAlreadyCompleted) {
       if (!isAlreadyCompleted && onLessonComplete) {
+        console.log("[PLAYER] Calling onLessonComplete()");
         onLessonComplete();
       }
       
       // Trigger Autoplay overlay if there's a next lesson
       if (hasNextLesson) {
+        console.log("[PLAYER] Next Lesson Unlocked - starting countdown");
         setCountdown(5);
         setShowAutoPlayOverlay(true);
       }
+    } else {
+      console.log("[PLAYER] Not marking completed because watchedRatio < 95% and not already completed.");
     }
   };
 
