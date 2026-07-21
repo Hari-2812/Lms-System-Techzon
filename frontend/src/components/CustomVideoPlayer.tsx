@@ -60,6 +60,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
 
   // Watched tracking
   const [watchedSeconds, setWatchedSeconds] = useState<Set<number>>(new Set());
+  const lastTimeUpdateRef = useRef(0);
 
   // Auto-hide controls timer
   let controlsTimeout: NodeJS.Timeout;
@@ -83,6 +84,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     setCaptionsEnabled(false);
     setHasResumed(false);
     setLastFetchedTime(0);
+    lastTimeUpdateRef.current = 0;
     
     if (videoRef.current) {
       videoRef.current.load();
@@ -209,13 +211,21 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       setProgress((ct / duration) * 100);
     }
 
-    // Track watched seconds
+    // Track watched seconds robustly
     if (isPlaying) {
+      const prevTime = lastTimeUpdateRef.current;
       setWatchedSeconds(prev => {
         const newSet = new Set(prev);
-        newSet.add(Math.floor(ct));
+        if (ct > prevTime && ct - prevTime <= 3) {
+          for (let i = Math.floor(prevTime); i <= Math.floor(ct); i++) {
+            newSet.add(i);
+          }
+        } else {
+          newSet.add(Math.floor(ct));
+        }
         return newSet;
       });
+      lastTimeUpdateRef.current = ct;
     }
   };
 

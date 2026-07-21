@@ -13,6 +13,13 @@ export const updateProgress = async (req: any, res: Response): Promise<void> => 
   }
 
   try {
+    // Fetch current progress first to avoid overriding completed status
+    const currentProgress = await Progress.findOne({ userId: req.user._id, lessonId });
+    if (currentProgress && currentProgress.isCompleted) {
+      res.status(200).json({ success: true, data: currentProgress });
+      return;
+    }
+
     const progress = await Progress.findOneAndUpdate(
       { userId: req.user._id, lessonId },
       {

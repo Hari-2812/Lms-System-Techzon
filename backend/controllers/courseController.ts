@@ -6,6 +6,7 @@ import Module from '../models/Module';
 import Lesson from '../models/Lesson';
 import Video from '../models/Video';
 import Enrollment from '../models/Enrollment';
+import Progress from '../models/Progress';
 import AuditLog from '../models/AuditLog';
 import { generateCertificateOffline } from './certificateController';
 import logger from '../config/logger';
@@ -508,16 +509,33 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
         }
       }
 
-      // 4. Atomically add to set
+      // 4. Atomically add to set in Enrollment
       await Enrollment.updateOne(
         { _id: enrollment._id },
         { $addToSet: { 'progress.completedLessons': lessonId } }
+      );
+
+      // Sync with Progress model explicitly for this user/lesson
+      await Progress.findOneAndUpdate(
+        { userId: req.user._id, lessonId },
+        { 
+          courseId, 
+          isCompleted: true, 
+          completionPercentage: 100,
+          currentTime: 0,
+          lastWatched: new Date()
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     } else {
       // Remove lesson completion if unchecked (optional but handled)
       await Enrollment.updateOne(
         { _id: enrollment._id },
         { $pull: { 'progress.completedLessons': lessonId } }
+      );
+      await Progress.findOneAndUpdate(
+        { userId: req.user._id, lessonId },
+        { isCompleted: false, completionPercentage: 0 }
       );
     }
 
@@ -553,6 +571,9 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 
     res.status(200).json({
       success: true,
+      completed: true,
+      unlockNextLesson: true,
+      courseProgress: updatedEnrollment.progress.percentComplete,
       data: {
         percentComplete: updatedEnrollment.progress.percentComplete,
         completedLessons: updatedEnrollment.progress.completedLessons,

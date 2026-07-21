@@ -133,6 +133,14 @@ const CourseDetails: React.FC = () => {
 
   // Toggle lesson complete check
   const toggleProgress = async (lesId: string, isCompleted: boolean) => {
+    // Optimistic update
+    const previousCompleted = [...completedLessons];
+    if (isCompleted && !completedLessons.includes(lesId)) {
+      setCompletedLessons([...completedLessons, lesId]);
+    } else if (!isCompleted) {
+      setCompletedLessons(completedLessons.filter(id => id !== lesId));
+    }
+    
     try {
       const res = await api.post('/courses/track-progress', {
         courseId: id,
@@ -149,6 +157,8 @@ const CourseDetails: React.FC = () => {
       }
     } catch (error) {
       console.error('Error updating progress:', error);
+      // Revert optimistic update
+      setCompletedLessons(previousCompleted);
     }
   };
 
