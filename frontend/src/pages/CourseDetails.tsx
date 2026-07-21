@@ -133,26 +133,24 @@ const CourseDetails: React.FC = () => {
 
   // Toggle lesson complete check
   const toggleProgress = async (lesId: string, isCompleted: boolean) => {
-    console.log(`[COURSE_DETAILS] toggleProgress called: lessonId=${lesId}, isCompleted=${isCompleted}`);
-    
     // Optimistic update
     const previousCompleted = [...completedLessons];
     if (isCompleted && !completedLessons.includes(lesId)) {
       setCompletedLessons([...completedLessons, lesId]);
-      console.log(`[COURSE_DETAILS] Optimistically updated completedLessons.`);
+      console.log(`Progress Updated`);
     } else if (!isCompleted) {
       setCompletedLessons(completedLessons.filter(id => id !== lesId));
     }
     
     try {
-      console.log(`[COURSE_DETAILS] Sending API Request to /courses/track-progress`);
+      console.log(`Sending completion API...`);
       const res = await api.post('/courses/track-progress', {
         courseId: id,
         lessonId: lesId,
         isCompleted
       });
       
-      console.log(`[COURSE_DETAILS] API Success:`, res.data);
+      console.log(`Completion API Success`);
       const newCompleted = res.data.data.completedLessons;
       setCompletedLessons(newCompleted);
 
@@ -163,23 +161,20 @@ const CourseDetails: React.FC = () => {
         setTimeout(() => setShowConfetti(false), 8000);
       }
     } catch (error: any) {
-      console.error('[COURSE_DETAILS] Error updating progress:', error?.response?.data || error);
+      console.log(`Completion API Failed`);
+      console.error('Error updating progress:', error?.response?.data || error);
       // Revert optimistic update
       setCompletedLessons(previousCompleted);
     }
   };
 
   const handleAutoPlayNext = () => {
-    console.log(`[COURSE_DETAILS] Auto Play Next Triggered`);
     if (!selectedLesson) return;
     const idx = lessons.findIndex(l => l._id === selectedLesson._id);
     if (idx >= 0 && idx < lessons.length - 1) {
       const nextLes = lessons[idx + 1];
-      console.log(`[COURSE_DETAILS] Switching to next lesson: ${nextLes.title}`);
       setSelectedLesson(nextLes);
       setVideoError(null);
-    } else {
-      console.log(`[COURSE_DETAILS] No next lesson available to auto play`);
     }
   };
 

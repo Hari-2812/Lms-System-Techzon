@@ -471,10 +471,12 @@ export const deleteLesson = async (req: Request, res: Response): Promise<void> =
 export const trackLessonProgress = async (req: any, res: Response): Promise<void> => {
   const { courseId, lessonId, isCompleted } = req.body;
   
-  console.log(`[BACKEND] Lesson Completion Started: courseId=${courseId}, lessonId=${lessonId}, isCompleted=${isCompleted}`);
+  console.log(`Completion API Hit`);
+  console.log(`Student ID: ${req.user._id}`);
+  console.log(`Course ID: ${courseId}`);
+  console.log(`Lesson ID: ${lessonId}`);
 
   if (!courseId || !lessonId) {
-    console.log(`[BACKEND] Error: Missing courseId or lessonId`);
     res.status(400).json({ success: false, message: 'Course ID and Lesson ID are required' });
     return;
   }
@@ -483,25 +485,25 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     // 1. Fetch enrollment
     const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId });
     if (!enrollment) {
-      console.log(`[BACKEND] Error: Enrollment not found for user ${req.user._id} and course ${courseId}`);
       res.status(404).json({ success: false, message: 'Active course enrollment not found' });
       return;
     }
-    console.log(`[BACKEND] Enrollment Found: ${enrollment._id}`);
+    console.log(`Enrollment ID: ${enrollment._id}`);
+    console.log(`Enrollment Found`);
 
     // 2. Fetch all lessons sorted by order to validate sequence
     const allLessons = await Lesson.find({ courseId }).sort('order').lean();
     const currentLessonIndex = allLessons.findIndex(l => l._id.toString() === lessonId);
     
     if (currentLessonIndex === -1) {
-      console.log(`[BACKEND] Error: Lesson not found in this course`);
       res.status(404).json({ success: false, message: 'Lesson not found in this course' });
       return;
     }
-    console.log(`[BACKEND] Lesson Found: index ${currentLessonIndex}, title: ${allLessons[currentLessonIndex].title}`);
+    console.log(`Lesson Found`);
 
     if (isCompleted) {
-      console.log(`[BACKEND] Progress Before: completedLessons count = ${enrollment.progress.completedLessons.length}`);
+      console.log(`Current Progress: ${enrollment.progress.percentComplete}%`);
+      console.log(`Saving Completion`);
       
       // 3. Sequential Lock Validation: Only allow if it's the first lesson OR previous lesson is completed
       if (currentLessonIndex > 0) {
@@ -537,9 +539,8 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
-      console.log(`[BACKEND] Mongo Save Success: Lesson marked complete`);
+      console.log(`Mongo Save Success`);
     } else {
-      console.log(`[BACKEND] Removing lesson completion...`);
       // Remove lesson completion if unchecked (optional but handled)
       await Enrollment.updateOne(
         { _id: enrollment._id },
@@ -554,7 +555,6 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     // 5. Recalculate progress
     const updatedEnrollment = await Enrollment.findById(enrollment._id);
     if (!updatedEnrollment) {
-      console.log(`[BACKEND] Error: Failed to fetch updated enrollment`);
       return;
     }
 
@@ -563,7 +563,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     const newPercent = totalLessons === 0 ? 0 : Math.round((completedCount / totalLessons) * 100);
 
     updatedEnrollment.progress.percentComplete = newPercent;
-    console.log(`[BACKEND] Progress After: ${newPercent}% (${completedCount}/${totalLessons})`);
+    console.log(`Progress Calculated`);
     
     // Auto-issue certificate if 100%
     if (newPercent === 100 && !updatedEnrollment.certificateIssued) {
@@ -571,14 +571,12 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
         const cert = await generateCertificateOffline(req.user._id, courseId, updatedEnrollment._id);
         updatedEnrollment.certificateIssued = true;
         updatedEnrollment.certificateId = cert.certificateId;
-        logger.info(`Graduation Certificate auto-issued to ${req.user.email} for course ${courseId}`);
       } catch (certErr) {
         logger.error('Failed to auto-issue certificate:', certErr);
       }
     }
 
     await updatedEnrollment.save();
-    console.log(`[BACKEND] Enrollment progress saved`);
 
     // Determine the next lesson to unlock dynamically
     let nextLessonId = null;
@@ -586,12 +584,11 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     if (currentLessonIndex < totalLessons - 1) {
       nextLessonId = allLessons[currentLessonIndex + 1]._id;
       nextLessonUnlocked = true;
-      console.log(`[BACKEND] Next Lesson: ${nextLessonId}`);
-    } else {
-      console.log(`[BACKEND] No Next Lesson (Course Completed)`);
+      console.log(`Next Lesson: ${nextLessonId}`);
+      console.log(`Lesson Unlocked`);
     }
 
-    console.log(`[BACKEND] Response Sent`);
+    console.log(`Response Sent`);
     res.status(200).json({
       success: true,
       completed: true,
@@ -609,7 +606,6 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
       },
     });
   } catch (error: any) {
-    console.log(`[BACKEND] Exception: ${error.message}`);
     logger.error('Progress tracking error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
