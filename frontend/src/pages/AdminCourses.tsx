@@ -19,7 +19,7 @@ import {
 const AdminCourses: React.FC = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
 
   // Module & Lesson states
   const [modules, setModules] = useState<any[]>([]);

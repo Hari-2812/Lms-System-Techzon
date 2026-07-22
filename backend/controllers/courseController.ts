@@ -334,6 +334,10 @@ export const deleteModule = async (req: Request, res: Response): Promise<void> =
 export const createLesson = async (req: Request, res: Response): Promise<void> => {
   try {
     const lesson = new Lesson(req.body);
+    if (req.body.videoUrl) {
+      lesson.playbackUrl = req.body.videoUrl;
+      lesson.provider = 'bunny';
+    }
     await lesson.save();
     res.status(201).json({ success: true, data: lesson });
   } catch (error: any) {

@@ -345,9 +345,9 @@ const CourseDetails: React.FC = () => {
           <>
             {/* Media Block / Video Player */}
             <div className="glass-card overflow-hidden bg-black border-none relative flex items-center justify-center w-full shadow-2xl rounded-none sm:rounded-xl">
-              {selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl ? (
+              {selectedLesson?.playbackUrl || selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl ? (
                 <CustomVideoPlayer 
-                  playbackUrl={selectedLesson?.videoId?.playbackUrl}
+                  playbackUrl={selectedLesson?.playbackUrl || selectedLesson?.videoId?.playbackUrl}
                   secureUrl={selectedLesson?.videoId?.secureUrl}
                   videoUrl={selectedLesson?.videoUrl}
                   poster={selectedLesson?.videoId?.thumbnail}
