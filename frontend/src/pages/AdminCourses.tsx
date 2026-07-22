@@ -45,12 +45,14 @@ const AdminCourses: React.FC = () => {
   const [showLesForm, setShowLesForm] = useState(false);
   const [lesTitle, setLesTitle] = useState('');
   const [lesDesc, setLesDesc] = useState('');
-  const [lesVideo, setLesVideo] = useState('');
-  const [lesVideoFile, setLesVideoFile] = useState<File | null>(null);
-  const [videoUploadLoading, setVideoUploadLoading] = useState(false);
   const [lesDuration, setLesDuration] = useState(300);
   const [lesNotes, setLesNotes] = useState('');
   const [lesOrder, setLesOrder] = useState(1);
+
+  // Separate Upload Video state
+  const [uploadingLessonId, setUploadingLessonId] = useState<string | null>(null);
+  const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [selectedModId, setSelectedModId] = useState('');
 
   useEffect(() => {
@@ -187,41 +189,54 @@ const AdminCourses: React.FC = () => {
         order: lesOrder,
       };
 
-      if (lesVideoFile) {
-        setVideoUploadLoading(true);
-        const formData = new FormData();
-        formData.append('video', lesVideoFile);
-        const uploadRes = await api.post('/lessons/upload-video', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        const videoData = uploadRes.data.data;
-        lessonPayload.playbackUrl = videoData.playbackUrl;
-        lessonPayload.provider = videoData.provider;
-        lessonPayload.bunnyVideoId = videoData.bunnyVideoId;
-        lessonPayload.thumbnailUrl = videoData.thumbnailUrl;
-      } else if (lesVideo) {
-        lessonPayload.playbackUrl = lesVideo;
-      }
-
       await api.post('/lessons', lessonPayload);
-      console.log(`[DEBUG] Upload Complete. Lesson Updated.`);
       alert('Lesson added successfully!');
       setLesTitle('');
       setLesDesc('');
-      setLesVideo('');
-      setLesVideoFile(null);
-      setLesNotes('');
       setLesDuration(300);
+      setLesNotes('');
       setLesOrder(1);
       setShowLesForm(false);
       handleSelectCourse(selectedCourse);
-      console.log(`[DEBUG] Course Refetched. Curriculum Refetched.`);
       fetchCourses();
     } catch (error: any) {
       console.error(error);
       alert(error.response?.data?.error || 'Failed to add lesson');
+    }
+  };
+
+  const handleUploadVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadingLessonId || !uploadVideoFile) return;
+
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append('video', uploadVideoFile);
+
+      const uploadRes = await api.post('/lessons/upload-video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const videoData = uploadRes.data.data;
+
+      // Update that lesson only
+      await api.put(`/lessons/${uploadingLessonId}`, {
+        provider: videoData.provider,
+        bunnyVideoId: videoData.bunnyVideoId,
+        playbackUrl: videoData.playbackUrl,
+        thumbnailUrl: videoData.thumbnailUrl,
+        duration: lesDuration, // keeping existing duration flow
+      });
+
+      alert('Video uploaded successfully!');
+      setUploadingLessonId(null);
+      setUploadVideoFile(null);
+      if (selectedCourse) handleSelectCourse(selectedCourse);
+    } catch (error: any) {
+      console.error(error);
+      alert(error.response?.data?.error || 'Failed to upload video');
     } finally {
-      setVideoUploadLoading(false);
+      setIsUploading(false);
     }
   };
 
@@ -416,13 +431,22 @@ const AdminCourses: React.FC = () => {
                                 <span className="flex items-center gap-2">
                                   <Video className="w-4 h-4 text-slate-400" />
                                   {les.order}. {les.title}
+                                  {les.playbackUrl && <span className="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-2">Video Linked</span>}
                                 </span>
-                                <button
-                                  onClick={() => handleDeleteLesson(les._id)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => setUploadingLessonId(les._id)}
+                                    className="text-accent hover:text-accent/80 text-xs font-semibold px-2 py-1 bg-accent/10 rounded"
+                                  >
+                                    Upload Video
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteLesson(les._id)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             ))
                           )}
@@ -622,19 +646,6 @@ const AdminCourses: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400">Upload Video File</label>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setLesVideoFile(e.target.files?.[0] || null)}
-                  className="glass-input py-2 text-xs"
-                />
-                {lesVideoFile && (
-                  <p className="text-[10px] text-slate-500">Selected file: {lesVideoFile.name}</p>
-                )}
-              </div>
-
-              <div className="space-y-1">
                 <label className="text-slate-400">Video URL (Bunny Stream link)</label>
                 <input
                   type="url"
@@ -643,7 +654,7 @@ const AdminCourses: React.FC = () => {
                   onChange={(e) => setLesVideo(e.target.value)}
                   className="w-full p-2 border border-slate-200 dark:border-border-dark bg-transparent rounded mt-1"
                 />
-                <p className="text-[10px] text-slate-500">Upload a file or paste an existing Bunny Stream video URL.</p>
+                <p className="text-[10px] text-slate-500">Paste an existing Bunny Stream video URL.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -681,15 +692,62 @@ const AdminCourses: React.FC = () => {
               <button
                 type="submit"
                 className="btn-accent w-full py-2.5 text-xs"
-                disabled={videoUploadLoading}
               >
-                {videoUploadLoading ? 'Uploading video…' : 'Create Lesson'}
+                Create Lesson
               </button>
             </form>
           </div>
         </div>
       )}
 
+      {/* Upload Video Modal */}
+      {uploadingLessonId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6 relative animate-scale-up">
+            <button 
+              onClick={() => { setUploadingLessonId(null); setUploadVideoFile(null); }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
+                <Video className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Upload Bunny Video</h3>
+              <p className="text-xs text-slate-400">Select an MP4 or compatible video file to upload. It will be streamed exclusively via Bunny CDN.</p>
+              
+              <form onSubmit={handleUploadVideo} className="w-full space-y-6 mt-4 text-left">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-300">Video File</label>
+                  <input 
+                    type="file" 
+                    accept="video/*"
+                    required
+                    onChange={(e) => setUploadVideoFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-accent file:text-white hover:file:bg-accent/80 file:cursor-pointer"
+                  />
+                </div>
+                
+                <button
+                  type="submit"
+                  disabled={isUploading || !uploadVideoFile}
+                  className="btn-accent w-full py-2.5 flex items-center justify-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Uploading to Bunny...
+                    </>
+                  ) : (
+                    'Upload & Attach to Lesson'
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

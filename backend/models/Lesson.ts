@@ -9,6 +9,8 @@ export interface ILesson extends Document {
   provider?: string;
   bunnyVideoId?: string;
   playbackUrl?: string;
+  thumbnailUrl?: string;
+  duration?: number;
   notesUrl?: string; // PDF link
   downloads?: Array<{
     title: string;
@@ -31,6 +33,8 @@ const LessonSchema: Schema<ILesson> = new Schema(
     provider: { type: String, default: 'bunny' },
     bunnyVideoId: { type: String },
     playbackUrl: { type: String },
+    thumbnailUrl: { type: String },
+    duration: { type: Number },
     notesUrl: { type: String },
     downloads: [
       {
