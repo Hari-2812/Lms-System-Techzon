@@ -96,7 +96,7 @@ export const getCourses = async (req: any, res: Response): Promise<void> => {
       const rawCourses = await Course.find().populate('mentors', 'name email').lean();
       courses = await Promise.all(rawCourses.map(async (course) => {
         const studentCount = await Enrollment.countDocuments({ courseId: course._id, status: 'active' });
-        const lessonCount = await Lesson.countDocuments({ courseId: course._id });
+        const lessonCount = await Lesson.countDocuments({ courseId: course._id, legacy: { $ne: true } });
         return { ...course, studentCount, lessonCount };
       }));
     } else {
@@ -142,7 +142,7 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
 
     // Fetch modules & lessons
     let modules = await Module.find({ courseId: course._id }).sort('order').lean();
-    let lessons = await Lesson.find({ courseId: course._id })
+    let lessons = await Lesson.find({ courseId: course._id, legacy: { $ne: true } })
       .populate('videoId')
       .populate('moduleId')
       .populate('courseId')

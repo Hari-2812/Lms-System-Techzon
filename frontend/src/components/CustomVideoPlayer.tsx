@@ -10,6 +10,7 @@ interface CustomVideoPlayerProps {
   playbackUrl?: string;
   secureUrl?: string;
   videoUrl?: string;
+  provider?: string;
   poster?: string;
   lessonId: string;
   courseId?: string;
@@ -27,7 +28,7 @@ interface CustomVideoPlayerProps {
 }
 
 const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({ 
-  playbackUrl, secureUrl, videoUrl, poster, lessonId, courseId, lessonTitle, publicId, 
+  playbackUrl, secureUrl, videoUrl, provider, poster, lessonId, courseId, lessonTitle, publicId, 
   onEnded, className, onLessonComplete, onAutoPlayNext, hasNextLesson, 
   isAlreadyCompleted, subtitlesUrl 
 }) => {
@@ -70,7 +71,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     controlsTimeout = setTimeout(() => setShowControls(false), 3000);
   };
 
-  const isBunny = finalSrc?.includes('mediadelivery.net');
+  const finalSrc = playbackUrl || secureUrl || videoUrl;
+  const isBunny = provider === 'bunny' || finalSrc?.includes('mediadelivery.net');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {

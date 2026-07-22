@@ -16,6 +16,7 @@ export interface ILesson extends Document {
   }>;
   order: number;
   isPublished?: boolean;
+  legacy?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +40,7 @@ const LessonSchema: Schema<ILesson> = new Schema(
     ],
     order: { type: Number, required: true },
     isPublished: { type: Boolean, default: true },
+    legacy: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

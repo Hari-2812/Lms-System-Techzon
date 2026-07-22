@@ -94,6 +94,7 @@ const CourseDetails: React.FC = () => {
 
   const fetchCourseDetails = async () => {
     try {
+      console.log(`[DEBUG] Loading Course & Lessons... ID: ${id}`);
       const res = await api.get(`/courses/${id}`);
       setCourse(res.data.data.course);
       setModules(res.data.data.modules);
@@ -343,11 +344,16 @@ const CourseDetails: React.FC = () => {
       <div className="flex-1 flex flex-col gap-4 lg:gap-6 min-w-0 order-1 lg:order-2 px-4 lg:px-0">
         {!activeQuiz ? (
           <>
-            {/* Media Block / Video Player */}
             <div className="glass-card overflow-hidden bg-black border-none relative flex items-center justify-center w-full shadow-2xl rounded-none sm:rounded-xl">
-              {selectedLesson?.playbackUrl || selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl ? (
-                <CustomVideoPlayer 
-                  playbackUrl={selectedLesson?.playbackUrl || selectedLesson?.videoId?.playbackUrl}
+              {(() => {
+                if (selectedLesson?.playbackUrl || selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl) {
+                  const provider = selectedLesson?.provider || 'cloudinary';
+                  console.log(`[DEBUG] Lesson Provider: ${provider}, Playback URL: ${selectedLesson?.playbackUrl || selectedLesson?.videoId?.playbackUrl}`);
+                  console.log(`[DEBUG] Rendering ${provider === 'bunny' ? 'Bunny' : 'Cloudinary'} Player`);
+                  return (
+                    <CustomVideoPlayer 
+                      provider={selectedLesson?.provider}
+                      playbackUrl={selectedLesson?.playbackUrl || selectedLesson?.videoId?.playbackUrl}
                   secureUrl={selectedLesson?.videoId?.secureUrl}
                   videoUrl={selectedLesson?.videoUrl}
                   poster={selectedLesson?.videoId?.thumbnail}
@@ -359,12 +365,15 @@ const CourseDetails: React.FC = () => {
                   hasNextLesson={lessons.findIndex(l => l._id === selectedLesson?._id) < lessons.length - 1}
                   onAutoPlayNext={handleAutoPlayNext}
                 />
-              ) : (
-                <div className="w-full aspect-video flex flex-col items-center justify-center text-center text-slate-400 space-y-2 p-6">
-                  <Play className="w-12 h-12 mx-auto text-slate-500 animate-float" />
-                  <p className="text-xs">No video stream configured for this lesson</p>
-                </div>
-              )}
+                  );
+                }
+                return (
+                  <div className="w-full aspect-video flex flex-col items-center justify-center text-center text-slate-400 space-y-2 p-6">
+                    <Play className="w-12 h-12 mx-auto text-slate-500 animate-float" />
+                    <p className="text-xs">No video stream configured for this lesson</p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Lesson Title & Progress (Mobile order: Video -> Title -> Progress -> List) */}

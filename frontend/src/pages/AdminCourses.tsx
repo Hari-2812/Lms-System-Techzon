@@ -206,6 +206,7 @@ const AdminCourses: React.FC = () => {
       }
 
       await api.post('/lessons', lessonPayload);
+      console.log(`[DEBUG] Upload Complete. Lesson Updated.`);
       alert('Lesson added successfully!');
       setLesTitle('');
       setLesDesc('');
@@ -216,6 +217,8 @@ const AdminCourses: React.FC = () => {
       setLesOrder(1);
       setShowLesForm(false);
       handleSelectCourse(selectedCourse);
+      console.log(`[DEBUG] Course Refetched. Curriculum Refetched.`);
+      fetchCourses();
     } catch (error: any) {
       console.error(error);
       alert(error.response?.data?.error || 'Failed to add lesson');
