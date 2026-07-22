@@ -20,45 +20,25 @@ export class BunnyService {
     return `https://iframe.mediadelivery.net/${this.LIBRARY_ID}/${videoId}/thumbnail.jpg`;
   }
 
-  static async uploadVideo(filePath: string, originalName: string): Promise<string> {
+  static async syncLibrary(): Promise<any[]> {
     if (!this.API_KEY || !this.LIBRARY_ID) {
       throw new Error('Bunny Stream is not configured in environment variables.');
     }
 
-    // 1. Create Video
-    const createRes = await fetch(`https://video.bunnycdn.com/library/${this.LIBRARY_ID}/videos`, {
-      method: 'POST',
+    const res = await fetch(`https://video.bunnycdn.com/library/${this.LIBRARY_ID}/videos?itemsPerPage=1000`, {
       headers: {
         AccessKey: this.API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ title: originalName })
-    });
-    
-    if (!createRes.ok) {
-      const errText = await createRes.text();
-      throw new Error(`Failed to create video in Bunny Stream: ${errText}`);
-    }
-    
-    const createData = await createRes.json() as any;
-    const videoId = createData.guid;
-
-    // 2. Upload Video Binary
-    const fileBuffer = fs.readFileSync(filePath);
-    const uploadRes = await fetch(`https://video.bunnycdn.com/library/${this.LIBRARY_ID}/videos/${videoId}`, {
-      method: 'PUT',
-      headers: {
-        AccessKey: this.API_KEY,
-      },
-      body: fileBuffer
+        accept: 'application/json'
+      }
     });
 
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      throw new Error(`Failed to upload video binary to Bunny Stream: ${errText}`);
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Failed to fetch videos from Bunny Stream: ${errText}`);
     }
 
-    return videoId;
+    const data = await res.json() as any;
+    return data.items || [];
   }
 
   static async deleteVideo(videoId: string): Promise<boolean> {

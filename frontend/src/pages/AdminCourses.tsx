@@ -11,7 +11,6 @@ import {
   ListOrdered,
   Loader2,
   X,
-  PlusCircle,
   RefreshCw,
   Users
 } from 'lucide-react';
@@ -48,12 +47,8 @@ const AdminCourses: React.FC = () => {
   const [lesDuration, setLesDuration] = useState(300);
   const [lesNotes, setLesNotes] = useState('');
   const [lesOrder, setLesOrder] = useState(1);
-
-  // Separate Upload Video state
-  const [uploadingLessonId, setUploadingLessonId] = useState<string | null>(null);
-  const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [selectedModId, setSelectedModId] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     fetchCourses();
@@ -205,38 +200,18 @@ const AdminCourses: React.FC = () => {
     }
   };
 
-  const handleUploadVideo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!uploadingLessonId || !uploadVideoFile) return;
-
+  const handleSyncBunny = async () => {
     try {
-      setIsUploading(true);
-      const formData = new FormData();
-      formData.append('video', uploadVideoFile);
-
-      const uploadRes = await api.post('/lessons/upload-video', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      const videoData = uploadRes.data.data;
-
-      // Update that lesson only
-      await api.put(`/lessons/${uploadingLessonId}`, {
-        provider: videoData.provider,
-        bunnyVideoId: videoData.bunnyVideoId,
-        playbackUrl: videoData.playbackUrl,
-        thumbnailUrl: videoData.thumbnailUrl,
-        duration: lesDuration, // keeping existing duration flow
-      });
-
-      alert('Video uploaded successfully!');
-      setUploadingLessonId(null);
-      setUploadVideoFile(null);
+      setIsSyncing(true);
+      const res = await api.post('/lessons/sync-bunny');
+      alert(`Sync Complete! Updated ${res.data.data?.updatedCount || 0} lessons.`);
+      fetchCourses();
       if (selectedCourse) handleSelectCourse(selectedCourse);
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.error || 'Failed to upload video');
+      alert(error.response?.data?.error || 'Failed to sync with Bunny Stream');
     } finally {
-      setIsUploading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -265,11 +240,21 @@ const AdminCourses: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Dynamic Course Management</h2>
           <p className="text-xs text-slate-500">Edit course models, duplicate layout skeletons, or upload lecture notes.</p>
-
         </div>
         
         <div className="flex gap-2 items-center">
-
+          <button 
+            onClick={handleSyncBunny}
+            disabled={isSyncing}
+            className="btn-accent py-2.5 px-4 text-xs flex items-center gap-1.5 shadow-lg shadow-accent/20"
+          >
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            {isSyncing ? 'Syncing...' : 'Refresh Bunny Library'}
+          </button>
           <button
             onClick={() => {
               setCourseFormId(null);
@@ -279,7 +264,7 @@ const AdminCourses: React.FC = () => {
               setCourseThumbnail('');
               setShowCourseForm(true);
             }}
-            className="btn-accent py-2.5 px-5 text-xs flex items-center gap-1.5"
+            className="bg-slate-800 hover:bg-slate-700 text-white py-2.5 px-4 rounded-lg text-xs transition-colors flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" /> Create Course
           </button>
@@ -434,12 +419,6 @@ const AdminCourses: React.FC = () => {
                                   {les.playbackUrl && <span className="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-2">Video Linked</span>}
                                 </span>
                                 <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => setUploadingLessonId(les._id)}
-                                    className="text-accent hover:text-accent/80 text-xs font-semibold px-2 py-1 bg-accent/10 rounded"
-                                  >
-                                    Upload Video
-                                  </button>
                                   <button
                                     onClick={() => handleDeleteLesson(les._id)}
                                     className="text-red-500 hover:text-red-700"
@@ -699,56 +678,6 @@ const AdminCourses: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Upload Video Modal */}
-      {uploadingLessonId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-md p-6 relative animate-scale-up">
-            <button 
-              onClick={() => { setUploadingLessonId(null); setUploadVideoFile(null); }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
-                <Video className="w-6 h-6 text-accent" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Upload Bunny Video</h3>
-              <p className="text-xs text-slate-400">Select an MP4 or compatible video file to upload. It will be streamed exclusively via Bunny CDN.</p>
-              
-              <form onSubmit={handleUploadVideo} className="w-full space-y-6 mt-4 text-left">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-300">Video File</label>
-                  <input 
-                    type="file" 
-                    accept="video/*"
-                    required
-                    onChange={(e) => setUploadVideoFile(e.target.files?.[0] || null)}
-                    className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-accent file:text-white hover:file:bg-accent/80 file:cursor-pointer"
-                  />
-                </div>
-                
-                <button
-                  type="submit"
-                  disabled={isUploading || !uploadVideoFile}
-                  className="btn-accent w-full py-2.5 flex items-center justify-center gap-2"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Uploading to Bunny...
-                    </>
-                  ) : (
-                    'Upload & Attach to Lesson'
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };

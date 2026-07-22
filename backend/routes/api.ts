@@ -52,7 +52,7 @@ import {
   updateLesson,
   deleteLesson,
   trackLessonProgress,
-  uploadLessonVideo,
+  syncBunnyLibrary,
 } from '../controllers/courseController';
 import {
   getLiveClasses,
@@ -262,7 +262,7 @@ router.delete('/modules/:id', deleteModule);
 router.post('/lessons', createLesson);
 router.put('/lessons/:id', updateLesson);
 router.delete('/lessons/:id', deleteLesson);
-router.post('/lessons/upload-video', upload.single('video'), uploadLessonVideo);
+router.post('/lessons/sync-bunny', syncBunnyLibrary);
 
 // Quiz Scheduling
 router.post('/quizzes', createQuiz);

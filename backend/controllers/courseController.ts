@@ -13,47 +13,6 @@ import mongoose from 'mongoose';
 import { BunnyService } from '../services/bunnyService';
 import logger from '../config/logger';
 
-export const uploadLessonVideo = async (req: any, res: Response): Promise<void> => {
-  logger.info('Upload video request received. File:', req.file?.originalname);
-
-  const uploadsDir = path.join(__dirname, '..', 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-
-  if (!req.file) {
-    res.status(400).json({ success: false, message: 'No video file uploaded.' });
-    return;
-  }
-
-  try {
-    const videoId = await BunnyService.uploadVideo(req.file.path, req.file.originalname);
-    
-    try {
-      await fs.promises.unlink(req.file.path);
-    } catch (_) {}
-
-    res.status(200).json({
-      success: true,
-      data: {
-        provider: 'bunny',
-        bunnyVideoId: videoId,
-        playbackUrl: BunnyService.getPlaybackUrl(videoId),
-        thumbnailUrl: BunnyService.getThumbnail(videoId),
-      },
-    });
-  } catch (error: any) {
-    console.error('Video upload failed', error);
-    try {
-      await fs.promises.unlink(req.file.path);
-    } catch (_) {}
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 export const getCourses = async (req: any, res: Response): Promise<void> => {
   try {
     let courses;
@@ -505,5 +464,47 @@ export const deleteCourse = async (req: any, res: Response): Promise<void> => {
   } catch (error: any) {
     logger.error('Error deleting course:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const syncBunnyLibrary = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log('Connecting Bunny Library');
+    const videos = await BunnyService.syncLibrary();
+    console.log(`Videos Found: ${videos.length}`);
+    console.log('Matching Lessons');
+
+    let updatedCount = 0;
+
+    for (const video of videos) {
+      // Strip common extensions from the video title to match the lesson
+      const videoName = video.title.replace(/\.(mp4|mov|avi|wmv|flv|mkv)$/i, '').trim();
+
+      // Find the lesson (case insensitive match on title)
+      // or if bunnyVideoId is already present (from previous manual assignment)
+      const lesson = await Lesson.findOne({
+        $or: [
+          { title: new RegExp(`^${videoName}$`, 'i') },
+          { bunnyVideoId: video.guid }
+        ]
+      });
+
+      if (lesson) {
+        lesson.provider = 'bunny';
+        lesson.bunnyVideoId = video.guid;
+        lesson.playbackUrl = BunnyService.getPlaybackUrl(video.guid);
+        lesson.thumbnailUrl = BunnyService.getThumbnail(video.guid);
+        lesson.duration = video.length;
+        await lesson.save();
+        updatedCount++;
+        console.log(`Lesson Updated: ${lesson.title}`);
+      }
+    }
+
+    console.log('Sync Completed');
+    res.status(200).json({ success: true, data: { updatedCount } });
+  } catch (error: any) {
+    console.error('Error in syncBunnyLibrary:', error);
+    res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 };
