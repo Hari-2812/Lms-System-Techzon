@@ -346,17 +346,11 @@ const CourseDetails: React.FC = () => {
           <>
             <div className="glass-card overflow-hidden bg-black border-none relative flex items-center justify-center w-full shadow-2xl rounded-none sm:rounded-xl">
               {(() => {
-                if (selectedLesson?.playbackUrl || selectedLesson?.videoId?.secureUrl || selectedLesson?.videoUrl) {
-                  const provider = selectedLesson?.provider || 'cloudinary';
-                  console.log(`[DEBUG] Lesson Provider: ${provider}, Playback URL: ${selectedLesson?.playbackUrl || selectedLesson?.videoId?.playbackUrl}`);
-                  console.log(`[DEBUG] Rendering ${provider === 'bunny' ? 'Bunny' : 'Cloudinary'} Player`);
+                if (selectedLesson?.playbackUrl) {
                   return (
                     <CustomVideoPlayer 
-                      provider={selectedLesson?.provider}
-                      playbackUrl={selectedLesson?.playbackUrl || selectedLesson?.videoId?.playbackUrl}
-                  secureUrl={selectedLesson?.videoId?.secureUrl}
-                  videoUrl={selectedLesson?.videoUrl}
-                  poster={selectedLesson?.videoId?.thumbnail}
+                      playbackUrl={selectedLesson.playbackUrl}
+                      poster={selectedLesson?.thumbnailUrl || selectedLesson?.videoId?.thumbnail}
                   lessonId={selectedLesson._id}
                   courseId={course?._id}
                   lessonTitle={selectedLesson.title}

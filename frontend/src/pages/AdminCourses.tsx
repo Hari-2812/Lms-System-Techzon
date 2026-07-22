@@ -195,14 +195,12 @@ const AdminCourses: React.FC = () => {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         const videoData = uploadRes.data.data;
-        lessonPayload.video = {
-          url: videoData.url,
-          publicId: videoData.publicId,
-          duration: videoData.duration,
-        };
-        lessonPayload.videoUrl = videoData.url;
+        lessonPayload.playbackUrl = videoData.playbackUrl;
+        lessonPayload.provider = videoData.provider;
+        lessonPayload.bunnyVideoId = videoData.bunnyVideoId;
+        lessonPayload.thumbnailUrl = videoData.thumbnailUrl;
       } else if (lesVideo) {
-        lessonPayload.videoUrl = lesVideo;
+        lessonPayload.playbackUrl = lesVideo;
       }
 
       await api.post('/lessons', lessonPayload);

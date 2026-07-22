@@ -9,6 +9,8 @@ import Enrollment from '../models/Enrollment';
 import Progress from '../models/Progress';
 import AuditLog from '../models/AuditLog';
 import { generateCertificateOffline } from './certificateController';
+import mongoose from 'mongoose';
+import { BunnyService } from '../services/bunnyService';
 import logger from '../config/logger';
 
 export const uploadLessonVideo = async (req: any, res: Response): Promise<void> => {
@@ -25,46 +27,8 @@ export const uploadLessonVideo = async (req: any, res: Response): Promise<void> 
   }
 
   try {
-    const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY;
-    const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID;
-
-    if (!BUNNY_STREAM_API_KEY || !BUNNY_STREAM_LIBRARY_ID) {
-      throw new Error('Bunny Stream is not configured in environment variables.');
-    }
-
-    // 1. Create Video
-    const createRes = await fetch(`https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/videos`, {
-      method: 'POST',
-      headers: {
-        AccessKey: BUNNY_STREAM_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ title: req.file.originalname })
-    });
+    const videoId = await BunnyService.uploadVideo(req.file.path, req.file.originalname);
     
-    if (!createRes.ok) {
-      const errText = await createRes.text();
-      throw new Error(`Failed to create video in Bunny Stream: ${errText}`);
-    }
-    
-    const createData = await createRes.json() as any;
-    const videoId = createData.guid;
-
-    // 2. Upload Video Binary
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const uploadRes = await fetch(`https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/videos/${videoId}`, {
-      method: 'PUT',
-      headers: {
-        AccessKey: BUNNY_STREAM_API_KEY,
-      },
-      body: fileBuffer
-    });
-
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      throw new Error(`Failed to upload video file to Bunny Stream: ${errText}`);
-    }
-
     try {
       await fs.promises.unlink(req.file.path);
     } catch (_) {}
@@ -72,9 +36,10 @@ export const uploadLessonVideo = async (req: any, res: Response): Promise<void> 
     res.status(200).json({
       success: true,
       data: {
-        url: `https://iframe.mediadelivery.net/play/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`,
-        publicId: videoId,
-        duration: 0,
+        provider: 'bunny',
+        bunnyVideoId: videoId,
+        playbackUrl: BunnyService.getPlaybackUrl(videoId),
+        thumbnailUrl: BunnyService.getThumbnail(videoId),
       },
     });
   } catch (error: any) {
@@ -334,10 +299,6 @@ export const deleteModule = async (req: Request, res: Response): Promise<void> =
 export const createLesson = async (req: Request, res: Response): Promise<void> => {
   try {
     const lesson = new Lesson(req.body);
-    if (req.body.videoUrl) {
-      lesson.playbackUrl = req.body.videoUrl;
-      lesson.provider = 'bunny';
-    }
     await lesson.save();
     res.status(201).json({ success: true, data: lesson });
   } catch (error: any) {
