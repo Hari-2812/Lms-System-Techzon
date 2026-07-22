@@ -6,6 +6,9 @@ export interface ILesson extends Document {
   title: string;
   description?: string;
   videoId?: mongoose.Types.ObjectId;
+  provider?: string;
+  bunnyVideoId?: string;
+  playbackUrl?: string;
   notesUrl?: string; // PDF link
   downloads?: Array<{
     title: string;
@@ -24,6 +27,9 @@ const LessonSchema: Schema<ILesson> = new Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String },
     videoId: { type: Schema.Types.ObjectId, ref: 'Video' },
+    provider: { type: String, default: 'bunny' },
+    bunnyVideoId: { type: String },
+    playbackUrl: { type: String },
     notesUrl: { type: String },
     downloads: [
       {

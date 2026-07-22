@@ -53,8 +53,6 @@ import {
   deleteLesson,
   trackLessonProgress,
   uploadLessonVideo,
-  syncCloudinary,
-  repairCurriculum,
 } from '../controllers/courseController';
 import {
   getLiveClasses,
@@ -253,8 +251,7 @@ router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.post('/courses/:id/duplicate', duplicateCourse);
 router.delete('/courses/:id', deleteCourse);
-router.post('/courses/sync-cloudinary', syncCloudinary);
-router.post('/admin/courses/repair-curriculum', repairCurriculum);
+
 
 // Modules CRUD
 router.post('/modules', createModule);

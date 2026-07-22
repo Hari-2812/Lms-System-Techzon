@@ -70,7 +70,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     controlsTimeout = setTimeout(() => setShowControls(false), 3000);
   };
 
-  const finalSrc = playbackUrl || secureUrl || videoUrl;
+  const isBunny = finalSrc?.includes('mediadelivery.net');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     // Reset states when source (lesson) changes
@@ -86,7 +87,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     setLastFetchedTime(0);
     lastTimeUpdateRef.current = 0;
     
-    if (videoRef.current) {
+    if (videoRef.current && !isBunny) {
       videoRef.current.load();
     }
 
@@ -104,7 +105,41 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       }
     };
     fetchProgress();
-  }, [finalSrc, lessonId]);
+  }, [finalSrc, lessonId, isBunny]);
+
+  // Listen to Bunny Stream postMessage API
+  useEffect(() => {
+    if (!isBunny) return;
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== "https://iframe.mediadelivery.net") return;
+      
+      try {
+        const data = JSON.parse(e.data);
+        if (data.event === "timeupdate") {
+          const ct = data.currentTime;
+          const dur = data.duration;
+          setCurrentTime(ct);
+          if (dur > 0) {
+            setDuration(dur);
+            setProgress((ct / dur) * 100);
+          }
+        } else if (data.event === "ended") {
+          setIsPlaying(false);
+          handleVideoEnded();
+        } else if (data.event === "play") {
+          setIsPlaying(true);
+        } else if (data.event === "pause") {
+          setIsPlaying(false);
+        } else if (data.event === "ready") {
+          setIsBuffering(false);
+        }
+      } catch (err) {}
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [isBunny, hasNextLesson, isAlreadyCompleted, onLessonComplete, onAutoPlayNext]);
 
   // Handle countdown for autoplay
   useEffect(() => {
@@ -122,24 +157,22 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   // Periodic save of progress to backend
   useEffect(() => {
     const saveInterval = setInterval(() => {
-      if (videoRef.current && !videoRef.current.paused) {
-        const ct = videoRef.current.currentTime;
-        const dur = videoRef.current.duration || 0;
-        if (ct > 0 && dur - ct > 10 && courseId) {
-          api.post('/progress/update', {
-            courseId,
-            lessonId,
-            videoId: publicId,
-            currentTime: ct,
-            duration: dur,
-            watchedPercentage: dur > 0 ? (ct / dur) * 100 : 0
-          }).catch(console.error);
-        }
+      const ct = currentTime;
+      const dur = duration;
+      if (isPlaying && ct > 0 && dur - ct > 10 && courseId) {
+        api.post('/progress/update', {
+          courseId,
+          lessonId,
+          videoId: publicId,
+          currentTime: ct,
+          duration: dur,
+          watchedPercentage: dur > 0 ? (ct / dur) * 100 : 0
+        }).catch(console.error);
       }
-    }, 5000); // save every 5 seconds
+    }, 5000);
 
     return () => clearInterval(saveInterval);
-  }, [lessonId, courseId, publicId]);
+  }, [lessonId, courseId, publicId, isPlaying, currentTime, duration]);
 
   // Keyboard Event Listeners
   useEffect(() => {
@@ -389,33 +422,44 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       onDoubleClick={toggleFullScreen}
     >
       {/* Video Element */}
-      <video
-        ref={videoRef}
-        src={finalSrc}
-        poster={poster}
-        className="w-full h-full object-contain cursor-pointer"
-        onClick={togglePlay}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-        onEnded={handleVideoEnded}
-        onWaiting={() => setIsBuffering(true)}
-        onPlaying={() => setIsBuffering(false)}
-        onError={handleError}
-        preload="metadata"
-        playsInline
-        controlsList="nodownload"
-        crossOrigin="anonymous"
-      >
-        {subtitlesUrl && (
-          <track 
-            kind="subtitles" 
-            src={subtitlesUrl} 
-            srcLang="en" 
-            label="English" 
-            default={captionsEnabled} 
-          />
-        )}
-      </video>
+      {isBunny ? (
+        <iframe
+          ref={iframeRef}
+          src={`${finalSrc}?autoplay=true&preload=true`}
+          loading="lazy"
+          className="w-full h-full border-0 absolute inset-0 z-10"
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+          allowFullScreen
+        ></iframe>
+      ) : (
+        <video
+          ref={videoRef}
+          src={finalSrc}
+          poster={poster}
+          className="w-full h-full object-contain cursor-pointer"
+          onClick={togglePlay}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onEnded={handleVideoEnded}
+          onWaiting={() => setIsBuffering(true)}
+          onPlaying={() => setIsBuffering(false)}
+          onError={handleError}
+          preload="metadata"
+          playsInline
+          controlsList="nodownload"
+          crossOrigin="anonymous"
+        >
+          {subtitlesUrl && (
+            <track 
+              kind="subtitles" 
+              src={subtitlesUrl} 
+              srcLang="en" 
+              label="English" 
+              default={captionsEnabled} 
+            />
+          )}
+        </video>
+      )}
 
       {/* Auto-play Next Overlay */}
       {showAutoPlayOverlay && (
@@ -472,111 +516,113 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         </div>
       )}
 
-      <div 
-        className={`absolute bottom-0 left-0 right-0 p-4 pt-16 bg-gradient-to-t from-black via-black/60 to-transparent transition-opacity duration-300 z-20 ${
-          showControls || !isPlaying || videoError || showAutoPlayOverlay ? 'opacity-100' : 'opacity-0'
-        }`}
-        onClick={(e) => e.stopPropagation()} 
-      >
-        {/* Progress Bar */}
+      {!isBunny && (
         <div 
-          className="w-full h-1.5 bg-slate-600/50 rounded-full mb-4 cursor-pointer relative hover:h-2.5 transition-all group/progress flex items-center"
-          onClick={handleProgressClick}
+          className={`absolute bottom-0 left-0 right-0 p-4 pt-16 bg-gradient-to-t from-black via-black/60 to-transparent transition-opacity duration-300 z-20 ${
+            showControls || !isPlaying || videoError || showAutoPlayOverlay ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={(e) => e.stopPropagation()} 
         >
-          {/* Buffer Bar (Simplified) */}
+          {/* Progress Bar */}
           <div 
-            className="absolute top-0 left-0 h-full bg-slate-400/50 rounded-full"
-            style={{ width: `${videoRef.current?.buffered.length ? (videoRef.current.buffered.end(videoRef.current.buffered.length - 1) / duration) * 100 : 0}%` }}
-          />
-          {/* Play Progress */}
-          <div 
-            className="absolute top-0 left-0 h-full bg-accent rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
-          {/* Scrubber Knob */}
-          <div 
-            className="absolute h-3.5 w-3.5 bg-white rounded-full shadow opacity-0 group-hover/progress:opacity-100 transition-opacity transform -translate-x-1/2"
-            style={{ left: `${progress}%` }}
-          />
-        </div>
-
-        {/* Control Buttons Row */}
-        <div className="flex items-center justify-between text-white">
-          <div className="flex items-center gap-4 sm:gap-6">
-            <button onClick={togglePlay} className="hover:text-accent transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full">
-              {isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current ml-0.5" />}
-            </button>
-            
-            <button onClick={() => skipTime(-5)} className="hover:text-accent transition focus:outline-none" title="Rewind 5s">
-              <SkipBack className="w-5 h-5" />
-            </button>
-            <button onClick={() => skipTime(5)} className="hover:text-accent transition focus:outline-none" title="Forward 5s">
-              <SkipForward className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2 group/volume relative">
-              <button onClick={toggleMute} className="hover:text-accent transition focus:outline-none">
-                {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-              </button>
-              <input
-                type="range"
-                min="0" max="1" step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-0 overflow-hidden group-hover/volume:w-24 focus:w-24 transition-all duration-300 h-1.5 rounded-lg appearance-none bg-slate-600 outline-none accent-accent cursor-pointer"
-                title="Volume"
-              />
-            </div>
-
-            <div className="text-xs font-medium font-poppins hidden sm:block tracking-wide">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </div>
+            className="w-full h-1.5 bg-slate-600/50 rounded-full mb-4 cursor-pointer relative hover:h-2.5 transition-all group/progress flex items-center"
+            onClick={handleProgressClick}
+          >
+            {/* Buffer Bar (Simplified) */}
+            <div 
+              className="absolute top-0 left-0 h-full bg-slate-400/50 rounded-full"
+              style={{ width: `${videoRef.current?.buffered.length ? (videoRef.current.buffered.end(videoRef.current.buffered.length - 1) / duration) * 100 : 0}%` }}
+            />
+            {/* Play Progress */}
+            <div 
+              className="absolute top-0 left-0 h-full bg-accent rounded-full transition-all"
+              style={{ width: `${progress}%` }}
+            />
+            {/* Scrubber Knob */}
+            <div 
+              className="absolute h-3.5 w-3.5 bg-white rounded-full shadow opacity-0 group-hover/progress:opacity-100 transition-opacity transform -translate-x-1/2"
+              style={{ left: `${progress}%` }}
+            />
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-5 relative">
-            
-            {/* Captions */}
-            <button 
-              onClick={toggleCaptions} 
-              className={`hover:text-accent transition focus:outline-none flex flex-col items-center ${captionsEnabled ? 'text-accent' : 'text-slate-300'}`} 
-              title="Captions (C)"
-            >
-              <Subtitles className="w-5 h-5" />
-              {captionsEnabled && <span className="w-1 h-1 bg-accent rounded-full mt-0.5"></span>}
-            </button>
-
-            {/* Settings Menu (Playback Speed) */}
-            <div className="relative">
-              <button onClick={() => setShowSettings(!showSettings)} className="hover:text-accent transition focus:outline-none">
-                <Settings className="w-5 h-5" />
+          {/* Control Buttons Row */}
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-4 sm:gap-6">
+              <button onClick={togglePlay} className="hover:text-accent transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full">
+                {isPlaying ? <Pause className="w-7 h-7 fill-current" /> : <Play className="w-7 h-7 fill-current ml-0.5" />}
               </button>
-              {showSettings && (
-                <div className="absolute bottom-full right-0 mb-3 bg-slate-900/95 border border-slate-700/50 rounded-xl p-2 flex flex-col gap-1 z-50 w-32 shadow-2xl backdrop-blur-xl">
-                  <span className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase tracking-wider mb-1">Speed</span>
-                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((s) => (
-                    <button 
-                      key={s}
-                      onClick={() => changeSpeed(s)}
-                      className={`text-xs text-left px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-between ${playbackSpeed === s ? 'text-accent font-bold bg-accent/10' : 'text-slate-300'}`}
-                    >
-                      {s === 1 ? 'Normal' : `${s}x`}
-                      {playbackSpeed === s && <CheckCircle className="w-3 h-3" />}
-                    </button>
-                  ))}
-                </div>
-              )}
+              
+              <button onClick={() => skipTime(-5)} className="hover:text-accent transition focus:outline-none" title="Rewind 5s">
+                <SkipBack className="w-5 h-5" />
+              </button>
+              <button onClick={() => skipTime(5)} className="hover:text-accent transition focus:outline-none" title="Forward 5s">
+                <SkipForward className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-2 group/volume relative">
+                <button onClick={toggleMute} className="hover:text-accent transition focus:outline-none">
+                  {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+                <input
+                  type="range"
+                  min="0" max="1" step="0.05"
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                  className="w-0 overflow-hidden group-hover/volume:w-24 focus:w-24 transition-all duration-300 h-1.5 rounded-lg appearance-none bg-slate-600 outline-none accent-accent cursor-pointer"
+                  title="Volume"
+                />
+              </div>
+
+              <div className="text-xs font-medium font-poppins hidden sm:block tracking-wide">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </div>
             </div>
 
-            <button onClick={togglePiP} className="hover:text-accent transition focus:outline-none hidden sm:block" title="Picture in Picture">
-              <PictureInPicture className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-4 sm:gap-5 relative">
+              
+              {/* Captions */}
+              <button 
+                onClick={toggleCaptions} 
+                className={`hover:text-accent transition focus:outline-none flex flex-col items-center ${captionsEnabled ? 'text-accent' : 'text-slate-300'}`} 
+                title="Captions (C)"
+              >
+                <Subtitles className="w-5 h-5" />
+                {captionsEnabled && <span className="w-1 h-1 bg-accent rounded-full mt-0.5"></span>}
+              </button>
 
-            <button onClick={toggleFullScreen} className="hover:text-accent transition focus:outline-none" title="Full Screen (F)">
-              {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-            </button>
+              {/* Settings Menu (Playback Speed) */}
+              <div className="relative">
+                <button onClick={() => setShowSettings(!showSettings)} className="hover:text-accent transition focus:outline-none">
+                  <Settings className="w-5 h-5" />
+                </button>
+                {showSettings && (
+                  <div className="absolute bottom-full right-0 mb-3 bg-slate-900/95 border border-slate-700/50 rounded-xl p-2 flex flex-col gap-1 z-50 w-32 shadow-2xl backdrop-blur-xl">
+                    <span className="text-[10px] text-slate-400 font-bold px-2 py-1 uppercase tracking-wider mb-1">Speed</span>
+                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((s) => (
+                      <button 
+                        key={s}
+                        onClick={() => changeSpeed(s)}
+                        className={`text-xs text-left px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-between ${playbackSpeed === s ? 'text-accent font-bold bg-accent/10' : 'text-slate-300'}`}
+                      >
+                        {s === 1 ? 'Normal' : `${s}x`}
+                        {playbackSpeed === s && <CheckCircle className="w-3 h-3" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button onClick={togglePiP} className="hover:text-accent transition focus:outline-none hidden sm:block" title="Picture in Picture">
+                <PictureInPicture className="w-5 h-5" />
+              </button>
+
+              <button onClick={toggleFullScreen} className="hover:text-accent transition focus:outline-none" title="Full Screen (F)">
+                {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

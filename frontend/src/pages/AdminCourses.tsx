@@ -19,10 +19,7 @@ import {
 const AdminCourses: React.FC = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
-  const [syncStats, setSyncStats] = useState<any | null>(null);
-  const [showSyncModal, setShowSyncModal] = useState(false);
+
 
   // Module & Lesson states
   const [modules, setModules] = useState<any[]>([]);
@@ -71,42 +68,7 @@ const AdminCourses: React.FC = () => {
     }
   };
 
-  const handleSyncCloudinary = async () => {
-    if (!window.confirm('Sync with Cloudinary? This will fetch all videos and automatically sync them to their respective courses based on folder names.')) return;
-    setIsSyncing(true);
-    try {
-      const res = await api.post('/courses/sync-cloudinary');
-      const stats = res.data.stats;
-      if (stats) {
-        setSyncStats(stats);
-        setShowSyncModal(true);
-      } else {
-        alert(res.data.message || 'Synced successfully!');
-      }
-      fetchCourses();
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to sync with Cloudinary');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
-  const handleRepairCurriculum = async () => {
-    if (!window.confirm('Run Curriculum Repair? This will reconstruct missing modules and lessons for orphaned videos across all courses.')) return;
-    setIsSyncing(true);
-    try {
-      const res = await api.post('/admin/courses/repair-curriculum');
-      alert(res.data.message || 'Curriculum repaired successfully!');
-      fetchCourses();
-      if (selectedCourse) {
-        handleSelectCourse(selectedCourse);
-      }
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to repair curriculum');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleSelectCourse = async (course: any) => {
     setSelectedCourse(course);
@@ -167,7 +129,7 @@ const AdminCourses: React.FC = () => {
   };
 
   const handleDeleteCourse = async (courseId: string) => {
-    if (!window.confirm('Delete this course? This will remove all associated modules, lessons, and videos permanently from the database. (Cloudinary assets will remain intact). Proceed?')) return;
+    if (!window.confirm('Delete this course? This will remove all associated modules, lessons, and videos permanently from the database. (Video CDN assets will remain intact). Proceed?')) return;
     try {
       await api.delete(`/courses/${courseId}`);
       alert('Course deleted successfully!');
@@ -287,30 +249,11 @@ const AdminCourses: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Dynamic Course Management</h2>
           <p className="text-xs text-slate-500">Edit course models, duplicate layout skeletons, or upload lecture notes.</p>
-          <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg max-w-xl">
-            <h4 className="text-xs font-bold text-blue-700 dark:text-blue-300">Cloudinary Sync Guide:</h4>
-            <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
-              Upload videos to any folder in Cloudinary. The system will automatically detect the folder (e.g. <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded">AWS</span>, <span className="font-mono bg-white dark:bg-slate-800 px-1 py-0.5 rounded mx-1">Cloud Computing</span>) and dynamically create or sync the corresponding course without manual entry.
-            </p>
-          </div>
+
         </div>
         
         <div className="flex gap-2 items-center">
-          {isSyncing && (
-            <div className="flex items-center gap-2 mr-4">
-              <div className="w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-accent animate-pulse" style={{ width: '100%' }}></div>
-              </div>
-              <span className="text-xs text-slate-500 font-bold">Syncing...</span>
-            </div>
-          )}
-          <button
-            onClick={handleSyncCloudinary}
-            disabled={isSyncing}
-            className="btn-primary py-2.5 px-5 text-xs flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> Sync Cloudinary
-          </button>
+
           <button
             onClick={() => {
               setCourseFormId(null);
@@ -421,13 +364,7 @@ const AdminCourses: React.FC = () => {
                 </div>
                 
                 <div className="flex gap-2">
-                  <button
-                    onClick={handleRepairCurriculum}
-                    className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-600 dark:border-border-dark dark:text-slate-300 text-xs font-semibold flex items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-850"
-                    disabled={isSyncing}
-                  >
-                    <RefreshCw className={`w-4 h-4 text-amber-500 ${isSyncing ? 'animate-spin' : ''}`} /> Repair Curriculum
-                  </button>
+
                   <button
                     onClick={() => setShowModForm(true)}
                     className="py-1.5 px-3 rounded-lg border border-slate-200 text-slate-600 dark:border-border-dark dark:text-slate-300 text-xs font-semibold flex items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-850"
@@ -697,15 +634,15 @@ const AdminCourses: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400">Video URL (Cloudinary link)</label>
+                <label className="text-slate-400">Video URL (Bunny Stream link)</label>
                 <input
                   type="url"
-                  placeholder="https://res.cloudinary.com/..."
+                  placeholder="https://video.bunnycdn.com/..."
                   value={lesVideo}
                   onChange={(e) => setLesVideo(e.target.value)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full p-2 border border-slate-200 dark:border-border-dark bg-transparent rounded mt-1"
                 />
-                <p className="text-[10px] text-slate-500">Upload a file or paste an existing Cloudinary video URL.</p>
+                <p className="text-[10px] text-slate-500">Upload a file or paste an existing Bunny Stream video URL.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -752,107 +689,7 @@ const AdminCourses: React.FC = () => {
         </div>
       )}
 
-      {/* Sync Results Modal */}
-      {showSyncModal && syncStats && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 font-poppins">
-          <div className="w-full max-w-2xl glass-card p-6 border border-white/5 space-y-5 text-left relative dark:bg-card-dark max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setShowSyncModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-border-dark pb-4">
-              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
-                <RefreshCw className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Cloudinary Sync Completed</h3>
-                <p className="text-[11px] text-slate-500 font-medium">Last Sync: {new Date(syncStats.lastSync).toLocaleString()}</p>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Courses Found</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.foldersFound}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Courses Created</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.coursesCreated || 0}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Found</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.fetched}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Imported</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.imported}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Modules Created</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.modulesCreated || 0}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Lessons Created</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.lessonsCreated || 0}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Linked</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.videosLinked || 0}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Updated</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.updated}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Broken Lessons</p>
-                <p className="text-xl font-extrabold text-slate-800 dark:text-white">{syncStats.brokenLessons || 0}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-border-dark">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Videos Deleted</p>
-                <p className="text-xl font-extrabold text-red-500">{syncStats.deleted}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              <h4 className="font-bold text-sm text-slate-800 dark:text-white">Synced Courses Breakdown</h4>
-              <div className="border border-slate-200 dark:border-border-dark rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-border-dark">
-                    <tr>
-                      <th className="py-3 px-4 font-bold">Course</th>
-                      <th className="py-3 px-4 font-bold w-32 text-right">Videos</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-border-dark">
-                    {syncStats.courseStats && syncStats.courseStats.length > 0 ? (
-                      syncStats.courseStats.map((cs: any, i: number) => (
-                        <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                          <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">{cs.courseName}</td>
-                          <td className="py-3 px-4 text-right">
-                            <span className="bg-accent/10 text-accent font-bold px-2.5 py-1 rounded-lg">
-                              {cs.count}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={2} className="py-4 text-center text-slate-500">No courses synced.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 dark:border-border-dark mt-6 flex justify-end">
-              <button onClick={() => setShowSyncModal(false)} className="btn-primary py-2 px-6 text-xs">
-                Close Report
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

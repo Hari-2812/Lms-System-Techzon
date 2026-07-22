@@ -10,8 +10,6 @@ import Progress from '../models/Progress';
 import AuditLog from '../models/AuditLog';
 import { generateCertificateOffline } from './certificateController';
 import logger from '../config/logger';
-import cloudinary from '../config/cloudinary';
-import { syncCloudinaryFolder } from '../services/CloudinaryService';
 
 export const uploadLessonVideo = async (req: any, res: Response): Promise<void> => {
   logger.info('Upload video request received. File:', req.file?.originalname);
@@ -27,11 +25,45 @@ export const uploadLessonVideo = async (req: any, res: Response): Promise<void> 
   }
 
   try {
-    const result = (await cloudinary.uploader.upload_large(req.file.path, {
-      resource_type: 'video',
-      folder: 'techzone-lms/courses',
-      chunk_size: 6000000,
-    })) as any;
+    const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY;
+    const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID;
+
+    if (!BUNNY_STREAM_API_KEY || !BUNNY_STREAM_LIBRARY_ID) {
+      throw new Error('Bunny Stream is not configured in environment variables.');
+    }
+
+    // 1. Create Video
+    const createRes = await fetch(`https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/videos`, {
+      method: 'POST',
+      headers: {
+        AccessKey: BUNNY_STREAM_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: req.file.originalname })
+    });
+    
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      throw new Error(`Failed to create video in Bunny Stream: ${errText}`);
+    }
+    
+    const createData = await createRes.json() as any;
+    const videoId = createData.guid;
+
+    // 2. Upload Video Binary
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const uploadRes = await fetch(`https://video.bunnycdn.com/library/${BUNNY_STREAM_LIBRARY_ID}/videos/${videoId}`, {
+      method: 'PUT',
+      headers: {
+        AccessKey: BUNNY_STREAM_API_KEY,
+      },
+      body: fileBuffer
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error(`Failed to upload video file to Bunny Stream: ${errText}`);
+    }
 
     try {
       await fs.promises.unlink(req.file.path);
@@ -39,14 +71,14 @@ export const uploadLessonVideo = async (req: any, res: Response): Promise<void> 
 
     res.status(200).json({
       success: true,
-      video: {
-        url: result.secure_url,
-        publicId: result.public_id,
-        duration: result.duration,
+      data: {
+        url: `https://iframe.mediadelivery.net/play/${BUNNY_STREAM_LIBRARY_ID}/${videoId}`,
+        publicId: videoId,
+        duration: 0,
       },
     });
   } catch (error: any) {
-    console.error('Cloudinary upload failed', error);
+    console.error('Video upload failed', error);
     try {
       await fs.promises.unlink(req.file.path);
     } catch (_) {}
@@ -128,48 +160,6 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       }
     }
 
-    // --- CURRICULUM SELF-HEALING ENGINE ---
-    if (modules.length === 0) {
-      const videos = await Video.find({ courseId: course._id }).sort('title');
-      if (videos.length > 0) {
-        logger.info(`Auto-healing curriculum for course: ${course.title}`);
-        
-        // 1. Clean broken orphans
-        await Lesson.deleteMany({ courseId: course._id });
-        
-        // 2. Create default module
-        const mainModule = await Module.create({
-          courseId: course._id,
-          title: "Course Content",
-          order: 1,
-        });
-
-        // 3. Create lessons linked to videos, sorted by publicId/filename
-        videos.sort((a, b) => (a.publicId || '').localeCompare(b.publicId || ''));
-        
-        let orderCounter = 1;
-        for (const vid of videos) {
-          await Lesson.create({
-            moduleId: mainModule._id,
-            courseId: course._id,
-            title: vid.displayName || vid.title || `Lesson ${orderCounter}`,
-            videoId: vid._id,
-            order: orderCounter,
-          });
-          orderCounter++;
-        }
-
-        // 4. Refetch curriculum
-        modules = await Module.find({ courseId: course._id }).sort('order').lean();
-        lessons = await Lesson.find({ courseId: course._id })
-          .populate('videoId')
-          .populate('moduleId')
-          .populate('courseId')
-          .sort('order')
-          .lean();
-      }
-    }
-    // --- END HEALING ENGINE ---
 
     const modulesWithLessons = modules.map((mod: any) => ({
       ...mod,
@@ -213,95 +203,7 @@ export const createCourse = async (req: any, res: Response): Promise<void> => {
   }
 };
 
-export const repairCurriculum = async (req: any, res: Response): Promise<void> => {
-  try {
-    const courses = await Course.find();
-    let totalCoursesRepaired = 0;
-    let totalModulesCreated = 0;
-    let totalLessonsCreated = 0;
-    let totalBrokenLessonsFixed = 0;
-    let totalVideosLinked = 0;
 
-    for (const course of courses) {
-      // Find all videos for this course
-      const videos = await Video.find({ courseId: course._id }).sort({ version: 1, title: 1 });
-      if (videos.length === 0) continue;
-
-      let mainModule = await Module.findOne({ courseId: course._id });
-      if (!mainModule) {
-        mainModule = await Module.create({
-          courseId: course._id,
-          title: "Course Content",
-          order: 1,
-        });
-        totalModulesCreated++;
-      }
-
-      let orderCounter = 1;
-      for (const video of videos) {
-        let lesson = await Lesson.findOne({ videoId: video._id, courseId: course._id });
-        if (!lesson) {
-          lesson = await Lesson.findOne({ title: new RegExp(`^${video.title}$`, 'i'), courseId: course._id });
-        }
-        
-        if (!lesson) {
-          lesson = await Lesson.create({
-            moduleId: mainModule._id,
-            courseId: course._id,
-            title: video.title || `Lesson ${orderCounter}`,
-            videoId: video._id,
-            order: orderCounter,
-            isPublished: true,
-          });
-          totalLessonsCreated++;
-        } else {
-          let wasBroken = false;
-          if (lesson.moduleId?.toString() !== mainModule._id.toString() || lesson.videoId?.toString() !== video._id.toString()) {
-            wasBroken = true;
-          }
-          lesson.moduleId = mainModule._id;
-          lesson.videoId = video._id;
-          lesson.order = orderCounter;
-          lesson.isPublished = true;
-          await lesson.save();
-          if (wasBroken) totalBrokenLessonsFixed++;
-        }
-
-        // Deep link video to module and lesson
-        video.moduleId = mainModule._id;
-        video.lessonId = lesson._id;
-        await video.save();
-        
-        totalVideosLinked++;
-        orderCounter++;
-      }
-      
-      // Delete orphaned lessons for this course
-      const validVideoIds = videos.map(v => v._id.toString());
-      const orphans = await Lesson.find({ courseId: course._id, videoId: { $nin: validVideoIds } });
-      if (orphans.length > 0) {
-        await Lesson.deleteMany({ _id: { $in: orphans.map(o => o._id) } });
-      }
-
-      totalCoursesRepaired++;
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Curriculum repaired successfully',
-      stats: {
-        coursesRepaired: totalCoursesRepaired,
-        modulesCreated: totalModulesCreated,
-        lessonsCreated: totalLessonsCreated,
-        brokenLessonsFixed: totalBrokenLessonsFixed,
-        videosLinked: totalVideosLinked
-      }
-    });
-  } catch (error: any) {
-    logger.error('Error repairing curriculum:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
 
 export const updateCourse = async (req: any, res: Response): Promise<void> => {
   const { id } = req.params;
@@ -611,14 +513,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
   }
 };
 
-export const syncCloudinary = async (req: any, res: Response): Promise<void> => {
-  try {
-    const result = await syncCloudinaryFolder();
-    res.status(200).json(result);
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
+
 
 export const deleteCourse = async (req: any, res: Response): Promise<void> => {
   const { id } = req.params;
