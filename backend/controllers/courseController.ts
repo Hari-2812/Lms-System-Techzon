@@ -73,6 +73,7 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       .lean();
 
     let completedLessons: string[] = [];
+    let progressMap: Record<string, any> = {};
     if (req.user?.role === 'Student') {
       const enrollment = await Enrollment.findOne({
         studentId: req.user._id,
@@ -81,12 +82,40 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       if (enrollment) {
         completedLessons = enrollment.progress.completedLessons.map((l) => l.toString());
       }
+      
+      const allProgress = await Progress.find({
+        userId: req.user._id,
+        courseId: course._id
+      }).lean();
+      
+      allProgress.forEach((p: any) => {
+        progressMap[p.lessonId.toString()] = {
+          lastPlaybackPosition: p.lastPlaybackPosition,
+          watchedPercentage: p.watchedPercentage,
+          completedAt: p.completedAt
+        };
+      });
     }
+
+    const enhancedLessons = lessons.map((les: any, index: number) => {
+      const isCompleted = completedLessons.includes(les._id.toString());
+      const isLocked = index > 0 && !completedLessons.includes(lessons[index - 1]._id.toString());
+      const pData = progressMap[les._id.toString()] || {};
+      
+      return {
+        ...les,
+        isCompleted,
+        isLocked: req.user?.role === 'Student' ? isLocked : false,
+        lastPlaybackPosition: pData.lastPlaybackPosition || 0,
+        watchedPercentage: pData.watchedPercentage || 0,
+        completedAt: pData.completedAt || null
+      };
+    });
 
 
     const modulesWithLessons = modules.map((mod: any) => ({
       ...mod,
-      lessons: lessons.filter((lesson: any) => {
+      lessons: enhancedLessons.filter((lesson: any) => {
         const lessonModId = lesson.moduleId && lesson.moduleId._id ? lesson.moduleId._id.toString() : lesson.moduleId.toString();
         return lessonModId === mod._id.toString();
       }),
@@ -97,7 +126,7 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       data: {
         course,
         modules: modulesWithLessons,
-        lessons,
+        lessons: enhancedLessons,
         completedLessons,
       },
     });
@@ -294,7 +323,7 @@ export const deleteLesson = async (req: Request, res: Response): Promise<void> =
 
 // Track student progress with sequential validation
 export const trackLessonProgress = async (req: any, res: Response): Promise<void> => {
-  const { courseId, lessonId, isCompleted } = req.body;
+  const { courseId, lessonId, isCompleted, currentTime, watchedPercentage } = req.body;
   
   console.log(`Completion API Hit`);
   console.log(`Student ID: ${req.user._id}`);
@@ -357,23 +386,26 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
         { userId: req.user._id, lessonId },
         { 
           courseId, 
-          isCompleted: true, 
-          completionPercentage: 100,
-          currentTime: 0,
+          completed: true, 
+          watchedPercentage: watchedPercentage || 100,
+          lastPlaybackPosition: currentTime || 0,
+          completedAt: new Date(),
           lastWatched: new Date()
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
       console.log(`Mongo Save Success`);
     } else {
-      // Remove lesson completion if unchecked (optional but handled)
-      await Enrollment.updateOne(
-        { _id: enrollment._id },
-        { $pull: { 'progress.completedLessons': lessonId } }
-      );
+      // Just update progress
       await Progress.findOneAndUpdate(
         { userId: req.user._id, lessonId },
-        { isCompleted: false, completionPercentage: 0 }
+        { 
+          courseId,
+          lastPlaybackPosition: currentTime || 0,
+          watchedPercentage: watchedPercentage || 0,
+          lastWatched: new Date()
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     }
 
@@ -529,32 +561,56 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
     const collectionVideos = videos.filter(v => v.collectionId === collection.guid);
     const bunnyVideoIdsInCollection = new Set(collectionVideos.map(v => v.guid));
 
-    // Step 4: Delete ALL existing lessons for this course to completely rebuild from Bunny
-    await Lesson.deleteMany({ courseId: course._id });
-    const deletedCount = await Lesson.countDocuments({ courseId: course._id }); // should be 0
-
     let order = 1;
     for (const video of collectionVideos) {
       const videoName = video.title.replace(/\.(mp4|mov|avi|wmv|flv|mkv)$/i, '').trim();
       
       try {
-        const lesson = new Lesson({
-          courseId: course._id,
-          moduleId: moduleDoc._id,
-          title: videoName,
-          provider: 'bunny',
-          bunnyVideoId: video.guid,
-          playbackUrl: BunnyService.getPlaybackUrl(video.guid),
-          thumbnailUrl: BunnyService.getThumbnail(video.guid),
-          duration: video.length,
-          videoStatus: video.status,
-          order: order++,
-        });
-        await lesson.save();
-        lessonsAdded++;
-        console.log(`Lesson Added: ${lesson.title}`);
+        let lesson = await Lesson.findOne({ courseId: course._id, bunnyVideoId: video.guid });
+        
+        if (!lesson) {
+          lesson = await Lesson.findOne({ courseId: course._id, title: new RegExp(`^${videoName}$`, 'i') });
+        }
+
+        if (lesson) {
+          lesson.title = videoName;
+          lesson.playbackUrl = BunnyService.getPlaybackUrl(video.guid);
+          lesson.thumbnailUrl = BunnyService.getThumbnail(video.guid);
+          lesson.duration = video.length;
+          lesson.videoStatus = video.status;
+          lesson.order = order++;
+          await lesson.save();
+          lessonsUpdated++;
+          console.log(`Lesson Updated: ${lesson.title}`);
+        } else {
+          lesson = new Lesson({
+            courseId: course._id,
+            moduleId: moduleDoc._id,
+            title: videoName,
+            provider: 'bunny',
+            bunnyVideoId: video.guid,
+            playbackUrl: BunnyService.getPlaybackUrl(video.guid),
+            thumbnailUrl: BunnyService.getThumbnail(video.guid),
+            duration: video.length,
+            videoStatus: video.status,
+            order: order++,
+          });
+          await lesson.save();
+          lessonsAdded++;
+          console.log(`Lesson Added: ${lesson.title}`);
+        }
       } catch (lessonErr: any) {
         errors.push(`Error syncing lesson ${videoName}: ${lessonErr.message}`);
+      }
+    }
+
+    // Step 5: Delete ONLY lessons that no longer exist in Bunny
+    const allCourseLessons = await Lesson.find({ courseId: course._id, provider: 'bunny' });
+    for (const l of allCourseLessons) {
+      if (l.bunnyVideoId && !bunnyVideoIdsInCollection.has(l.bunnyVideoId)) {
+        await Lesson.findByIdAndDelete(l._id);
+        lessonsRemoved++;
+        console.log(`Lessons Removed: ${l.title}`);
       }
     }
   }

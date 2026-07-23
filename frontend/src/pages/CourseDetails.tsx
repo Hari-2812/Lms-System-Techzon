@@ -350,18 +350,19 @@ const CourseDetails: React.FC = () => {
               {(() => {
                 if (selectedLesson?.playbackUrl) {
                   return (
-                    <CustomVideoPlayer 
-                      playbackUrl={selectedLesson.playbackUrl}
-                      poster={selectedLesson?.thumbnailUrl}
-                  lessonId={selectedLesson._id}
-                  courseId={course?._id}
-                  lessonTitle={selectedLesson.title}
-                  isAlreadyCompleted={completedLessons.includes(selectedLesson._id)}
-                  onLessonComplete={() => toggleProgress(selectedLesson._id, true)}
-                  hasNextLesson={lessons.findIndex(l => l._id === selectedLesson?._id) < lessons.length - 1}
-                  onAutoPlayNext={handleAutoPlayNext}
-                  videoStatus={selectedLesson.videoStatus}
-                />
+                  <CustomVideoPlayer 
+                    playbackUrl={selectedLesson.playbackUrl}
+                    poster={selectedLesson?.thumbnailUrl}
+                    lessonId={selectedLesson._id}
+                    courseId={course?._id}
+                    lessonTitle={selectedLesson.title}
+                    isAlreadyCompleted={completedLessons.includes(selectedLesson._id)}
+                    onLessonComplete={() => toggleProgress(selectedLesson._id, true)}
+                    hasNextLesson={lessons.findIndex(l => l._id === selectedLesson?._id) < lessons.length - 1}
+                    onAutoPlayNext={handleAutoPlayNext}
+                    videoStatus={selectedLesson.videoStatus}
+                    lastPlaybackPosition={selectedLesson.lastPlaybackPosition}
+                  />
                   );
                 }
                 return (

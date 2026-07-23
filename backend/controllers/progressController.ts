@@ -15,7 +15,7 @@ export const updateProgress = async (req: any, res: Response): Promise<void> => 
   try {
     // Fetch current progress first to avoid overriding completed status
     const currentProgress = await Progress.findOne({ userId: req.user._id, lessonId });
-    if (currentProgress && currentProgress.isCompleted) {
+    if (currentProgress && currentProgress.completed) {
       res.status(200).json({ success: true, data: currentProgress });
       return;
     }
@@ -26,10 +26,10 @@ export const updateProgress = async (req: any, res: Response): Promise<void> => 
       { userId: req.user._id, lessonId },
       {
         courseId,
-        currentTime,
-        completionPercentage: watchedPercentage,
+        lastPlaybackPosition: currentTime,
+        watchedPercentage,
         lastWatched: new Date(),
-        ...(isCompleted && { isCompleted: true })
+        ...(isCompleted && { completed: true, completedAt: new Date() })
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );

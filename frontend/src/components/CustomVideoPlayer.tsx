@@ -16,6 +16,7 @@ interface CustomVideoPlayerProps {
   isAlreadyCompleted?: boolean;
   subtitlesUrl?: string;
   videoStatus?: number;
+  lastPlaybackPosition?: number;
 }
 
 const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
@@ -28,7 +29,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   onAutoPlayNext,
   hasNextLesson,
   isAlreadyCompleted,
-  videoStatus
+  videoStatus,
+  lastPlaybackPosition
 }) => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [showAutoPlayOverlay, setShowAutoPlayOverlay] = useState(false);
@@ -142,6 +144,9 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   try {
     const urlObj = new URL(playbackUrl);
     urlObj.searchParams.set('autoplay', 'false');
+    if (lastPlaybackPosition && lastPlaybackPosition > 0 && !isAlreadyCompleted) {
+      urlObj.searchParams.set('t', Math.floor(lastPlaybackPosition).toString());
+    }
     finalUrl = urlObj.toString();
   } catch (e) {
     // If playbackUrl is not a valid URL format, just use it directly
@@ -149,8 +154,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
 
   return (
     <div 
-      className={`relative w-full overflow-hidden bg-black ${className || ''}`}
-      style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px' }}
+      className={`relative ${className || ''}`}
+      style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', background: '#000' }}
     >
       {videoError ? (
         <div className="flex h-full w-full flex-col items-center justify-center text-center text-red-500 p-4">
@@ -162,7 +167,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         <iframe
           src={finalUrl}
           style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
-          className="w-full h-full border-none block"
+          className="border-none"
           loading="lazy"
           allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
           allowFullScreen

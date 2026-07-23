@@ -4,9 +4,10 @@ export interface IProgress extends Document {
   userId: mongoose.Types.ObjectId;
   courseId: mongoose.Types.ObjectId;
   lessonId: mongoose.Types.ObjectId;
-  currentTime: number;
-  completionPercentage: number;
-  isCompleted: boolean;
+  lastPlaybackPosition: number;
+  watchedPercentage: number;
+  completed: boolean;
+  completedAt?: Date;
   lastWatched: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -17,9 +18,10 @@ const ProgressSchema: Schema<IProgress> = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
     lessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', required: true, index: true },
-    currentTime: { type: Number, default: 0 },
-    completionPercentage: { type: Number, default: 0 },
-    isCompleted: { type: Boolean, default: false },
+    lastPlaybackPosition: { type: Number, default: 0 },
+    watchedPercentage: { type: Number, default: 0 },
+    completed: { type: Boolean, default: false },
+    completedAt: { type: Date },
     lastWatched: { type: Date, default: Date.now },
   },
   { timestamps: true }
