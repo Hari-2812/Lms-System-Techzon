@@ -3,6 +3,7 @@ import Progress from '../models/Progress';
 import Enrollment from '../models/Enrollment';
 import Lesson from '../models/Lesson';
 import logger from '../config/logger';
+import mongoose from 'mongoose';
 
 export const updateProgress = async (req: any, res: Response): Promise<void> => {
   const { courseId, lessonId, currentTime, duration, watchedPercentage } = req.body;
@@ -13,8 +14,11 @@ export const updateProgress = async (req: any, res: Response): Promise<void> => 
   }
 
   try {
+    const objCourseId = new mongoose.Types.ObjectId(courseId);
+    const objLessonId = new mongoose.Types.ObjectId(lessonId);
+
     // Fetch current progress first to avoid overriding completed status
-    const currentProgress = await Progress.findOne({ userId: req.user._id, lessonId });
+    const currentProgress = await Progress.findOne({ userId: req.user._id, lessonId: objLessonId });
     if (currentProgress && currentProgress.completed) {
       res.status(200).json({ success: true, data: currentProgress });
       return;
@@ -23,9 +27,9 @@ export const updateProgress = async (req: any, res: Response): Promise<void> => 
     const isCompleted = watchedPercentage >= 95;
 
     const progress = await Progress.findOneAndUpdate(
-      { userId: req.user._id, lessonId },
+      { userId: req.user._id, lessonId: objLessonId },
       {
-        courseId,
+        courseId: objCourseId,
         lastPlaybackPosition: currentTime,
         watchedPercentage,
         lastWatched: new Date(),

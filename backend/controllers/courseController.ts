@@ -365,8 +365,11 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
   }
 
   try {
+    const objCourseId = new mongoose.Types.ObjectId(courseId);
+    const objLessonId = new mongoose.Types.ObjectId(lessonId);
+
     // 1. Fetch enrollment
-    const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId });
+    const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId: objCourseId });
     if (!enrollment) {
       res.status(404).json({ success: false, message: 'Active course enrollment not found' });
       return;
@@ -375,7 +378,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     console.log(`Enrollment Found`);
 
     // 2. Fetch all lessons sorted by order to validate sequence
-    const allLessons = await Lesson.find({ courseId }).sort('order').lean();
+    const allLessons = await Lesson.find({ courseId: objCourseId }).sort('order').lean();
     const currentLessonIndex = allLessons.findIndex(l => l._id.toString() === lessonId);
     
     if (currentLessonIndex === -1) {
@@ -407,14 +410,14 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
       // 4. Atomically add to set in Enrollment
       await Enrollment.updateOne(
         { _id: enrollment._id },
-        { $addToSet: { 'progress.completedLessons': lessonId } }
+        { $addToSet: { 'progress.completedLessons': objLessonId } }
       );
 
       // Sync with Progress model explicitly for this user/lesson
       await Progress.findOneAndUpdate(
-        { userId: req.user._id, lessonId },
+        { userId: req.user._id, lessonId: objLessonId },
         { 
-          courseId, 
+          courseId: objCourseId, 
           completed: true, 
           watchedPercentage: watchedPercentage || 100,
           lastPlaybackPosition: currentTime || 0,
@@ -427,9 +430,9 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     } else {
       // Just update progress
       await Progress.findOneAndUpdate(
-        { userId: req.user._id, lessonId },
+        { userId: req.user._id, lessonId: objLessonId },
         { 
-          courseId,
+          courseId: objCourseId,
           lastPlaybackPosition: currentTime || 0,
           watchedPercentage: watchedPercentage || 0,
           lastWatched: new Date()
