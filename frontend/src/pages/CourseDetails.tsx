@@ -27,9 +27,11 @@ interface Lesson {
   moduleId: string;
   title: string;
   description?: string;
-  videoUrl?: string;
-  videoId?: { secureUrl: string; playbackUrl: string; duration: number; thumbnail: string };
-  videoDuration?: number;
+  provider?: string;
+  bunnyVideoId?: string;
+  playbackUrl?: string;
+  thumbnailUrl?: string;
+  duration?: number;
   notesUrl?: string;
   downloads?: Array<{ title: string; url: string }>;
   order: number;
@@ -350,7 +352,7 @@ const CourseDetails: React.FC = () => {
                   return (
                     <CustomVideoPlayer 
                       playbackUrl={selectedLesson.playbackUrl}
-                      poster={selectedLesson?.thumbnailUrl || selectedLesson?.videoId?.thumbnail}
+                      poster={selectedLesson?.thumbnailUrl}
                   lessonId={selectedLesson._id}
                   courseId={course?._id}
                   lessonTitle={selectedLesson.title}
@@ -780,9 +782,9 @@ const CourseDetails: React.FC = () => {
                                 </span>
                               )}
 
-                              {les.videoId?.duration && !isActive ? (
+                              {les.duration && !isActive ? (
                                 <span className="text-[9px] text-slate-500 font-mono">
-                                  {Math.floor(les.videoId.duration / 60)}:{(Math.floor(les.videoId.duration % 60)).toString().padStart(2, '0')}
+                                  {Math.floor(les.duration / 60)}:{(Math.floor(les.duration % 60)).toString().padStart(2, '0')}
                                 </span>
                               ) : null}
                               

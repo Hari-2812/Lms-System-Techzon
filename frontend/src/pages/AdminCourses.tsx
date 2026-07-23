@@ -44,6 +44,7 @@ const AdminCourses: React.FC = () => {
   const [showLesForm, setShowLesForm] = useState(false);
   const [lesTitle, setLesTitle] = useState('');
   const [lesDesc, setLesDesc] = useState('');
+  const [lesVideo, setLesVideo] = useState('');
   const [lesDuration, setLesDuration] = useState(300);
   const [lesNotes, setLesNotes] = useState('');
   const [lesOrder, setLesOrder] = useState(1);
