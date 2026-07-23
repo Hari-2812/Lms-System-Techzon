@@ -52,6 +52,7 @@ const CourseDetails: React.FC = () => {
   
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
+  const [courseProgress, setCourseProgress] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'video' | 'resources' | 'assignment' | 'quiz'>('video');
   const [videoError, setVideoError] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ const CourseDetails: React.FC = () => {
       setModules(res.data.data.modules);
       setLessons(res.data.data.lessons);
       setCompletedLessons(res.data.data.completedLessons || []);
+      setCourseProgress(res.data.data.courseProgress || 0);
       
       // Auto-select first lesson or first uncompleted lesson
       if (res.data.data.lessons?.length > 0) {
@@ -297,7 +299,7 @@ const CourseDetails: React.FC = () => {
     }
   };
 
-  const progressPercent = lessons.length > 0 ? Math.round((completedLessons.length / lessons.length) * 100) : 0;
+  const progressPercent = courseProgress;
 
   if (loading) {
     return (

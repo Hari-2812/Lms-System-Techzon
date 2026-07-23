@@ -52,49 +52,46 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   }, [lessonId, lessonDuration]);
 
   useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (!e.origin.includes('mediadelivery.net') && !e.origin.includes('bunnycdn.com')) return;
+    // 1. We must load Bunny's player.js to properly get timeupdate/ended events!
+    const initPlayer = () => {
+      const iframe = document.getElementById(`bunny-iframe-${lessonId}`) as HTMLIFrameElement;
+      if (!iframe) return;
       
-      try {
-        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      // @ts-ignore
+      if (window.playerjs) {
+        // @ts-ignore
+        const player = new window.playerjs.Player(iframe);
         
-        if (data.event === 'ready' || data.event === 'loadedmetadata') {
-          console.log('[DEBUG] Video Started', data);
-          if (data.duration || data.length) durationRef.current = data.duration || data.length;
-        }
-        
-        if (data.event === 'timeupdate') {
-          if (data.duration || data.length) durationRef.current = data.duration || data.length;
-          const ct = data.currentTime !== undefined ? data.currentTime : data.time;
-          const dur = durationRef.current;
+        player.on('ready', () => {
+          console.log('[DEBUG] Bunny Player Ready');
+          player.getDuration((dur: number) => {
+             durationRef.current = dur || lessonDuration || 0;
+          });
+        });
+
+        player.on('timeupdate', (data: any) => {
+          const ct = data.seconds;
+          const dur = data.duration || durationRef.current;
           
           if (ct !== undefined && dur && dur > 0) {
             const watchedPercentage = (ct / dur) * 100;
             
-            // Sync progress every 10 seconds (per issue 8)
             const now = Date.now();
             if (now - lastSyncTimeRef.current > 10000) {
               lastSyncTimeRef.current = now;
               console.log('[DEBUG] Time Update', { ct, dur, watchedPercentage: watchedPercentage.toFixed(2) + '%' });
-              api.post('/progress/update', { 
-                courseId, 
-                lessonId, 
-                currentTime: ct, 
-                duration: dur, 
-                watchedPercentage 
-              }).catch(err => console.log('[DEBUG] Progress Update Failed', err));
+              // We could send periodic /progress/update here if we want
             }
             
-            // Auto complete if watched over 95%
             if (watchedPercentage >= 95 && !isAlreadyCompleted && !progressTrackedRef.current) {
               console.log('[DEBUG] 95% Reached. Triggering completion.');
               progressTrackedRef.current = true;
               if (onLessonComplete) onLessonComplete();
             }
           }
-        }
-        
-        if (data.event === 'ended') {
+        });
+
+        player.on('ended', () => {
           console.log('[DEBUG] Ended Event Triggered');
           if (onEnded) onEnded();
           if (!isAlreadyCompleted && !progressTrackedRef.current) {
@@ -107,15 +104,27 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
             setCountdown(5);
             setShowAutoPlayOverlay(true);
           }
-        }
-      } catch (err) {
-        // Ignore JSON parse errors for unrelated messages
+        });
       }
     };
-    
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [courseId, lessonId, isAlreadyCompleted, onLessonComplete, onEnded, hasNextLesson]);
+
+    // @ts-ignore
+    if (!window.playerjs) {
+      const script = document.createElement('script');
+      script.src = 'https://video.bunnycdn.com/playerv2/embed/player.js';
+      script.async = true;
+      script.onload = () => {
+        setTimeout(initPlayer, 500); // Give the iframe time to load
+      };
+      document.body.appendChild(script);
+    } else {
+      setTimeout(initPlayer, 500);
+    }
+
+    return () => {
+      // cleanup if needed
+    };
+  }, [lessonId, isAlreadyCompleted, onLessonComplete, onEnded, hasNextLesson, lessonDuration]);
 
   // Autoplay countdown
   useEffect(() => {
@@ -179,6 +188,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         </div>
       ) : (
         <iframe
+          id={`bunny-iframe-${lessonId}`}
           src={finalUrl}
           loading="lazy"
           style={{ border: 0, position: 'absolute', top: 0, left: 0, height: '100%', width: '100%', display: 'block' }}
