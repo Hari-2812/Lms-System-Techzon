@@ -205,7 +205,7 @@ const AdminCourses: React.FC = () => {
     try {
       setIsSyncing(true);
       const res = await api.post('/lessons/sync-bunny');
-      alert(`Sync Complete! Updated ${res.data.data?.updatedCount || 0} lessons.`);
+      alert(`Sync Complete!\nCourses: ${res.data.coursesSynced}\nAdded: ${res.data.lessonsAdded}\nUpdated: ${res.data.lessonsUpdated}\nRemoved: ${res.data.lessonsRemoved}`);
       fetchCourses();
       if (selectedCourse) handleSelectCourse(selectedCourse);
     } catch (error: any) {
@@ -413,19 +413,36 @@ const AdminCourses: React.FC = () => {
                             <p className="text-[10px] text-slate-400 pl-4">No lessons added to this module yet.</p>
                           ) : (
                             modLessons.map((les) => (
-                              <div key={les._id} className="flex justify-between items-center text-xs font-medium pl-4 py-2 border-b border-slate-50/50">
-                                <span className="flex items-center gap-2">
-                                  <Video className="w-4 h-4 text-slate-400" />
-                                  {les.order}. {les.title}
-                                  {les.playbackUrl && <span className="text-[10px] bg-green-500/20 text-green-500 px-1.5 py-0.5 rounded ml-2">Video Linked</span>}
-                                </span>
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => handleDeleteLesson(les._id)}
-                                    className="text-red-500 hover:text-red-700"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                              <div key={les._id} className="flex flex-col gap-2 p-3 border-b border-slate-50/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition rounded-lg">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex gap-3">
+                                    {les.thumbnailUrl ? (
+                                      <img src={les.thumbnailUrl} alt={les.title} className="w-16 h-10 object-cover rounded shadow-sm bg-black" />
+                                    ) : (
+                                      <div className="w-16 h-10 bg-slate-200 dark:bg-slate-800 rounded flex items-center justify-center">
+                                        <Video className="w-4 h-4 text-slate-400" />
+                                      </div>
+                                    )}
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                        {les.order}. {les.title}
+                                        {les.playbackUrl && <span className="text-[9px] bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Stream Ready</span>}
+                                      </p>
+                                      <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
+                                        {les.duration && <span>{Math.floor(les.duration / 60)}:{(Math.floor(les.duration % 60)).toString().padStart(2, '0')} min</span>}
+                                        {les.bunnyVideoId && <span className="font-mono text-slate-400">ID: {les.bunnyVideoId}</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      onClick={() => handleDeleteLesson(les._id)}
+                                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                                      title="Delete Lesson"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             ))
@@ -625,28 +642,7 @@ const AdminCourses: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-slate-400">Video URL (Bunny Stream link)</label>
-                <input
-                  type="url"
-                  placeholder="https://video.bunnycdn.com/..."
-                  value={lesVideo}
-                  onChange={(e) => setLesVideo(e.target.value)}
-                  className="w-full p-2 border border-slate-200 dark:border-border-dark bg-transparent rounded mt-1"
-                />
-                <p className="text-[10px] text-slate-500">Paste an existing Bunny Stream video URL.</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-400">Video Duration (seconds)</label>
-                  <input
-                    type="number"
-                    value={lesDuration}
-                    onChange={(e) => setLesDuration(parseInt(e.target.value))}
-                    className="glass-input py-2 text-xs"
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-400">Sequence Order</label>
                   <input
