@@ -4,7 +4,6 @@ import path from 'path';
 import Course from '../models/Course';
 import Module from '../models/Module';
 import Lesson from '../models/Lesson';
-import Video from '../models/Video';
 import Enrollment from '../models/Enrollment';
 import Progress from '../models/Progress';
 import AuditLog from '../models/AuditLog';
@@ -449,7 +448,6 @@ export const deleteCourse = async (req: any, res: Response): Promise<void> => {
     }
 
     // Cascade delete related records securely
-    await Video.deleteMany({ courseId: id });
     await Lesson.deleteMany({ courseId: id });
     await Module.deleteMany({ courseId: id });
     await Course.findByIdAndDelete(id);

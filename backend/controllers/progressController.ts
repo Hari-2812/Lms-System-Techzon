@@ -5,7 +5,7 @@ import Lesson from '../models/Lesson';
 import logger from '../config/logger';
 
 export const updateProgress = async (req: any, res: Response): Promise<void> => {
-  const { courseId, lessonId, videoId, currentTime, duration, watchedPercentage } = req.body;
+  const { courseId, lessonId, currentTime, duration, watchedPercentage } = req.body;
   
   if (!courseId || !lessonId) {
     res.status(400).json({ success: false, message: 'Course ID and Lesson ID are required' });
@@ -20,14 +20,16 @@ export const updateProgress = async (req: any, res: Response): Promise<void> => 
       return;
     }
 
+    const isCompleted = watchedPercentage >= 95;
+
     const progress = await Progress.findOneAndUpdate(
       { userId: req.user._id, lessonId },
       {
         courseId,
-        videoId,
         currentTime,
         completionPercentage: watchedPercentage,
-        lastWatched: new Date()
+        lastWatched: new Date(),
+        ...(isCompleted && { isCompleted: true })
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );

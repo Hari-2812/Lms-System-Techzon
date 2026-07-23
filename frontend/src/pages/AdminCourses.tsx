@@ -31,7 +31,6 @@ const AdminCourses: React.FC = () => {
   const [courseCategory, setCourseCategory] = useState('');
   const [courseDesc, setCourseDesc] = useState('');
   const [courseThumbnail, setCourseThumbnail] = useState('');
-  const [courseCloudinaryFolder, setCourseCloudinaryFolder] = useState('');
   const [courseDuration, setCourseDuration] = useState(0);
   const [coursePrice, setCoursePrice] = useState(0);
 
@@ -40,12 +39,9 @@ const AdminCourses: React.FC = () => {
   const [modTitle, setModTitle] = useState('');
   const [modOrder, setModOrder] = useState(1);
 
-  // Lesson Form states
   const [showLesForm, setShowLesForm] = useState(false);
   const [lesTitle, setLesTitle] = useState('');
   const [lesDesc, setLesDesc] = useState('');
-  const [lesVideo, setLesVideo] = useState('');
-  const [lesDuration, setLesDuration] = useState(300);
   const [lesNotes, setLesNotes] = useState('');
   const [lesOrder, setLesOrder] = useState(1);
   const [selectedModId, setSelectedModId] = useState('');
@@ -91,7 +87,6 @@ const AdminCourses: React.FC = () => {
         category: courseCategory,
         description: courseDesc,
         thumbnailUrl: courseThumbnail,
-        cloudinaryFolder: courseCloudinaryFolder,
         duration: courseDuration,
         price: coursePrice,
       };
@@ -108,8 +103,10 @@ const AdminCourses: React.FC = () => {
       setCourseCategory('');
       setCourseDesc('');
       setCourseThumbnail('');
-      setShowCourseForm(false);
+      setCourseDuration(0);
+      setCoursePrice(0);
       setCourseFormId(null);
+      setShowCourseForm(false);
       fetchCourses();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to submit course form');
@@ -180,7 +177,6 @@ const AdminCourses: React.FC = () => {
         moduleId: selectedModId,
         title: lesTitle,
         description: lesDesc,
-        videoDuration: lesDuration,
         notesUrl: lesNotes,
         order: lesOrder,
       };
@@ -189,7 +185,6 @@ const AdminCourses: React.FC = () => {
       alert('Lesson added successfully!');
       setLesTitle('');
       setLesDesc('');
-      setLesDuration(300);
       setLesNotes('');
       setLesOrder(1);
       setShowLesForm(false);
@@ -323,7 +318,6 @@ const AdminCourses: React.FC = () => {
                           setCourseCategory(c.category);
                           setCourseDesc(c.description);
                           setCourseThumbnail(c.thumbnailUrl || '');
-                          setCourseCloudinaryFolder(c.cloudinaryFolder || '');
                           setCourseDuration(c.duration || 0);
                           setCoursePrice(c.price || 0);
                           setShowCourseForm(true);
@@ -522,16 +516,6 @@ const AdminCourses: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-slate-400">Cloudinary Folder</label>
-                <input
-                  type="text"
-                  placeholder="AWS Cloud Computing"
-                  value={courseCloudinaryFolder}
-                  onChange={(e) => setCourseCloudinaryFolder(e.target.value)}
-                  className="glass-input py-2 text-xs"
-                />
-              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">

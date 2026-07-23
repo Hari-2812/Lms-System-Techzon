@@ -366,7 +366,7 @@ const CourseDetails: React.FC = () => {
                 return (
                   <div className="w-full aspect-video flex flex-col items-center justify-center text-center text-slate-400 space-y-2 p-6">
                     <Play className="w-12 h-12 mx-auto text-slate-500 animate-float" />
-                    <p className="text-xs">No video stream configured for this lesson</p>
+                    <p className="text-xs font-semibold">Video is not yet available</p>
                   </div>
                 );
               })()}

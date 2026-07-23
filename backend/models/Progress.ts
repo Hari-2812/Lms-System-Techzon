@@ -4,7 +4,6 @@ export interface IProgress extends Document {
   userId: mongoose.Types.ObjectId;
   courseId: mongoose.Types.ObjectId;
   lessonId: mongoose.Types.ObjectId;
-  videoId?: mongoose.Types.ObjectId;
   currentTime: number;
   completionPercentage: number;
   isCompleted: boolean;
@@ -18,7 +17,6 @@ const ProgressSchema: Schema<IProgress> = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true, index: true },
     lessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', required: true, index: true },
-    videoId: { type: Schema.Types.ObjectId, ref: 'Video' },
     currentTime: { type: Number, default: 0 },
     completionPercentage: { type: Number, default: 0 },
     isCompleted: { type: Boolean, default: false },

@@ -123,20 +123,26 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         const ct = videoRef.current.currentTime;
         const dur = videoRef.current.duration || 0;
         if (ct > 0 && dur - ct > 10 && courseId) {
+          const watchedPercentage = dur > 0 ? (ct / dur) * 100 : 0;
+          
           api.post('/progress/update', {
             courseId,
             lessonId,
-            videoId: publicId,
             currentTime: ct,
             duration: dur,
-            watchedPercentage: dur > 0 ? (ct / dur) * 100 : 0
+            watchedPercentage
           }).catch(console.error);
+
+          // Auto complete if watched over 95%
+          if (watchedPercentage >= 95 && !isAlreadyCompleted && onLessonComplete) {
+            onLessonComplete();
+          }
         }
       }
     }, 5000); // save every 5 seconds
 
     return () => clearInterval(saveInterval);
-  }, [lessonId, courseId, publicId]);
+  }, [lessonId, courseId, isAlreadyCompleted, onLessonComplete]);
 
   // Keyboard Event Listeners
   useEffect(() => {
