@@ -98,7 +98,7 @@ const CourseDetails: React.FC = () => {
   const fetchCourseDetails = async () => {
     try {
       console.log(`[DEBUG] Loading Course & Lessons... ID: ${id}`);
-      const res = await api.get(`/courses/${id}`);
+      const res = await api.get(`/courses/${id}?t=${Date.now()}`);
       setCourse(res.data.data.course);
       setModules(res.data.data.modules);
       const orderedLessons = [...res.data.data.lessons].sort((a: any, b: any) => a.order - b.order);
@@ -139,15 +139,6 @@ const CourseDetails: React.FC = () => {
 
   // Toggle lesson complete check
   const toggleProgress = async (lesId: string, isCompleted: boolean) => {
-    // Optimistic update
-    const previousCompleted = [...completedLessons];
-    if (isCompleted && !completedLessons.includes(lesId)) {
-      setCompletedLessons([...completedLessons, lesId]);
-      console.log(`Progress Updated`);
-    } else if (!isCompleted) {
-      setCompletedLessons(completedLessons.filter(id => id !== lesId));
-    }
-    
     try {
       console.log(`Sending completion API...`);
       const res = await api.post('/progress/complete', {
@@ -157,12 +148,12 @@ const CourseDetails: React.FC = () => {
       });
       
       console.log(`Completion API Success`);
-      const newCompleted = res.data.data.completedLessons;
-      setCompletedLessons(newCompleted);
       
       // Invalidate and refetch all data per requirements
       await fetchCourseDetails();
       console.log(`[DEBUG] Frontend Refetched Data`);
+
+      const newCompleted = res.data.data.completedLessons;
 
       // Check course completion
       if (lessons.length > 0 && newCompleted.length === lessons.length) {
@@ -175,8 +166,6 @@ const CourseDetails: React.FC = () => {
     } catch (error: any) {
       console.log(`Completion API Failed`);
       console.error('Error updating progress:', error?.response?.data || error);
-      // Revert optimistic update
-      setCompletedLessons(previousCompleted);
       throw error;
     }
   };
@@ -289,16 +278,12 @@ const CourseDetails: React.FC = () => {
 
   const isLessonLocked = (lesId: string) => {
     try {
-      // Allow admins to bypass
-      const userRole = localStorage.getItem('role') || 'Student'; // Using localStorage heuristic if API doesn't provide
-      if (['Admin', 'SuperAdmin', 'Mentor'].includes(userRole)) return false;
-      
-      const idx = lessons.findIndex(l => l._id === lesId);
-      if (idx <= 0) return false;
-      
-      const prevLesson = lessons[idx - 1];
-      return !completedLessons.includes(prevLesson._id);
-    } catch {
+      const les = lessons.find(l => l._id === lesId);
+      if (les && les.locked !== undefined) {
+        return les.locked; // Rely purely on backend source of truth
+      }
+      return false;
+    } catch (e) {
       return false;
     }
   };
