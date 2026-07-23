@@ -180,6 +180,7 @@ router.get('/student/my-courses', authorize('Student'), async (req: any, res: Re
 });
 router.get('/courses/:id', getCourseDetails);
 router.post('/courses/track-progress', authorize('Student'), trackLessonProgress);
+router.post('/progress/complete', authorize('Student'), trackLessonProgress);
 router.post('/progress/update', authorize('Student'), updateProgress);
 router.get('/progress/:lessonId', authorize('Student'), getProgress);
 

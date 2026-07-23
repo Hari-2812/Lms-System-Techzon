@@ -147,7 +147,7 @@ const CourseDetails: React.FC = () => {
     
     try {
       console.log(`Sending completion API...`);
-      const res = await api.post('/courses/track-progress', {
+      const res = await api.post('/progress/complete', {
         courseId: id,
         lessonId: lesId,
         isCompleted

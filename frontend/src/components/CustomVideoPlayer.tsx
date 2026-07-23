@@ -57,32 +57,35 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
         
         if (data.event === 'ready' || data.event === 'loadedmetadata') {
-          if (data.duration) durationRef.current = data.duration;
+          console.log('[DEBUG] Video Started', data);
+          if (data.duration || data.length) durationRef.current = data.duration || data.length;
         }
         
         if (data.event === 'timeupdate') {
-          if (data.duration) durationRef.current = data.duration;
-          const ct = data.currentTime;
+          if (data.duration || data.length) durationRef.current = data.duration || data.length;
+          const ct = data.currentTime !== undefined ? data.currentTime : data.time;
           const dur = durationRef.current;
           
-          if (ct && dur && dur > 0) {
+          if (ct !== undefined && dur && dur > 0) {
             const watchedPercentage = (ct / dur) * 100;
             
-            // Sync progress every 5 seconds
+            // Sync progress every 10 seconds (per issue 8)
             const now = Date.now();
-            if (now - lastSyncTimeRef.current > 5000) {
+            if (now - lastSyncTimeRef.current > 10000) {
               lastSyncTimeRef.current = now;
+              console.log('[DEBUG] Time Update', { ct, dur, watchedPercentage: watchedPercentage.toFixed(2) + '%' });
               api.post('/progress/update', { 
                 courseId, 
                 lessonId, 
                 currentTime: ct, 
                 duration: dur, 
                 watchedPercentage 
-              }).catch(console.error);
+              }).catch(err => console.log('[DEBUG] Progress Update Failed', err));
             }
             
             // Auto complete if watched over 95%
             if (watchedPercentage >= 95 && !isAlreadyCompleted && !progressTrackedRef.current) {
+              console.log('[DEBUG] 95% Reached. Triggering completion.');
               progressTrackedRef.current = true;
               if (onLessonComplete) onLessonComplete();
             }
@@ -90,12 +93,15 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         }
         
         if (data.event === 'ended') {
+          console.log('[DEBUG] Ended Event Triggered');
           if (onEnded) onEnded();
           if (!isAlreadyCompleted && !progressTrackedRef.current) {
+            console.log('[DEBUG] 95% Reached. Triggering completion from ended event.');
             progressTrackedRef.current = true;
             if (onLessonComplete) onLessonComplete();
           }
           if (hasNextLesson) {
+            console.log('[DEBUG] Autoplay Started Countdown');
             setCountdown(5);
             setShowAutoPlayOverlay(true);
           }

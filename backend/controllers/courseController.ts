@@ -588,6 +588,7 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
 
     // Filter videos for this collection
     const collectionVideos = videos.filter(v => v.collectionId === collection.guid);
+    collectionVideos.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
     const bunnyVideoIdsInCollection = new Set(collectionVideos.map(v => v.guid));
 
     let order = 1;
