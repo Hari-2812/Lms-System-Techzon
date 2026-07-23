@@ -156,6 +156,10 @@ const CourseDetails: React.FC = () => {
       console.log(`Completion API Success`);
       const newCompleted = res.data.data.completedLessons;
       setCompletedLessons(newCompleted);
+      
+      // Invalidate and refetch all data per requirements
+      await fetchCourseDetails();
+      console.log(`[DEBUG] Frontend Refetched Data`);
 
       // Check course completion
       if (lessons.length > 0 && newCompleted.length === lessons.length) {
@@ -360,6 +364,7 @@ const CourseDetails: React.FC = () => {
                     onLessonComplete={() => toggleProgress(selectedLesson._id, true)}
                     hasNextLesson={lessons.findIndex(l => l._id === selectedLesson?._id) < lessons.length - 1}
                     onAutoPlayNext={handleAutoPlayNext}
+                    lessonDuration={selectedLesson.duration}
                     videoStatus={selectedLesson.videoStatus}
                     lastPlaybackPosition={selectedLesson.lastPlaybackPosition}
                   />

@@ -379,17 +379,16 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 
     // 2. Fetch all lessons sorted by order to validate sequence
     const allLessons = await Lesson.find({ courseId: objCourseId }).sort('order').lean();
+    console.log(`[DEBUG] Lesson Order Retrieved`);
     const currentLessonIndex = allLessons.findIndex(l => l._id.toString() === lessonId);
     
     if (currentLessonIndex === -1) {
       res.status(404).json({ success: false, message: 'Lesson not found in this course' });
       return;
     }
-    console.log(`Lesson Found`);
 
     if (isCompleted) {
-      console.log(`Current Progress: ${enrollment.progress.percentComplete}%`);
-      console.log(`Saving Completion`);
+      console.log(`[DEBUG] Lesson Completion Triggered`);
       
       // 3. Sequential Lock Validation: Only allow if it's the first lesson OR previous lesson is completed
       if (currentLessonIndex > 0) {
@@ -426,7 +425,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
-      console.log(`Mongo Save Success`);
+      console.log(`[DEBUG] Mongo Progress Updated`);
     } else {
       // Just update progress
       await Progress.findOneAndUpdate(
@@ -452,7 +451,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     const newPercent = totalLessons === 0 ? 0 : Math.round((completedCount / totalLessons) * 100);
 
     updatedEnrollment.progress.percentComplete = newPercent;
-    console.log(`Progress Calculated`);
+    console.log(`[DEBUG] Course Progress Calculated: ${newPercent}%`);
     
     // Auto-issue certificate if 100%
     if (newPercent === 100 && !updatedEnrollment.certificateIssued) {
@@ -477,11 +476,10 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     if (currentLessonIndex < totalLessons - 1) {
       nextLessonId = allLessons[currentLessonIndex + 1]._id;
       nextLessonUnlocked = true;
-      console.log(`Next Lesson: ${nextLessonId}`);
-      console.log(`Lesson Unlocked`);
+      console.log(`[DEBUG] Next Lesson Unlocked: ${nextLessonId}`);
     }
 
-    console.log(`Response Sent`);
+    console.log(`[DEBUG] API Response Sent`);
     res.status(200).json({
       success: true,
       completed: true,

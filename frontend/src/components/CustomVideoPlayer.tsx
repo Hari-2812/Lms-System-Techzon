@@ -17,6 +17,7 @@ interface CustomVideoPlayerProps {
   subtitlesUrl?: string;
   videoStatus?: number;
   lastPlaybackPosition?: number;
+  lessonDuration?: number;
 }
 
 const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
@@ -30,28 +31,29 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   hasNextLesson,
   isAlreadyCompleted,
   videoStatus,
-  lastPlaybackPosition
+  lastPlaybackPosition,
+  lessonDuration
 }) => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [showAutoPlayOverlay, setShowAutoPlayOverlay] = useState(false);
   const [countdown, setCountdown] = useState(5);
   
   const progressTrackedRef = useRef(false);
-  const durationRef = useRef(0);
+  const durationRef = useRef(lessonDuration || 0);
   const lastSyncTimeRef = useRef(0);
 
   useEffect(() => {
     // Reset tracker when lesson changes
     progressTrackedRef.current = false;
-    durationRef.current = 0;
+    durationRef.current = lessonDuration || 0;
     lastSyncTimeRef.current = 0;
     setShowAutoPlayOverlay(false);
     setVideoError(null);
-  }, [lessonId]);
+  }, [lessonId, lessonDuration]);
 
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      if (e.origin !== 'https://iframe.mediadelivery.net') return;
+      if (!e.origin.includes('mediadelivery.net') && !e.origin.includes('bunnycdn.com')) return;
       
       try {
         const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
