@@ -206,6 +206,26 @@ const StudentDashboard: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Dynamic Lessons Info */}
+                    {(enrollment as any).totalLessons > 0 && (
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-medium bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-100 dark:border-border-dark">
+                        <div className="flex flex-col">
+                          <span className="text-slate-400">Completed</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-bold">{(enrollment as any).lessonsCompleted} / {(enrollment as any).totalLessons}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-slate-400">Remaining</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-bold">{(enrollment as any).remainingLessons}</span>
+                        </div>
+                        {(enrollment as any).currentLesson && (
+                          <div className="col-span-2 mt-1">
+                            <span className="text-slate-400">Up Next: </span>
+                            <span className="text-accent font-semibold">{(enrollment as any).currentLesson?.title}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Expiry detail */}
                     <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
                       <span>Expires: {new Date(enrollment.expiryDate).toLocaleDateString()}</span>

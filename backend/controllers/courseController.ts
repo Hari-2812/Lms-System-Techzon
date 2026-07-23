@@ -104,7 +104,9 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       
       return {
         ...les,
-        isCompleted,
+        completed: isCompleted,
+        locked: req.user?.role === 'Student' ? isLocked : false,
+        isCompleted, // Keep for legacy frontend logic temporarily
         isLocked: req.user?.role === 'Student' ? isLocked : false,
         lastPlaybackPosition: pData.lastPlaybackPosition || 0,
         watchedPercentage: pData.watchedPercentage || 0,
@@ -121,6 +123,29 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       }),
     }));
 
+    // Calculate sequential metrics
+    let currentLesson = null;
+    let nextLesson = null;
+    let courseProgress = 0;
+    let lockedLessons: string[] = [];
+    
+    if (req.user?.role === 'Student') {
+      const total = enhancedLessons.length;
+      if (total > 0) {
+        courseProgress = Math.round((completedLessons.length / total) * 100);
+      }
+      
+      const firstUncompletedIndex = enhancedLessons.findIndex((l: any) => !l.completed);
+      if (firstUncompletedIndex !== -1) {
+        currentLesson = enhancedLessons[firstUncompletedIndex];
+        if (firstUncompletedIndex + 1 < enhancedLessons.length) {
+          nextLesson = enhancedLessons[firstUncompletedIndex + 1];
+        }
+      }
+      
+      lockedLessons = enhancedLessons.filter((l: any) => l.locked).map((l: any) => l._id.toString());
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -128,6 +153,10 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
         modules: modulesWithLessons,
         lessons: enhancedLessons,
         completedLessons,
+        courseProgress,
+        lockedLessons,
+        currentLesson,
+        nextLesson
       },
     });
   } catch (error: any) {

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import Course from '../models/Course';
+import Lesson from '../models/Lesson';
 import Enrollment from '../models/Enrollment';
 import Payment from '../models/Payment';
 import LiveClass from '../models/LiveClass';
@@ -254,6 +255,41 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
       return;
     }
 
+    // Fetch enhanced enrollments
+    const enhancedEnrollments = await Promise.all(enrollments.map(async (e: any) => {
+      const eObj = e.toObject();
+      const courseId = e.courseId?._id;
+      if (!courseId) return eObj;
+      
+      const allLessons = await Lesson.find({ courseId }).sort('order').lean();
+      const totalLessons = allLessons.length;
+      const completedIds = e.progress?.completedLessons?.map((id: any) => id.toString()) || [];
+      const lessonsCompleted = completedIds.length;
+      const remainingLessons = totalLessons - lessonsCompleted;
+      
+      let currentLesson = null;
+      let nextLesson = null;
+      
+      if (totalLessons > 0) {
+        const firstUncompletedIndex = allLessons.findIndex((l: any) => !completedIds.includes(l._id.toString()));
+        if (firstUncompletedIndex !== -1) {
+          currentLesson = allLessons[firstUncompletedIndex];
+          if (firstUncompletedIndex + 1 < allLessons.length) {
+            nextLesson = allLessons[firstUncompletedIndex + 1];
+          }
+        }
+      }
+      
+      return {
+        ...eObj,
+        lessonsCompleted,
+        remainingLessons,
+        currentLesson,
+        nextLesson,
+        totalLessons
+      };
+    }));
+
     // Completed courses count (percentComplete === 100)
     const completedCoursesCount = enrollments.filter((e) => e.progress?.percentComplete === 100).length;
 
@@ -282,7 +318,7 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
         quizAttempts,
         passedQuizzes,
         assignmentSubmissions,
-        enrollments,
+        enrollments: enhancedEnrollments,
         supportTickets,
         liveClasses,
       },
