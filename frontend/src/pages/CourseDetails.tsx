@@ -360,6 +360,7 @@ const CourseDetails: React.FC = () => {
                   onLessonComplete={() => toggleProgress(selectedLesson._id, true)}
                   hasNextLesson={lessons.findIndex(l => l._id === selectedLesson?._id) < lessons.length - 1}
                   onAutoPlayNext={handleAutoPlayNext}
+                  videoStatus={selectedLesson.videoStatus}
                 />
                   );
                 }

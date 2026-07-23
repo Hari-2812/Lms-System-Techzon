@@ -11,6 +11,7 @@ export interface ILesson extends Document {
   playbackUrl?: string;
   thumbnailUrl?: string;
   duration?: number;
+  videoStatus?: number;
   notesUrl?: string; // PDF link
   downloads?: Array<{
     title: string;
@@ -35,6 +36,7 @@ const LessonSchema: Schema<ILesson> = new Schema(
     playbackUrl: { type: String },
     thumbnailUrl: { type: String },
     duration: { type: Number },
+    videoStatus: { type: Number, default: 3 },
     notesUrl: { type: String },
     downloads: [
       {
