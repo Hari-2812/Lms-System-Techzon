@@ -63,7 +63,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         const player = new window.playerjs.Player(iframe);
         
         player.on('ready', () => {
-          console.log('[DEBUG] Bunny Player Ready');
+          console.log('PLAYER READY');
           player.getDuration((dur: number) => {
              durationRef.current = dur || lessonDuration || 0;
           });
@@ -79,7 +79,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
             const now = Date.now();
             if (now - lastSyncTimeRef.current > 10000) {
               lastSyncTimeRef.current = now;
-              console.log('[DEBUG] Time Update', { ct, dur, watchedPercentage: watchedPercentage.toFixed(2) + '%' });
+              console.log('TIME UPDATE', { ct, dur, watchedPercentage: watchedPercentage.toFixed(2) + '%' });
               // We could send periodic /progress/update here if we want
             }
             
@@ -88,7 +88,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
               progressTrackedRef.current = true;
               let unlocked = false;
               if (onLessonComplete) {
-                console.log('[DEBUG] Completion API Started');
+                console.log('COMPLETION CALLBACK');
                 try {
                   const res = await onLessonComplete();
                   console.log('[DEBUG] Completion API Success', res);
@@ -107,14 +107,14 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         });
 
         player.on('ended', async () => {
-          console.log('[DEBUG] Ended Event Triggered');
+          console.log('VIDEO ENDED');
           if (onEnded) onEnded();
           if (!isAlreadyCompleted && !progressTrackedRef.current) {
             console.log('[DEBUG] 95% Reached. Triggering completion from ended event.');
             progressTrackedRef.current = true;
             let unlocked = false;
             if (onLessonComplete) {
-              console.log('[DEBUG] Completion API Started');
+              console.log('COMPLETION CALLBACK');
               try {
                 const res = await onLessonComplete();
                 console.log('[DEBUG] Completion API Success', res);
@@ -136,9 +136,15 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     // @ts-ignore
     if (!window.playerjs) {
       const script = document.createElement('script');
-      script.src = 'https://video.bunnycdn.com/playerv2/embed/player.js';
+      script.src = 'https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js';
       script.async = true;
       script.onload = () => {
+        // @ts-ignore
+        if (!window.playerjs) {
+          console.error('Explicit Error: Bunny PlayerJS SDK failed to load. window.playerjs is undefined.');
+          setVideoError('Bunny PlayerJS SDK failed to load.');
+          return;
+        }
         setTimeout(initPlayer, 500); // Give the iframe time to load
       };
       document.body.appendChild(script);
