@@ -481,12 +481,21 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
     console.log(`****${apiKey.slice(-4)}`);
   }
 
-  let videos = [];
+  let videos: any[] = [];
+  let collections: any[] = [];
   try {
-    videos = await BunnyService.syncLibrary();
-    console.log('Library Loaded');
+    const data = await BunnyService.syncLibrary();
+    videos = data.videos;
+    collections = data.collections;
     
-    // Verify properties
+    console.log('Library Loaded');
+    console.log(`Collections Found: ${collections.length}`);
+    
+    // Log basic properties for verification if available
+    if (collections.length > 0) {
+      console.log(`Example Collection: ${collections[0].name}`);
+    }
+    
     if (videos.length > 0) {
       const v = videos[0];
       console.log(`Verify GET Videos`);
@@ -496,7 +505,6 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
       console.log(`Thumbnail: ${BunnyService.getThumbnail(v.guid)}`);
     }
     
-    console.log('Videos Retrieved');
   } catch (err: any) {
     console.log('Bunny API Error');
     console.log(`HTTP Status: ${err.status || 'Unknown'}`);
@@ -514,17 +522,40 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  console.log('Matching Lessons');
-
   let updatedCount = 0;
   let skippedCount = 0;
   let errors: string[] = [];
 
   for (const video of videos) {
     const videoName = video.title.replace(/\.(mp4|mov|avi|wmv|flv|mkv)$/i, '').trim();
+    const collectionId = video.collectionId;
+    
+    const collection = collections.find((c: any) => c.guid === collectionId);
+
+    if (!collection) {
+      console.log(`Collection not found in LMS`);
+      skippedCount++;
+      continue;
+    }
+
+    const collectionName = collection.name;
+    console.log(`Collection Name: ${collectionName}`);
+    console.log(`Videos In Collection: ${collection.videoCount || 1}`);
+    
+    // Step 3: Find matching LMS course by name
+    const course = await Course.findOne({ title: new RegExp(`^${collectionName}$`, 'i') });
+    if (!course) {
+      console.log(`Collection not found in LMS`);
+      skippedCount++;
+      continue;
+    }
+
+    console.log(`Matching LMS Course: ${course.title}`);
 
     try {
-      const lesson = await Lesson.findOne({
+      // Step 4: Find existing lessons inside that course
+      let lesson = await Lesson.findOne({
+        courseId: course._id,
         $or: [
           { title: new RegExp(`^${videoName}$`, 'i') },
           { bunnyVideoId: video.guid }
@@ -536,27 +567,48 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
         lesson.bunnyVideoId = video.guid;
         lesson.playbackUrl = BunnyService.getPlaybackUrl(video.guid);
         lesson.thumbnailUrl = BunnyService.getThumbnail(video.guid);
-        // We only use metadata that is available directly from the video/filename.
-        // We do NOT require Course, Module, Order, Metadata as per STEP 5.
+        lesson.duration = video.length;
         await lesson.save();
         updatedCount++;
-        console.log(`Lesson Updated: ${lesson.title}`);
+        console.log(`Matching Lesson: ${lesson.title}`);
+        console.log(`Lesson Updated`);
+        console.log(`Playback URL Generated: ${lesson.playbackUrl}`);
       } else {
-        console.log(`Warning: No lesson found for ${video.title}`);
-        skippedCount++;
+        // Create lesson only inside the existing module
+        let moduleDoc = await Module.findOne({ courseId: course._id }).sort('order');
+        if (moduleDoc) {
+          lesson = new Lesson({
+            courseId: course._id,
+            moduleId: moduleDoc._id,
+            title: videoName,
+            provider: 'bunny',
+            bunnyVideoId: video.guid,
+            playbackUrl: BunnyService.getPlaybackUrl(video.guid),
+            thumbnailUrl: BunnyService.getThumbnail(video.guid),
+            duration: video.length,
+            order: 999, // default to end
+          });
+          await lesson.save();
+          updatedCount++;
+          console.log(`Matching Lesson: ${lesson.title} (Created)`);
+          console.log(`Lesson Updated`);
+          console.log(`Playback URL Generated: ${lesson.playbackUrl}`);
+        } else {
+          console.log(`Warning: No existing module found for course ${course.title}`);
+          skippedCount++;
+        }
       }
     } catch (lessonErr: any) {
       console.log(`Bunny API Error`);
       console.log(`Stack Trace: ${lessonErr.stack}`);
       console.log(`Library ID: ${libraryId}`);
-      console.log(`Video Count: ${videos.length}`);
       console.log(`Current Lesson: ${videoName}`);
       errors.push(`Error updating lesson ${videoName}: ${lessonErr.message}`);
       skippedCount++;
     }
   }
 
-  console.log('Sync Complete');
+  console.log('Sync Completed');
   res.status(200).json({
     success: true,
     videosFound: videos.length,

@@ -20,7 +20,7 @@ export class BunnyService {
     return `https://iframe.mediadelivery.net/${this.LIBRARY_ID}/${videoId}/thumbnail.jpg`;
   }
 
-  static async syncLibrary(): Promise<any[]> {
+  static async syncLibrary(): Promise<{ videos: any[], collections: any[] }> {
     const apiKey = process.env.BUNNY_STREAM_API_KEY?.trim() || '';
     const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim() || '';
 
@@ -34,56 +34,50 @@ export class BunnyService {
     console.log(`API Key length: ${apiKey.length}`);
     console.log(`Header names only: Accept, AccessKey`);
 
-    const url = `https://video.bunnycdn.com/library/${libraryId}/videos?itemsPerPage=1000`;
+    const videosUrl = `https://video.bunnycdn.com/library/${libraryId}/videos?itemsPerPage=1000`;
+    const collectionsUrl = `https://video.bunnycdn.com/library/${libraryId}/collections?itemsPerPage=1000`;
     
-    console.log(`GET`);
-    console.log(url);
-    console.log(`Headers:`);
-    console.log(`Accept`);
-    console.log(`AccessKey`);
+    const headers = {
+      Accept: 'application/json',
+      AccessKey: apiKey
+    };
 
-    let res;
+    let videosRes, collectionsRes;
     try {
-      res = await fetch(url, {
-        headers: {
-          Accept: 'application/json',
-          AccessKey: apiKey
-        }
-      });
+      videosRes = await fetch(videosUrl, { headers });
+      collectionsRes = await fetch(collectionsUrl, { headers });
     } catch (fetchErr: any) {
-      const err = new Error(`Failed to fetch videos from Bunny Stream: ${fetchErr.message}`) as any;
+      const err = new Error(`Failed to fetch from Bunny Stream: ${fetchErr.message}`) as any;
       err.status = 500;
       throw err;
     }
 
-    if (!res.ok) {
-      const errText = await res.text();
-      let msg = `Failed to fetch videos from Bunny Stream: ${errText}`;
-      if (res.status === 401) msg = 'Invalid API Key';
-      else if (res.status === 404) msg = 'Invalid Library';
-      else if (res.status === 429) msg = 'Rate Limited';
+    if (!videosRes.ok || !collectionsRes.ok) {
+      const badRes = !videosRes.ok ? videosRes : collectionsRes;
+      const errText = await badRes.text();
+      let msg = `Failed to fetch from Bunny Stream: ${errText}`;
+      if (badRes.status === 401) msg = 'Invalid API Key';
+      else if (badRes.status === 404) msg = 'Invalid Library';
+      else if (badRes.status === 429) msg = 'Rate Limited';
       
-      console.log(`Bunny returns: ${res.status}`);
+      console.log(`Bunny returns: ${badRes.status}`);
       console.log(`↓`);
       console.log(msg);
       console.log(`Exact response: ${errText}`);
 
       const err = new Error(msg) as any;
-      err.status = res.status;
+      err.status = badRes.status;
       err.responseBody = errText;
       throw err;
     }
 
-    const data = await res.json() as any;
-    const items = data.items || [];
-    
-    console.log(`Videos Found: ${items.length}`);
-    items.forEach((video: any) => {
-      console.log(`Video ID: ${video.guid}`);
-      console.log(`Title: ${video.title}`);
-    });
+    const videosData = await videosRes.json() as any;
+    const collectionsData = await collectionsRes.json() as any;
 
-    return items;
+    const videos = videosData.items || [];
+    const collections = collectionsData.items || [];
+    
+    return { videos, collections };
   }
 
   static async deleteVideo(videoId: string): Promise<boolean> {
