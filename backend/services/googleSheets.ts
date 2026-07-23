@@ -146,19 +146,9 @@ export const syncGoogleSheetsOnboardings = async (): Promise<{
       if (normalizedCourseName) {
         course = await Course.findOne({ title: new RegExp(`^${normalizedCourseName}$`, 'i') });
         if (!course) {
-          console.log(`\nGoogle Form Email:\n${email}\nSelected Course:\n${normalizedCourseName}\nCourse not found.\nCreating new course...`);
-          function titleCase(str: string) {
-            return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.substring(1)).join(' ');
-          }
-          const courseTitle = titleCase(normalizedCourseName.replace(/[-_]/g, ' '));
-          course = await Course.create({
-            title: courseTitle,
-            slug: courseTitle.toLowerCase().replace(/\s+/g, '-'),
-            description: `${courseTitle} automatically created via Google Forms sync.`,
-            category: 'Uncategorized',
-            status: 'published'
-          });
-          console.log(`Course Created Successfully.`);
+          console.log(`Course Not Found: ${normalizedCourseName}`);
+          skipped++;
+          continue;
         }
       }
 

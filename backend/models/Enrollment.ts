@@ -13,7 +13,7 @@ export interface IEnrollment extends Document {
     completedLessons: mongoose.Types.ObjectId[];
     percentComplete: number;
   };
-  status: 'active' | 'expired' | 'suspended';
+  status: 'active' | 'expired' | 'suspended' | 'completed';
   certificateIssued: boolean;
   certificateId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -36,7 +36,7 @@ const EnrollmentSchema: Schema<IEnrollment> = new Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'expired', 'suspended'],
+      enum: ['active', 'expired', 'suspended', 'completed'],
       default: 'active',
       index: true,
     },

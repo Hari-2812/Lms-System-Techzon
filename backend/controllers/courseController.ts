@@ -401,6 +401,10 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
       }
     }
 
+    if (newPercent === 100) {
+      updatedEnrollment.status = 'completed';
+    }
+
     await updatedEnrollment.save();
 
     // Determine the next lesson to unlock dynamically
@@ -525,60 +529,32 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
     const collectionVideos = videos.filter(v => v.collectionId === collection.guid);
     const bunnyVideoIdsInCollection = new Set(collectionVideos.map(v => v.guid));
 
+    // Step 4: Delete ALL existing lessons for this course to completely rebuild from Bunny
+    await Lesson.deleteMany({ courseId: course._id });
+    const deletedCount = await Lesson.countDocuments({ courseId: course._id }); // should be 0
+
     let order = 1;
     for (const video of collectionVideos) {
       const videoName = video.title.replace(/\.(mp4|mov|avi|wmv|flv|mkv)$/i, '').trim();
       
       try {
-        let lesson = await Lesson.findOne({
+        const lesson = new Lesson({
           courseId: course._id,
-          $or: [
-            { bunnyVideoId: video.guid },
-            { title: new RegExp(`^${videoName}$`, 'i') }
-          ]
+          moduleId: moduleDoc._id,
+          title: videoName,
+          provider: 'bunny',
+          bunnyVideoId: video.guid,
+          playbackUrl: BunnyService.getPlaybackUrl(video.guid),
+          thumbnailUrl: BunnyService.getThumbnail(video.guid),
+          duration: video.length,
+          videoStatus: video.status,
+          order: order++,
         });
-
-        if (lesson) {
-          lesson.provider = 'bunny';
-          lesson.bunnyVideoId = video.guid;
-          lesson.playbackUrl = BunnyService.getPlaybackUrl(video.guid);
-          lesson.thumbnailUrl = BunnyService.getThumbnail(video.guid);
-          lesson.duration = video.length;
-          lesson.videoStatus = video.status;
-          lesson.order = order++;
-          lesson.title = videoName; // Sync exact name
-          await lesson.save();
-          lessonsUpdated++;
-          console.log(`Lessons Updated: ${lesson.title}`);
-        } else {
-          lesson = new Lesson({
-            courseId: course._id,
-            moduleId: moduleDoc._id,
-            title: videoName,
-            provider: 'bunny',
-            bunnyVideoId: video.guid,
-            playbackUrl: BunnyService.getPlaybackUrl(video.guid),
-            thumbnailUrl: BunnyService.getThumbnail(video.guid),
-            duration: video.length,
-            videoStatus: video.status,
-            order: order++,
-          });
-          await lesson.save();
-          lessonsAdded++;
-          console.log(`Lessons Added: ${lesson.title}`);
-        }
+        await lesson.save();
+        lessonsAdded++;
+        console.log(`Lesson Added: ${lesson.title}`);
       } catch (lessonErr: any) {
         errors.push(`Error syncing lesson ${videoName}: ${lessonErr.message}`);
-      }
-    }
-
-    // Step 5: Stale Lesson Cleanup for this Course
-    const allCourseLessons = await Lesson.find({ courseId: course._id, provider: 'bunny' });
-    for (const l of allCourseLessons) {
-      if (l.bunnyVideoId && !bunnyVideoIdsInCollection.has(l.bunnyVideoId)) {
-        await Lesson.findByIdAndDelete(l._id);
-        lessonsRemoved++;
-        console.log(`Lessons Removed: ${l.title}`);
       }
     }
   }
