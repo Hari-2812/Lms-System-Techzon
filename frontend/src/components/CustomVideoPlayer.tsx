@@ -148,9 +148,12 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   }
 
   return (
-    <div className={`relative w-full aspect-video bg-black overflow-hidden flex items-center justify-center ${className || ''}`}>
+    <div 
+      className={`relative w-full overflow-hidden bg-black ${className || ''}`}
+      style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px' }}
+    >
       {videoError ? (
-        <div className="text-center text-red-500 p-4">
+        <div className="flex h-full w-full flex-col items-center justify-center text-center text-red-500 p-4">
           <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm font-semibold">Unable to play this lesson.</p>
           <p className="text-xs mt-1 text-red-400/70">{videoError}</p>
@@ -158,7 +161,8 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       ) : (
         <iframe
           src={finalUrl}
-          className="w-full h-full border-none"
+          style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+          className="w-full h-full border-none block"
           loading="lazy"
           allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
