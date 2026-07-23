@@ -21,18 +21,33 @@ export class BunnyService {
   }
 
   static async syncLibrary(): Promise<any[]> {
-    if (!this.API_KEY || !this.LIBRARY_ID) {
+    const apiKey = process.env.BUNNY_STREAM_API_KEY?.trim() || '';
+    const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim() || '';
+
+    if (!apiKey || !libraryId) {
       const err = new Error('Bunny Stream is not configured in environment variables.') as any;
       err.status = 500;
       throw err;
     }
 
+    console.log(`Library ID: ${libraryId}`);
+    console.log(`API Key length: ${apiKey.length}`);
+    console.log(`Header names only: Accept, AccessKey`);
+
+    const url = `https://video.bunnycdn.com/library/${libraryId}/videos?itemsPerPage=1000`;
+    
+    console.log(`GET`);
+    console.log(url);
+    console.log(`Headers:`);
+    console.log(`Accept`);
+    console.log(`AccessKey`);
+
     let res;
     try {
-      res = await fetch(`https://video.bunnycdn.com/library/${this.LIBRARY_ID}/videos?itemsPerPage=1000`, {
+      res = await fetch(url, {
         headers: {
-          AccessKey: this.API_KEY,
-          accept: 'application/json'
+          Accept: 'application/json',
+          AccessKey: apiKey
         }
       });
     } catch (fetchErr: any) {
@@ -60,18 +75,28 @@ export class BunnyService {
     }
 
     const data = await res.json() as any;
-    // Log what was returned for Verification as requested
-    // "Call Bunny API. Verify GET Videos Return Video ID, Title, Length, Thumbnail"
-    return data.items || [];
+    const items = data.items || [];
+    
+    console.log(`Videos Found: ${items.length}`);
+    items.forEach((video: any) => {
+      console.log(`Video ID: ${video.guid}`);
+      console.log(`Title: ${video.title}`);
+    });
+
+    return items;
   }
 
   static async deleteVideo(videoId: string): Promise<boolean> {
-    if (!this.API_KEY || !this.LIBRARY_ID) return false;
+    const apiKey = process.env.BUNNY_STREAM_API_KEY?.trim() || '';
+    const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim() || '';
 
-    const res = await fetch(`https://video.bunnycdn.com/library/${this.LIBRARY_ID}/videos/${videoId}`, {
+    if (!apiKey || !libraryId) return false;
+
+    const res = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`, {
       method: 'DELETE',
       headers: {
-        AccessKey: this.API_KEY,
+        Accept: 'application/json',
+        AccessKey: apiKey,
       }
     });
 
