@@ -419,7 +419,7 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
           courseId: objCourseId, 
           completed: true, 
           watchedPercentage: watchedPercentage || 100,
-          lastPlaybackPosition: currentTime || 0,
+          lastPlaybackPosition: 0, // Clear resume timestamp as requested
           completedAt: new Date(),
           lastWatched: new Date()
         },
