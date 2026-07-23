@@ -16,8 +16,10 @@ export class BunnyService {
     return `https://iframe.mediadelivery.net/embed/${this.LIBRARY_ID}/${videoId}`;
   }
 
-  static getThumbnail(videoId: string): string {
-    return `https://iframe.mediadelivery.net/${this.LIBRARY_ID}/${videoId}/thumbnail.jpg`;
+  static getThumbnail(videoId: string): string | null {
+    // iframe.mediadelivery.net does not serve thumbnails directly via this path reliably.
+    // If a proper pull zone is unavailable, return null to force frontend fallbacks.
+    return null;
   }
 
   static async syncLibrary(): Promise<{ videos: any[], collections: any[] }> {

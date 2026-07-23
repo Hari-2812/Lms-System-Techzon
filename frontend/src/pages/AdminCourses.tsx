@@ -159,7 +159,12 @@ const AdminCourses: React.FC = () => {
                                 <div className="flex justify-between items-start">
                                   <div className="flex gap-3">
                                     {les.thumbnailUrl ? (
-                                      <img src={les.thumbnailUrl} alt={les.title} className="w-16 h-10 object-cover rounded shadow-sm bg-black" />
+                                      <>
+                                        <img src={les.thumbnailUrl} alt={les.title} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} className="w-16 h-10 object-cover rounded shadow-sm bg-black" />
+                                        <div className="hidden w-16 h-10 bg-slate-200 dark:bg-slate-800 rounded flex items-center justify-center">
+                                          <Video className="w-4 h-4 text-slate-400" />
+                                        </div>
+                                      </>
                                     ) : (
                                       <div className="w-16 h-10 bg-slate-200 dark:bg-slate-800 rounded flex items-center justify-center">
                                         <Video className="w-4 h-4 text-slate-400" />

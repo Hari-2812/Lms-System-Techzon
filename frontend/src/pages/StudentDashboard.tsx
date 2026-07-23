@@ -170,8 +170,9 @@ const StudentDashboard: React.FC = () => {
                     <div className="h-40 w-full overflow-hidden relative bg-slate-900 border-b border-slate-100 dark:border-border-dark">
                       <img
                         src={enrollment.courseId?.thumbnailUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop'}
-                        alt={enrollment.courseId?.title}
-                        className="w-full h-full object-cover opacity-90"
+                        alt={enrollment.courseId?.title || 'Course'}
+                        onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop'; }}
+                        className="w-full h-full object-cover rounded-xl"
                       />
                       <span className="absolute top-3 left-3 text-[10px] bg-accent/80 text-white font-bold px-2 py-0.5 rounded-full uppercase">
                         {enrollment.learningPlanId?.name}
