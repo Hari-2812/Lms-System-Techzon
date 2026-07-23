@@ -10,7 +10,7 @@ interface CustomVideoPlayerProps {
   lessonTitle: string;
   onEnded?: () => void;
   className?: string;
-  onLessonComplete?: () => void;
+  onLessonComplete?: () => Promise<any>;
   onAutoPlayNext?: () => void;
   hasNextLesson?: boolean;
   isAlreadyCompleted?: boolean;
@@ -69,7 +69,7 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
           });
         });
 
-        player.on('timeupdate', (data: any) => {
+        player.on('timeupdate', async (data: any) => {
           const ct = data.seconds;
           const dur = data.duration || durationRef.current;
           
@@ -86,23 +86,48 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
             if (watchedPercentage >= 95 && !isAlreadyCompleted && !progressTrackedRef.current) {
               console.log('[DEBUG] 95% Reached. Triggering completion.');
               progressTrackedRef.current = true;
-              if (onLessonComplete) onLessonComplete();
+              let unlocked = false;
+              if (onLessonComplete) {
+                console.log('[DEBUG] Completion API Started');
+                try {
+                  const res = await onLessonComplete();
+                  console.log('[DEBUG] Completion API Success', res);
+                  unlocked = res?.nextLessonUnlocked === true || res?.unlockNextLesson === true;
+                } catch (e) {
+                  console.log('[DEBUG] Completion API Failed', e);
+                }
+              }
+              if (hasNextLesson && unlocked) {
+                console.log('[DEBUG] Autoplay Started Countdown');
+                setCountdown(5);
+                setShowAutoPlayOverlay(true);
+              }
             }
           }
         });
 
-        player.on('ended', () => {
+        player.on('ended', async () => {
           console.log('[DEBUG] Ended Event Triggered');
           if (onEnded) onEnded();
           if (!isAlreadyCompleted && !progressTrackedRef.current) {
             console.log('[DEBUG] 95% Reached. Triggering completion from ended event.');
             progressTrackedRef.current = true;
-            if (onLessonComplete) onLessonComplete();
-          }
-          if (hasNextLesson) {
-            console.log('[DEBUG] Autoplay Started Countdown');
-            setCountdown(5);
-            setShowAutoPlayOverlay(true);
+            let unlocked = false;
+            if (onLessonComplete) {
+              console.log('[DEBUG] Completion API Started');
+              try {
+                const res = await onLessonComplete();
+                console.log('[DEBUG] Completion API Success', res);
+                unlocked = res?.nextLessonUnlocked === true || res?.unlockNextLesson === true;
+              } catch (e) {
+                console.log('[DEBUG] Completion API Failed', e);
+              }
+            }
+            if (hasNextLesson && unlocked) {
+              console.log('[DEBUG] Autoplay Started Countdown');
+              setCountdown(5);
+              setShowAutoPlayOverlay(true);
+            }
           }
         });
       }

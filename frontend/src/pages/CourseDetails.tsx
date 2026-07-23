@@ -101,15 +101,16 @@ const CourseDetails: React.FC = () => {
       const res = await api.get(`/courses/${id}`);
       setCourse(res.data.data.course);
       setModules(res.data.data.modules);
-      setLessons(res.data.data.lessons);
+      const orderedLessons = [...res.data.data.lessons].sort((a: any, b: any) => a.order - b.order);
+      setLessons(orderedLessons);
       setCompletedLessons(res.data.data.completedLessons || []);
       setCourseProgress(res.data.data.courseProgress || 0);
       
       // Auto-select first lesson or first uncompleted lesson
-      if (res.data.data.lessons?.length > 0) {
+      if (orderedLessons.length > 0) {
         const completed = res.data.data.completedLessons || [];
-        const firstUncompleted = res.data.data.lessons.find((l: any) => !completed.includes(l._id));
-        setSelectedLesson(firstUncompleted || res.data.data.lessons[0]);
+        const firstUncompleted = orderedLessons.find((l: any) => !completed.includes(l._id));
+        setSelectedLesson(firstUncompleted || orderedLessons[0]);
         setVideoError(null);
       }
     } catch (error: any) {
@@ -169,11 +170,14 @@ const CourseDetails: React.FC = () => {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 8000);
       }
+      
+      return res.data;
     } catch (error: any) {
       console.log(`Completion API Failed`);
       console.error('Error updating progress:', error?.response?.data || error);
       // Revert optimistic update
       setCompletedLessons(previousCompleted);
+      throw error;
     }
   };
 
