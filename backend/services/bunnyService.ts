@@ -22,22 +22,46 @@ export class BunnyService {
 
   static async syncLibrary(): Promise<any[]> {
     if (!this.API_KEY || !this.LIBRARY_ID) {
-      throw new Error('Bunny Stream is not configured in environment variables.');
+      const err = new Error('Bunny Stream is not configured in environment variables.') as any;
+      err.status = 500;
+      throw err;
     }
 
-    const res = await fetch(`https://video.bunnycdn.com/library/${this.LIBRARY_ID}/videos?itemsPerPage=1000`, {
-      headers: {
-        AccessKey: this.API_KEY,
-        accept: 'application/json'
-      }
-    });
+    let res;
+    try {
+      res = await fetch(`https://video.bunnycdn.com/library/${this.LIBRARY_ID}/videos?itemsPerPage=1000`, {
+        headers: {
+          AccessKey: this.API_KEY,
+          accept: 'application/json'
+        }
+      });
+    } catch (fetchErr: any) {
+      const err = new Error(`Failed to fetch videos from Bunny Stream: ${fetchErr.message}`) as any;
+      err.status = 500;
+      throw err;
+    }
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Failed to fetch videos from Bunny Stream: ${errText}`);
+      let msg = `Failed to fetch videos from Bunny Stream: ${errText}`;
+      if (res.status === 401) msg = 'Invalid API Key';
+      else if (res.status === 404) msg = 'Invalid Library';
+      else if (res.status === 429) msg = 'Rate Limited';
+      
+      console.log(`Bunny returns: ${res.status}`);
+      console.log(`↓`);
+      console.log(msg);
+      console.log(`Exact response: ${errText}`);
+
+      const err = new Error(msg) as any;
+      err.status = res.status;
+      err.responseBody = errText;
+      throw err;
     }
 
     const data = await res.json() as any;
+    // Log what was returned for Verification as requested
+    // "Call Bunny API. Verify GET Videos Return Video ID, Title, Length, Thumbnail"
     return data.items || [];
   }
 
