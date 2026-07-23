@@ -16,9 +16,10 @@ export class BunnyService {
     return `https://iframe.mediadelivery.net/embed/${this.LIBRARY_ID}/${videoId}`;
   }
 
-  static getThumbnail(videoId: string): string | null {
-    // iframe.mediadelivery.net does not serve thumbnails directly via this path reliably.
-    // If a proper pull zone is unavailable, return null to force frontend fallbacks.
+  static getThumbnail(videoId: string, thumbnailFileName?: string): string | null {
+    if (thumbnailFileName) {
+      return `https://iframe.mediadelivery.net/${this.LIBRARY_ID}/${videoId}/${thumbnailFileName}`;
+    }
     return null;
   }
 

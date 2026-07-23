@@ -619,7 +619,7 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
         if (lesson) {
           lesson.title = videoName;
           lesson.playbackUrl = BunnyService.getPlaybackUrl(video.guid);
-          lesson.thumbnailUrl = BunnyService.getThumbnail(video.guid);
+          lesson.thumbnailUrl = BunnyService.getThumbnail(video.guid, video.thumbnailFileName);
           lesson.duration = video.length;
           lesson.videoStatus = video.status;
           lesson.order = order++;
@@ -634,7 +634,7 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
             provider: 'bunny',
             bunnyVideoId: video.guid,
             playbackUrl: BunnyService.getPlaybackUrl(video.guid),
-            thumbnailUrl: BunnyService.getThumbnail(video.guid),
+            thumbnailUrl: BunnyService.getThumbnail(video.guid, video.thumbnailFileName),
             duration: video.length,
             videoStatus: video.status,
             order: order++,
