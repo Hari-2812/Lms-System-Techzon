@@ -548,7 +548,17 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
     console.log(`Collections Found: ${collections.length}`);
   } catch (err: any) {
     console.log('Bunny API Error');
-    res.status(200).json({ success: false, errors: [err.message] });
+    console.error(err.message);
+    console.error(err.stack);
+    console.error(err.status);
+    console.error(err.responseBody);
+    
+    res.status(500).json({ 
+      success: false, 
+      message: err.message,
+      details: err.responseBody || null,
+      stack: err.stack 
+    });
     return;
   }
 
@@ -572,8 +582,10 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
         status: 'published'
       });
       await course.save();
+      console.log(`Course Created: ${course.title}`);
+    } else {
+      console.log(`Course Found: ${course.title}`);
     }
-    console.log(`Course Synced: ${course.title}`);
     coursesSynced++;
 
     // Ensure at least one module exists for this course
@@ -585,6 +597,7 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
         order: 1
       });
       await moduleDoc.save();
+      console.log(`Module Created: Lessons`);
     }
 
     // Filter videos for this collection
@@ -641,14 +654,15 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
       if (l.bunnyVideoId && !bunnyVideoIdsInCollection.has(l.bunnyVideoId)) {
         await Lesson.findByIdAndDelete(l._id);
         lessonsRemoved++;
-        console.log(`Lessons Removed: ${l.title}`);
+        console.log(`Lesson Removed: ${l.title}`);
       }
     }
   }
 
-  console.log('Frontend Cache Invalidated');
-  console.log('Student Courses Updated');
-  console.log('Sync Completed Successfully');
+  console.log('Matching Courses complete');
+  console.log('Updating Lessons complete');
+  console.log('Deleting Removed Lessons complete');
+  console.log('Sync Complete');
   
   res.status(200).json({
     success: true,

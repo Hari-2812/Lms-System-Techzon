@@ -48,15 +48,23 @@ const AdminCourses: React.FC = () => {
 
   const handleSyncBunny = async () => {
     setIsSyncing(true);
+    console.log("Starting Bunny Sync");
     try {
-      await api.post('/courses/sync-bunny');
+      console.log("Request URL: /courses/sync-bunny");
+      const response = await api.post('/courses/sync-bunny');
+      console.log("Response:", response);
       alert('Bunny Stream Library Sync Complete! The curriculum has been rebuilt.');
       await fetchCourses();
       if (selectedCourse) {
         await handleSelectCourse(selectedCourse);
       }
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to sync Bunny Stream');
+      console.error("Axios Error:", error);
+      console.error("Status:", error.response?.status);
+      console.error("Response Data:", error.response?.data);
+      console.error("Headers:", error.response?.headers);
+      console.error("Request:", error.request);
+      alert(error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to sync Bunny Stream');
     } finally {
       setIsSyncing(false);
     }

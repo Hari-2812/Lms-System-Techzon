@@ -21,18 +21,17 @@ export class BunnyService {
   }
 
   static async syncLibrary(): Promise<{ videos: any[], collections: any[] }> {
+    console.log("Starting Bunny Sync");
+    
     const apiKey = process.env.BUNNY_STREAM_API_KEY?.trim() || '';
     const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim() || '';
 
     if (!apiKey || !libraryId) {
-      const err = new Error('Bunny Stream is not configured in environment variables.') as any;
-      err.status = 500;
-      throw err;
+      throw new Error('Missing Bunny Environment Variables');
     }
-
+    
+    console.log("Environment Loaded");
     console.log(`Library ID: ${libraryId}`);
-    console.log(`API Key length: ${apiKey.length}`);
-    console.log(`Header names only: Accept, AccessKey`);
 
     const videosUrl = `https://video.bunnycdn.com/library/${libraryId}/videos?itemsPerPage=1000`;
     const collectionsUrl = `https://video.bunnycdn.com/library/${libraryId}/collections?itemsPerPage=1000`;
@@ -43,6 +42,9 @@ export class BunnyService {
     };
 
     let videosRes, collectionsRes;
+    
+    console.log("Fetching Collections");
+    console.log("Fetching Videos");
     try {
       videosRes = await fetch(videosUrl, { headers });
       collectionsRes = await fetch(collectionsUrl, { headers });
@@ -52,19 +54,14 @@ export class BunnyService {
       throw err;
     }
 
+    console.log(`GET /library/${libraryId}/collections Status: ${collectionsRes.status}`);
+    console.log(`GET /library/${libraryId}/videos Status: ${videosRes.status}`);
+
     if (!videosRes.ok || !collectionsRes.ok) {
       const badRes = !videosRes.ok ? videosRes : collectionsRes;
       const errText = await badRes.text();
       let msg = `Failed to fetch from Bunny Stream: ${errText}`;
-      if (badRes.status === 401) msg = 'Invalid API Key';
-      else if (badRes.status === 404) msg = 'Invalid Library';
-      else if (badRes.status === 429) msg = 'Rate Limited';
       
-      console.log(`Bunny returns: ${badRes.status}`);
-      console.log(`↓`);
-      console.log(msg);
-      console.log(`Exact response: ${errText}`);
-
       const err = new Error(msg) as any;
       err.status = badRes.status;
       err.responseBody = errText;
@@ -76,6 +73,9 @@ export class BunnyService {
 
     const videos = videosData.items || [];
     const collections = collectionsData.items || [];
+    
+    console.log(`Collections Retrieved: ${collections.length}`);
+    console.log(`Videos Retrieved: ${videos.length}`);
     
     return { videos, collections };
   }
