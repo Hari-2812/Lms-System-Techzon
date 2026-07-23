@@ -469,12 +469,19 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
 export const getStudentAnalyticsDetails = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, message: 'Invalid Student ID format' });
+      return;
+    }
+
     const student = await User.findById(id).select('-password').lean();
     
     if (!student || student.role !== 'Student') {
       res.status(404).json({ success: false, message: 'Student not found' });
       return;
     }
+
 
     const enrollments = await Enrollment.find({ studentId: id })
       .populate('courseId', 'title category thumbnailUrl')
@@ -563,6 +570,11 @@ export const getStudentAnalyticsDetails = async (req: Request, res: Response): P
 export const adminResetProgress = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id, courseId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(courseId)) {
+      res.status(400).json({ success: false, message: 'Invalid ID format' });
+      return;
+    }
     await mongoose.model('Progress').deleteMany({ userId: id, courseId });
     await Enrollment.findOneAndUpdate({ studentId: id, courseId }, {
       $set: {
@@ -581,6 +593,11 @@ export const adminResetProgress = async (req: Request, res: Response): Promise<v
 export const adminMarkComplete = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id, courseId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(courseId)) {
+      res.status(400).json({ success: false, message: 'Invalid ID format' });
+      return;
+    }
     const lessons = await Lesson.find({ courseId }).select('_id');
     const lessonIds = lessons.map(l => l._id);
     
@@ -609,6 +626,11 @@ export const adminMarkComplete = async (req: Request, res: Response): Promise<vo
 export const adminUnlockAll = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id, courseId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(courseId)) {
+      res.status(400).json({ success: false, message: 'Invalid ID format' });
+      return;
+    }
     const lessons = await Lesson.find({ courseId }).select('_id');
     const lessonIds = lessons.map(l => l._id);
 
@@ -627,6 +649,11 @@ export const adminUnlockAll = async (req: Request, res: Response): Promise<void>
 export const adminRegenerateCertificate = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id, courseId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(courseId)) {
+      res.status(400).json({ success: false, message: 'Invalid ID format' });
+      return;
+    }
     const { generateCertificateOffline } = require('../utils/certificateGenerator');
     const cert = await generateCertificateOffline(id, courseId);
     
