@@ -87,7 +87,7 @@ import {
   adminResetProgress,
   adminMarkComplete,
   adminUnlockAll,
-  adminRegenerateCertificate
+  adminRegenerateCertificate,
   getMentorStats,
   getAuditLogs,
   exportReport,
