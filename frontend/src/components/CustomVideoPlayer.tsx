@@ -141,9 +141,15 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   }
 
   let finalUrl = playbackUrl;
+  // Fallback to convert /play/ to /embed/ for older records
+  if (finalUrl.includes('/play/')) {
+    finalUrl = finalUrl.replace('/play/', '/embed/');
+  }
+  
   try {
-    const urlObj = new URL(playbackUrl);
+    const urlObj = new URL(finalUrl);
     urlObj.searchParams.set('autoplay', 'false');
+    urlObj.searchParams.set('preload', 'true');
     if (lastPlaybackPosition && lastPlaybackPosition > 0 && !isAlreadyCompleted) {
       urlObj.searchParams.set('t', Math.floor(lastPlaybackPosition).toString());
     }
@@ -154,11 +160,11 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
 
   return (
     <div 
-      className={`relative ${className || ''}`}
-      style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', background: '#000' }}
+      className={`relative w-full overflow-hidden rounded-2xl bg-black ${className || ''}`}
+      style={{ position: 'relative', paddingTop: '56.25%' }}
     >
       {videoError ? (
-        <div className="flex h-full w-full flex-col items-center justify-center text-center text-red-500 p-4">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-red-500 p-4">
           <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm font-semibold">Unable to play this lesson.</p>
           <p className="text-xs mt-1 text-red-400/70">{videoError}</p>
@@ -166,13 +172,12 @@ const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       ) : (
         <iframe
           src={finalUrl}
-          style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
-          className="border-none"
           loading="lazy"
-          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
+          style={{ border: 0, position: 'absolute', top: 0, left: 0, height: '100%', width: '100%', display: 'block' }}
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+          allowFullScreen={true}
           onError={() => setVideoError('Failed to load video iframe from Bunny Stream')}
-        />
+        ></iframe>
       )}
 
       {/* Auto-play Next Overlay */}

@@ -13,7 +13,7 @@ export class BunnyService {
     // If the frontend uses an iframe, this will work perfectly. If they use a <video> tag,
     // they need Direct Play enabled. We will format it as Direct Play MP4.
     // Actually, fallback to direct play URL if they insist on `<video>`.
-    return `https://iframe.mediadelivery.net/play/${this.LIBRARY_ID}/${videoId}`;
+    return `https://iframe.mediadelivery.net/embed/${this.LIBRARY_ID}/${videoId}`;
   }
 
   static getThumbnail(videoId: string): string {

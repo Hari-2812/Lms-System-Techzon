@@ -346,7 +346,7 @@ const CourseDetails: React.FC = () => {
       <div className="flex-1 flex flex-col gap-4 lg:gap-6 min-w-0 order-1 lg:order-2 px-4 lg:px-0">
         {!activeQuiz ? (
           <>
-            <div className="glass-card overflow-hidden bg-black border-none relative flex items-center justify-center w-full shadow-2xl rounded-none sm:rounded-xl">
+            <div className="glass-card overflow-hidden bg-black border-none relative w-full shadow-2xl rounded-none sm:rounded-xl">
               {(() => {
                 if (selectedLesson?.playbackUrl) {
                   return (
