@@ -2,15 +2,23 @@ import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { Users, UserPlus, Mail, ShieldAlert, Loader2, Plus, X } from 'lucide-react';
 
+import StudentAnalyticsDrawer from '../components/StudentAnalyticsDrawer';
+
 interface Student {
   _id: string;
   name: string;
   email: string;
+  phone?: string;
   role: string;
   status: string;
   isEmailVerified: boolean;
   createdAt: string;
   enrolledCourses?: string[];
+  enrolledCourseCount?: number;
+  overallProgress?: number;
+  currentCourse?: string;
+  lastActive?: string;
+  batch?: string;
 }
 
 const AdminStudents: React.FC = () => {
@@ -33,6 +41,7 @@ const AdminStudents: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [savingEnrollments, setSavingEnrollments] = useState(false);
+  const [analyticsStudentId, setAnalyticsStudentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -175,44 +184,73 @@ const AdminStudents: React.FC = () => {
           <table className="w-full text-left text-xs font-semibold">
             <thead className="bg-slate-55/50 border-b border-slate-100 dark:border-border-dark text-slate-500 text-[10px] uppercase tracking-wider font-bold">
               <tr>
-                <th className="px-6 py-4">Name</th>
-                <th className="px-6 py-4">Email</th>
-                <th className="px-6 py-4">Registered On</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Verification</th>
-                {activeTab === 'students' && <th className="px-6 py-4 text-right">Actions</th>}
+                <th className="px-6 py-4">Name & Email</th>
+                {activeTab === 'students' ? (
+                  <>
+                    <th className="px-6 py-4">Batch</th>
+                    <th className="px-6 py-4">Courses</th>
+                    <th className="px-6 py-4">Progress</th>
+                    <th className="px-6 py-4">Current Course</th>
+                    <th className="px-6 py-4">Last Active</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-6 py-4">Registered On</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Verification</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/50 dark:divide-border-dark/30">
               {(activeTab === 'students' ? students : mentors).map((item) => (
                 <tr key={item._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition">
-                  <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{item.name}</td>
-                  <td className="px-6 py-4 text-slate-500">{item.email}</td>
-                  <td className="px-6 py-4 text-slate-500">{new Date(item.createdAt).toLocaleDateString()}</td>
                   <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-green-500/10 text-green-500">
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400 font-medium">
-                    {item.isEmailVerified ? 'Verified' : 'Pending OTP'}
-                  </td>
-                  {activeTab === 'students' && (
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <button
-                        onClick={() => handleOpenEnrollments(item)}
-                        className="px-2.5 py-1.5 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 text-[10px] font-bold"
-                      >
-                        Edit Course
+                    {activeTab === 'students' ? (
+                      <button onClick={() => setAnalyticsStudentId(item._id)} className="text-left focus:outline-none">
+                        <p className="font-bold text-slate-800 dark:text-white hover:text-accent transition">{item.name}</p>
+                        <p className="text-xs text-slate-500">{item.email} {item.phone ? `• ${item.phone}` : ''}</p>
                       </button>
-                      <button
-                        onClick={() => handleResendCredentials(item._id)}
-                        disabled={resending === item._id}
-                        className="px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-bold disabled:opacity-50"
-                      >
-                        {resending === item._id ? 'Sending...' : 'Resend Credentials'}
-                      </button>
-                    </td>
+                    ) : (
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-white">{item.name}</p>
+                        <p className="text-xs text-slate-500">{item.email}</p>
+                      </div>
+                    )}
+                  </td>
+                  {activeTab === 'students' ? (
+                    <>
+                      <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{item.batch || 'General'}</td>
+                      <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{item.enrolledCourseCount || 0}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                           <span className="font-bold text-accent">{item.overallProgress || 0}%</span>
+                           <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden hidden lg:block">
+                             <div className="h-full bg-accent" style={{width: `${item.overallProgress || 0}%`}}></div>
+                           </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 text-[11px] max-w-[150px] truncate" title={item.currentCourse}>{item.currentCourse || 'N/A'}</td>
+                      <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{item.lastActive && item.lastActive !== 'Never' ? new Date(item.lastActive).toLocaleDateString() : 'Never'}</td>
+                      <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                        <button onClick={() => setAnalyticsStudentId(item._id)} className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 text-xs font-bold">
+                          View Details
+                        </button>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-6 py-4 text-slate-500">{new Date(item.createdAt).toLocaleDateString()}</td>
+                      <td className="px-6 py-4">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] uppercase font-bold bg-green-500/10 text-green-500">
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-400 font-medium">
+                        {item.isEmailVerified ? 'Verified' : 'Pending OTP'}
+                      </td>
+                    </>
                   )}
                 </tr>
               ))}
@@ -345,6 +383,16 @@ const AdminStudents: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {analyticsStudentId && (
+        <StudentAnalyticsDrawer
+          studentId={analyticsStudentId}
+          onClose={() => {
+            setAnalyticsStudentId(null);
+            fetchUsers(); // Refresh the table to get latest progress
+          }}
+        />
       )}
     </div>
   );

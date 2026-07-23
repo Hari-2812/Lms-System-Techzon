@@ -82,6 +82,12 @@ import {
   clearTestData,
   getAdminStats,
   getStudentStats,
+  getAdminStudentsList,
+  getStudentAnalyticsDetails,
+  adminResetProgress,
+  adminMarkComplete,
+  adminUnlockAll,
+  adminRegenerateCertificate
   getMentorStats,
   getAuditLogs,
   exportReport,
@@ -269,20 +275,13 @@ router.delete('/lessons/:id', deleteLesson);
 router.post('/quizzes', createQuiz);
 
 // User/Student Administration
-router.get('/users/students', async (req, res) => {
-  try {
-    const students = await User.find({ role: 'Student' }).select('-password');
-    // Fetch enrollments for these students to show in admin panel
-    const studentsWithEnrollments = await Promise.all(students.map(async (student) => {
-      const enrollments = await mongoose.model('Enrollment').find({ studentId: student._id }).select('courseId');
-      return { ...student.toObject(), enrolledCourses: enrollments.map(e => e.courseId) };
-    }));
-    res.json({ success: true, data: studentsWithEnrollments });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+router.get('/users/students', authorize('Admin', 'SuperAdmin', 'Mentor'), getAdminStudentsList);
 router.put('/users/students/:id/enrollments', authorize('SuperAdmin', 'Admin'), updateStudentEnrollments);
+router.get('/analytics/students/:id', authorize('Admin', 'SuperAdmin', 'Mentor'), getStudentAnalyticsDetails);
+router.post('/analytics/students/:id/course/:courseId/reset', authorize('SuperAdmin', 'Admin'), adminResetProgress);
+router.post('/analytics/students/:id/course/:courseId/complete', authorize('SuperAdmin', 'Admin'), adminMarkComplete);
+router.post('/analytics/students/:id/course/:courseId/unlock-all', authorize('SuperAdmin', 'Admin'), adminUnlockAll);
+router.post('/analytics/students/:id/course/:courseId/certificate', authorize('SuperAdmin', 'Admin'), adminRegenerateCertificate);
 
 router.get('/users/mentors', async (req, res) => {
   try {

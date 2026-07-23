@@ -418,3 +418,227 @@ export const exportReport = async (req: Request, res: Response): Promise<void> =
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+import mongoose from 'mongoose';
+
+export const getAdminStudentsList = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const students = await User.find({ role: 'Student' }).select('-password -__v').lean();
+
+    const studentsWithAnalytics = await Promise.all(
+      students.map(async (student) => {
+        const enrollments = await Enrollment.find({ studentId: student._id }).populate('courseId', 'title').lean();
+        
+        let overallProgress = 0;
+        let lastActive: Date | string = 'Never';
+        let currentCourse = 'N/A';
+        let batch = 'N/A';
+
+        if (enrollments.length > 0) {
+          const totalProgress = enrollments.reduce((sum, e) => sum + (e.progress?.percentComplete || 0), 0);
+          overallProgress = Math.round(totalProgress / enrollments.length);
+          
+          const sorted = [...enrollments].sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+          currentCourse = (sorted[0].courseId as any)?.title || 'N/A';
+          batch = sorted[0].batch || 'N/A';
+        }
+
+        const lastProgress = await mongoose.model('Progress').findOne({ userId: student._id }).sort({ lastWatched: -1 }).lean() as any;
+        if (lastProgress && lastProgress.lastWatched) {
+          lastActive = lastProgress.lastWatched;
+        }
+
+        return {
+          ...student,
+          enrolledCourses: enrollments.map((e) => (e.courseId as any)?._id || e.courseId),
+          enrolledCourseCount: enrollments.length,
+          overallProgress,
+          currentCourse,
+          lastActive,
+          batch,
+        };
+      })
+    );
+
+    res.status(200).json({ success: true, data: studentsWithAnalytics });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getStudentAnalyticsDetails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const student = await User.findById(id).select('-password').lean();
+    
+    if (!student || student.role !== 'Student') {
+      res.status(404).json({ success: false, message: 'Student not found' });
+      return;
+    }
+
+    const enrollments = await Enrollment.find({ studentId: id })
+      .populate('courseId', 'title category thumbnailUrl')
+      .populate('certificateId')
+      .lean();
+
+    const coursesAnalytics = await Promise.all(enrollments.map(async (enrollment: any) => {
+      const courseId = enrollment.courseId?._id;
+      if (!courseId) return null;
+
+      const lessons = await Lesson.find({ courseId }).sort('order').lean();
+      const progressDocs = await mongoose.model('Progress').find({ userId: id, courseId }).lean();
+      
+      let timeSpentSeconds = 0;
+      let lastCompletedLesson = null;
+      let currentLesson = null;
+
+      const timeline = lessons.map((les: any, index: number) => {
+        const pDoc = progressDocs.find((p: any) => p.lessonId.toString() === les._id.toString()) as any;
+        
+        if (pDoc) {
+          timeSpentSeconds += pDoc.lastPlaybackPosition || 0;
+        }
+
+        const isCompleted = enrollment.progress?.completedLessons?.some((cl: any) => cl.toString() === les._id.toString());
+        const isLocked = index > 0 && !enrollment.progress?.completedLessons?.some((cl: any) => cl.toString() === lessons[index - 1]._id.toString());
+
+        let status = 'Locked';
+        if (isCompleted) {
+          status = 'Completed';
+          if (!lastCompletedLesson || (pDoc && pDoc.completedAt && new Date(pDoc.completedAt) > new Date(lastCompletedLesson.completedAt))) {
+            lastCompletedLesson = { ...les, completedAt: pDoc?.completedAt };
+          }
+        } else if (!isLocked) {
+          status = pDoc && pDoc.watchedPercentage > 0 ? 'Watching' : 'Unlocked';
+          if (!currentLesson) currentLesson = les;
+        }
+
+        return {
+          lessonId: les._id,
+          title: les.title,
+          status,
+          watchPercentage: pDoc?.watchedPercentage || 0,
+          resumePosition: pDoc?.lastPlaybackPosition || 0,
+          completedAt: pDoc?.completedAt || null
+        };
+      });
+
+      return {
+        enrollmentId: enrollment._id,
+        courseId,
+        courseName: enrollment.courseId.title,
+        thumbnailUrl: enrollment.courseId.thumbnailUrl,
+        enrollmentDate: enrollment.startDate,
+        progress: enrollment.progress?.percentComplete || 0,
+        status: enrollment.status,
+        completedLessonsCount: enrollment.progress?.completedLessons?.length || 0,
+        totalLessons: lessons.length,
+        timeSpent: Math.round(timeSpentSeconds / 60),
+        certificateStatus: enrollment.certificateIssued ? 'Issued' : 'Pending',
+        certificateId: enrollment.certificateId,
+        currentLesson: currentLesson?.title || 'N/A',
+        lastCompletedLesson: lastCompletedLesson?.title || 'N/A',
+        timeline
+      };
+    }));
+
+    const quizzes = await QuizResult.find({ studentId: id }).populate('quizId', 'title').lean();
+    const assignments = await Submission.find({ studentId: id }).populate('assignmentId', 'title').lean();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        profile: student,
+        courses: coursesAnalytics.filter(c => c !== null),
+        quizzes,
+        assignments
+      }
+    });
+
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const adminResetProgress = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, courseId } = req.params;
+    await mongoose.model('Progress').deleteMany({ userId: id, courseId });
+    await Enrollment.findOneAndUpdate({ studentId: id, courseId }, {
+      $set: {
+        'progress.completedLessons': [],
+        'progress.percentComplete': 0,
+        certificateIssued: false,
+        certificateId: null
+      }
+    });
+    res.json({ success: true, message: 'Progress reset successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const adminMarkComplete = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, courseId } = req.params;
+    const lessons = await Lesson.find({ courseId }).select('_id');
+    const lessonIds = lessons.map(l => l._id);
+    
+    const enrollment = await Enrollment.findOneAndUpdate({ studentId: id, courseId }, {
+      $set: {
+        'progress.completedLessons': lessonIds,
+        'progress.percentComplete': 100,
+        status: 'completed'
+      }
+    }, { new: true }).populate('studentId').populate('courseId');
+
+    if (enrollment && !enrollment.certificateIssued) {
+      const { generateCertificateOffline } = require('../utils/certificateGenerator');
+      const cert = await generateCertificateOffline(id, courseId);
+      enrollment.certificateIssued = true;
+      enrollment.certificateId = cert.certificateId;
+      await enrollment.save();
+    }
+
+    res.json({ success: true, message: 'Course marked complete' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const adminUnlockAll = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, courseId } = req.params;
+    const lessons = await Lesson.find({ courseId }).select('_id');
+    const lessonIds = lessons.map(l => l._id);
+
+    await Enrollment.findOneAndUpdate({ studentId: id, courseId }, {
+      $addToSet: {
+        'progress.completedLessons': { $each: lessonIds }
+      }
+    });
+
+    res.json({ success: true, message: 'All lessons unlocked' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const adminRegenerateCertificate = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, courseId } = req.params;
+    const { generateCertificateOffline } = require('../utils/certificateGenerator');
+    const cert = await generateCertificateOffline(id, courseId);
+    
+    await Enrollment.findOneAndUpdate({ studentId: id, courseId }, {
+      $set: {
+        certificateIssued: true,
+        certificateId: cert.certificateId
+      }
+    });
+
+    res.json({ success: true, message: 'Certificate regenerated', data: cert });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
