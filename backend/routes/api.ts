@@ -248,6 +248,7 @@ if (!fs.existsSync(uploadDir)) {
 const upload = multer({ dest: uploadDir });
 
 // Course Management CRUDs
+router.post('/courses/sync-bunny', syncBunnyLibrary);
 router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.post('/courses/:id/duplicate', duplicateCourse);
@@ -263,7 +264,6 @@ router.delete('/modules/:id', deleteModule);
 router.post('/lessons', createLesson);
 router.put('/lessons/:id', updateLesson);
 router.delete('/lessons/:id', deleteLesson);
-router.post('/lessons/sync-bunny', syncBunnyLibrary);
 
 // Quiz Scheduling
 router.post('/quizzes', createQuiz);
