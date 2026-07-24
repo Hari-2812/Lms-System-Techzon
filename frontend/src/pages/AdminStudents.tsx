@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { Users, UserPlus, Mail, ShieldAlert, Loader2, Plus, X } from 'lucide-react';
-
-import StudentAnalyticsDrawer from '../components/StudentAnalyticsDrawer';
 
 interface Student {
   _id: string;
@@ -22,6 +21,7 @@ interface Student {
 }
 
 const AdminStudents: React.FC = () => {
+  const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [mentors, setMentors] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,6 @@ const AdminStudents: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [savingEnrollments, setSavingEnrollments] = useState(false);
-  const [analyticsStudentId, setAnalyticsStudentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -208,7 +207,7 @@ const AdminStudents: React.FC = () => {
                 <tr key={item._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition">
                   <td className="px-6 py-4">
                     {activeTab === 'students' ? (
-                      <button onClick={() => setAnalyticsStudentId(item._id)} className="text-left focus:outline-none">
+                      <button onClick={() => navigate(`/admin/students/${item._id}`)} className="text-left focus:outline-none">
                         <p className="font-bold text-slate-800 dark:text-white hover:text-accent transition">{item.name}</p>
                         <p className="text-xs text-slate-500">{item.email} {item.phone ? `• ${item.phone}` : ''}</p>
                       </button>
@@ -234,7 +233,7 @@ const AdminStudents: React.FC = () => {
                       <td className="px-6 py-4 text-slate-500 text-[11px] max-w-[150px] truncate" title={item.currentCourse}>{item.currentCourse || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{item.lastActive && item.lastActive !== 'Never' ? new Date(item.lastActive).toLocaleDateString() : 'Never'}</td>
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-                        <button onClick={() => setAnalyticsStudentId(item._id)} className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 text-xs font-bold">
+                        <button onClick={() => navigate(`/admin/students/${item._id}`)} className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 text-xs font-bold">
                           View Details
                         </button>
                       </td>
@@ -385,15 +384,7 @@ const AdminStudents: React.FC = () => {
         </div>
       )}
 
-      {analyticsStudentId && (
-        <StudentAnalyticsDrawer
-          studentId={analyticsStudentId}
-          onClose={() => {
-            setAnalyticsStudentId(null);
-            fetchUsers(); // Refresh the table to get latest progress
-          }}
-        />
-      )}
+      {/* Drawer Removed */}
     </div>
   );
 };

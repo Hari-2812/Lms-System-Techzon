@@ -21,6 +21,7 @@ const AdminOverview = React.lazy(() => import('../pages/AdminOverview'));
 const AdminCourses = React.lazy(() => import('../pages/AdminCourses'));
 const AdminPlans = React.lazy(() => import('../pages/AdminPlans'));
 const AdminStudents = React.lazy(() => import('../pages/AdminStudents'));
+const AdminStudentDetails = React.lazy(() => import('../pages/AdminStudentDetails'));
 const AdminSettings = React.lazy(() => import('../pages/AdminSettings'));
 const AdminOnboarding = React.lazy(() => import('../pages/AdminOnboarding'));
 const GoogleFormSync = React.lazy(() => import('../pages/GoogleFormSync'));
@@ -175,6 +176,14 @@ const AppRoutes: React.FC = () => {
                       element={
                         <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                           <AdminStudents />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/students/:studentId"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminStudentDetails />
                         </RoleGuard>
                       }
                     />
