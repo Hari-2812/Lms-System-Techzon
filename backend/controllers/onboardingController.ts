@@ -69,9 +69,9 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
       throw new Error(`Request is already ${request.status}`);
     }
 
-    const { courseId } = req.body;
+    const courseId = req.body.courseId || (req.body.courses && req.body.courses[0]);
     if (!courseId) {
-      throw new Error('Please select a course');
+      throw new Error(`Please select a course.`);
     }
     if (!mongoose.Types.ObjectId.isValid(courseId)) {
       throw new Error('Invalid course selected');
@@ -163,9 +163,13 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
     session.endSession();
 
     // Send email outside transaction
+    let emailSent = false;
+    let emailReason = '';
+    
     if (isNewUser) {
       try {
         await sendWelcomeEmail(user.email, user.name, tempPassword, undefined);
+        emailSent = true;
         await createNotification({
           title: '🎓 Student Access Granted',
           message: `${user.name} has been provisioned and emailed access credentials.`,
@@ -174,15 +178,41 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
         });
       } catch (err: any) {
         logger.error('Welcome email failed:', err);
+        emailReason = err.message || 'Email service not configured or failed';
       }
+    } else {
+      // If it's an existing user, we might want to send a different email, but for now we mark it as sent or not applicable
+      emailSent = true; // We don't fail the email step for existing users
     }
 
-    res.status(200).json({
+    const responsePayload: any = {
       success: true,
       message: 'Student approved successfully',
-      student: { id: user._id, name: user.name, email: user.email },
-      enrollment: { status: 'ACTIVE' }
-    });
+      student: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      },
+      course: {
+        id: course._id,
+        name: course.title
+      },
+      enrollment: {
+        status: 'ACTIVE'
+      },
+      access: {
+        granted: true
+      },
+      email: {
+        sent: emailSent
+      }
+    };
+    
+    if (!emailSent) {
+      responsePayload.email.reason = emailReason;
+    }
+
+    res.status(200).json(responsePayload);
   } catch (error: any) {
     await session.abortTransaction();
     session.endSession();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 import { 
   RefreshCw, Check, X, Search, Loader2, Sparkles, 
@@ -158,9 +159,17 @@ const AdminOnboarding: React.FC = () => {
     setError('');
 
     try {
-      await api.post(`/admin/onboarding/requests/${selectedRequest._id}/approve`, {
+      const response = await api.post(`/admin/onboarding/requests/${selectedRequest._id}/approve`, {
         courseId: selectedCourseId,
       });
+      
+      const { student, course, enrollment, access, email } = response.data;
+      
+      toast.success(
+        `Student Approved Successfully\n\nStudent:\n${student.name}\n\nEmail:\n${student.email}\n\nCourse:\n${course.name}\n\nEnrollment:\n${enrollment.status}\n\nLMS Access:\n${access.granted ? 'GRANTED' : 'DENIED'}\n\nEmail:\n${email.sent ? 'Sent' : 'Failed - ' + email.reason}`,
+        { duration: 8000, style: { whiteSpace: 'pre-line', textAlign: 'left' } }
+      );
+      
       setShowDetailsModal(false);
       fetchOnboardings();
     } catch (err: any) {
