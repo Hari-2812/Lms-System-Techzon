@@ -211,15 +211,15 @@ router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'S
 router.use(authorize('SuperAdmin', 'Admin'));
 
 // Onboarding requests API
-router.get('/onboarding', getOnboardingRequests);
-router.get('/onboarding/:id', getOnboardingRequestById);
-router.post('/onboarding/:id/approve', approveOnboardingRequest);
-router.post('/onboarding/:id/reject', rejectOnboardingRequest);
+router.get('/admin/onboarding/requests', getOnboardingRequests);
+router.get('/admin/onboarding/requests/:id', getOnboardingRequestById);
+router.post('/admin/onboarding/requests/:id/approve', approveOnboardingRequest);
+router.post('/admin/onboarding/requests/:id/reject', rejectOnboardingRequest);
 
 // Sync routes
-router.get('/onboarding/google-sheets/test', testGoogleConnectionRoute);
-router.post('/onboarding/sync', syncGoogleSheets);
-router.get('/onboarding/sync-stats', getSyncStats);
+router.get('/admin/onboarding/google-sheets/test', testGoogleConnectionRoute);
+router.post('/admin/onboarding/sync', syncGoogleSheets);
+router.get('/admin/onboarding/sync-stats', getSyncStats);
 
 // System Settings Edits
 router.put('/settings', updateSettings);

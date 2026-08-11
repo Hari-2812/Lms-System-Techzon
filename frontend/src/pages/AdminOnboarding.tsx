@@ -1,206 +1,665 @@
 import React, { useState, useEffect } from 'react';
-import api from '../utils/api';
-import { toast } from 'react-hot-toast';
-import { RefreshCw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import DashboardLayout from '../layouts/DashboardLayout';
+import api from '../services/api';
+import { 
+  RefreshCw, Check, X, Search, Loader2, Sparkles, 
+  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock, AlertTriangle, Layers, Calendar, Eye, Ban
+} from 'lucide-react';
 
-
-interface SyncStat {
+interface OnboardingRequest {
   _id: string;
-  timestamp: string;
-  totalRows: number;
-  processed: number;
-  created: number;
-  updated: number;
-  alreadySynced: number;
-  failed: number;
-  skipped: number;
-  errors: Array<{
-    row: number;
-    email: string;
-    reason: string;
-    message: string;
-  }>;
+  fullName: string;
+  email: string;
+  phone: string;
+  college: string;
+  degree: string;
+  city: string;
+  state: string;
+  courses: { _id: string; title: string }[];
+  learningPlan?: { _id: string; name: string; durationMonths: number };
+  preferredBatch: string;
+  preferredMentor?: { _id: string; name: string };
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FAILED';
+  remarks?: string;
+  createdAt: string;
+  googleRowId?: string;
+  rawFormData?: any;
+}
+
+interface MentorOption {
+  _id: string;
+  name: string;
+  email: string;
+}
+
+interface CourseOption {
+  _id: string;
+  title: string;
 }
 
 const AdminOnboarding: React.FC = () => {
-  const [stats, setStats] = useState<SyncStat[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [syncing, setSyncing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [requests, setRequests] = useState<OnboardingRequest[]>([]);
+  const [mentors, setMentors] = useState<MentorOption[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
+  
+  // Stats summary state
+  const [syncedCount, setSyncedCount] = useState(0);
+  const [duplicateCount, setDuplicateCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Never');
+  
+  // UI Tab State
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'FAILED'>('PENDING');
 
-  const fetchStats = async () => {
+  // UI lists state
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Dialog Modals
+  const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+
+  // Approval Wizard Parameters
+  const [wizardStep, setWizardStep] = useState(1);
+  const [approveCourses, setApproveCourses] = useState<string[]>([]);
+  const [approvePlan, setApprovePlan] = useState('');
+  const [approveBatch, setApproveBatch] = useState('Batch A');
+  const [approveMentor, setApproveMentor] = useState('');
+  const [approveDuration, setApproveDuration] = useState(6);
+  const [approveRemarks, setApproveRemarks] = useState('');
+  
+  const [rejectReason, setRejectReason] = useState('');
+  
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchOnboardings = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await api.get('/onboarding/sync-stats');
-      setStats(res.data.data);
-      setError(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch sync stats');
+      const res = await api.get('/admin/onboarding/requests');
+      const allOnboardings: OnboardingRequest[] = res.data.data || [];
+      const sheetsOnboardings = allOnboardings.filter(r => r.googleRowId);
+      setRequests(sheetsOnboardings);
+    } catch (err) {
+      console.error('Error fetching sheets requests:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchMentorsAndCourses = async () => {
+    try {
+      const [mentorsRes, coursesRes] = await Promise.all([
+        api.get('/users?role=Mentor').catch(() => ({ data: { data: [] } })),
+        api.get('/courses').catch(() => ({ data: { data: [] } }))
+      ]);
+      setMentors(mentorsRes.data.data || []);
+      setCourses(coursesRes.data.data || []);
+    } catch (err) {
+      console.error('Error loading mentors/courses list:', err);
+    }
+  };
+
   useEffect(() => {
-    fetchStats();
+    fetchOnboardings();
+    fetchMentorsAndCourses();
   }, []);
 
-  const handleSync = async () => {
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
     try {
-      setSyncing(true);
-      const res = await api.post('/onboarding/sync');
-      toast.success(res.data.message || 'Sync completed successfully');
-      fetchStats();
+      const res = await api.get('/admin/onboarding/google-sheets/test');
+      if (res.data.success) {
+        alert(`Connection successful!\nRows detected: ${res.data.responseRows}`);
+      } else {
+        alert(`Connection Failed: ${res.data.message}\nCode: ${res.data.code}`);
+      }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Sync failed');
+      alert(err.response?.data?.message || 'Connection test failed due to an unknown error.');
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleSyncSheets = async () => {
+    setSyncing(true);
+    try {
+      const res = await api.post('/admin/onboarding/sync');
+      const syncData = res.data.summary || {};
+      
+      setSyncedCount(prev => prev + (syncData.created || 0)); // New Requests
+      setDuplicateCount(prev => prev + (syncData.alreadySynced || 0) + (syncData.updated || 0)); // Already Pending / Updated
+      setFailedCount(prev => prev + (syncData.skipped || 0) + (syncData.failed || 0));
+      
+      setLastSyncTime(new Date().toLocaleTimeString());
+      alert(res.data.message || 'Synchronization successfully completed!');
+      fetchOnboardings(); // Auto refresh
+    } catch (err: any) {
+      const data = err.response?.data;
+      if (data && data.message) {
+         alert(`Sync Failed: ${data.message}\n\nError Code: ${data.code || 'UNKNOWN'}`);
+      } else {
+         alert('Google Spreadsheet synchronization failed. Please verify credentials in system settings.');
+      }
     } finally {
       setSyncing(false);
     }
   };
 
-  const latestStat = stats.length > 0 ? stats[0] : null;
+  const openDetails = (req: OnboardingRequest) => {
+    setSelectedRequest(req);
+    setShowDetailsModal(true);
+  };
+
+  const openApproveWizard = (req: OnboardingRequest) => {
+    setShowDetailsModal(false);
+    setSelectedRequest(req);
+    setWizardStep(1);
+    setApproveCourses(req.courses?.map(c => c._id) || []);
+    setApprovePlan(req.learningPlan?._id || '');
+    setApproveBatch(req.preferredBatch || 'Batch A');
+    setApproveMentor(req.preferredMentor?._id || '');
+    setApproveDuration(req.learningPlan?.durationMonths || 6);
+    setApproveRemarks('');
+    setError('');
+    setShowApproveModal(true);
+  };
+
+  const handleCourseToggle = (courseId: string) => {
+    if (approveCourses.includes(courseId)) {
+      setApproveCourses(approveCourses.filter((id) => id !== courseId));
+    } else {
+      setApproveCourses([...approveCourses, courseId]);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
+    setSubmitting(true);
+    setError('');
+
+    try {
+      await api.post(`/admin/onboarding/requests/${selectedRequest._id}/approve`, {
+        courses: approveCourses,
+        learningPlan: approvePlan,
+        batch: approveBatch,
+        mentorId: approveMentor || undefined,
+        durationMonths: approveDuration,
+        remarks: approveRemarks,
+      });
+      setShowApproveModal(false);
+      fetchOnboardings();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to approve onboarding student');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedRequest) return;
+    setSubmitting(true);
+    setError('');
+
+    try {
+      await api.post(`/admin/onboarding/requests/${selectedRequest._id}/reject`, { reason: rejectReason });
+      setShowDetailsModal(false);
+      fetchOnboardings();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to reject request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filteredRequests = requests.filter((req) => {
+    const term = searchQuery.toLowerCase();
+    const matchSearch = req.fullName.toLowerCase().includes(term) || req.email.toLowerCase().includes(term);
+    return matchSearch && req.status === activeTab;
+  });
 
   return (
-    <DashboardLayout role="Admin">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        
-        {/* HEADER SECTION */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Google Form Onboarding Sync</h2>
-            <p className="text-slate-500 text-sm mt-1">
-              Synchronize student onboarding data directly from Google Sheets.
-            </p>
-          </div>
+    <div className="space-y-6 font-poppins">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Google Form Responses Sync</h2>
+          <p className="text-slate-500 text-xs mt-1">Import student records from your restricted Google spreadsheet and provision accounts</p>
+        </div>
+        <div className="flex gap-2">
           <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm disabled:opacity-70"
+            onClick={handleTestConnection}
+            disabled={testingConnection || syncing}
+            className="btn-outline py-2.5 px-4 flex items-center gap-1.5 text-xs font-bold rounded-xl border border-slate-200"
           >
-            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Syncing...' : 'Sync Now'}
+            {testingConnection ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Test Connection
+          </button>
+          <button
+            onClick={handleSyncSheets}
+            disabled={syncing || testingConnection}
+            className="btn-accent py-2.5 px-4 flex items-center gap-1.5"
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Sync Google Sheet Now
           </button>
         </div>
+      </div>
 
-        {error && <div className="text-red-600 bg-red-50 p-4 rounded-md">{error}</div>}
+      {/* Sync statistics row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="glass-card p-4 text-center">
+          <p className="text-[10px] uppercase font-bold text-slate-400">Last Sync Time</p>
+          <p className="text-sm font-extrabold text-slate-700 dark:text-white mt-1">{lastSyncTime}</p>
+        </div>
+        <div className="glass-card p-4 text-center">
+          <p className="text-[10px] uppercase font-bold text-slate-400">New Requests</p>
+          <p className="text-sm font-extrabold text-emerald-500 mt-1">+{syncedCount}</p>
+        </div>
+        <div className="glass-card p-4 text-center">
+          <p className="text-[10px] uppercase font-bold text-slate-400">Already Pending/Updated</p>
+          <p className="text-sm font-extrabold text-amber-500 mt-1">{duplicateCount}</p>
+        </div>
+        <div className="glass-card p-4 text-center">
+          <p className="text-[10px] uppercase font-bold text-slate-400">Failed / Skipped</p>
+          <p className="text-sm font-extrabold text-red-500 mt-1">{failedCount}</p>
+        </div>
+      </div>
 
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-slate-100 dark:bg-secondary-dark p-1 rounded-xl">
+        {(['PENDING', 'APPROVED', 'REJECTED', 'FAILED'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+              activeTab === tab
+                ? 'bg-white dark:bg-card-dark text-accent shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            {tab} ({requests.filter(r => r.status === tab).length})
+          </button>
+        ))}
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-sm font-bold text-slate-800 dark:text-white">{activeTab} Requests</h3>
+        <div className="relative w-72">
+          <Search className="absolute left-3.5 w-4 h-4 text-slate-400 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search by name, email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark outline-none focus:border-accent text-xs transition"
+          />
+        </div>
+      </div>
+
+      {/* Synchronized Table list */}
+      <div className="glass-card overflow-hidden">
         {loading ? (
-          <div className="flex justify-center py-20">
-            <span className="text-slate-500">Loading...</span>
+          <div className="py-20 flex justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-accent" />
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="py-20 text-center space-y-3">
+            <AlertTriangle className="w-12 h-12 mx-auto text-slate-400" />
+            <h4 className="font-bold text-slate-600 dark:text-slate-300">No {activeTab.toLowerCase()} requests found</h4>
           </div>
         ) : (
-          <div className="space-y-6">
-            
-            {/* LATEST SYNC SUMMARY */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Last Sync</h3>
-                </div>
-                <p className="text-xl font-bold text-slate-900 dark:text-white">
-                  {latestStat ? new Date(latestStat.timestamp).toLocaleString() : 'Never'}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-                    <CheckCircle className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Total Processed</h3>
-                </div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {latestStat?.processed || 0}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
-                    <RefreshCw className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">New / Updated</h3>
-                </div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {latestStat?.created || 0} / {latestStat?.updated || 0}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-red-50 dark:bg-red-900/30 rounded-lg text-red-600 dark:text-red-400">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Failed / Skipped</h3>
-                </div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {latestStat?.failed || 0} / {latestStat?.skipped || 0}
-                </p>
-              </div>
-            </div>
-
-            {/* SYNC HISTORY AND ERRORS */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Recent Sync Logs</h3>
-                <button onClick={fetchStats} className="text-blue-600 hover:text-blue-700 text-sm font-medium">Refresh</button>
-              </div>
-              
-              <div className="overflow-x-auto">
-                {stats.length === 0 ? (
-                  <div className="p-8 text-center text-slate-500">No sync history available.</div>
-                ) : (
-                  <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
-                      <tr>
-                        <th className="px-6 py-4">Timestamp</th>
-                        <th className="px-6 py-4">Rows</th>
-                        <th className="px-6 py-4">Created</th>
-                        <th className="px-6 py-4">Updated</th>
-                        <th className="px-6 py-4">Skipped</th>
-                        <th className="px-6 py-4">Failed</th>
-                        <th className="px-6 py-4">Errors</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                      {stats.map((stat) => (
-                        <tr key={stat._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/20">
-                          <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                            {new Date(stat.timestamp).toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{stat.processed} / {stat.totalRows}</td>
-                          <td className="px-6 py-4 text-green-600 dark:text-green-400 font-medium">{stat.created}</td>
-                          <td className="px-6 py-4 text-blue-600 dark:text-blue-400">{stat.updated}</td>
-                          <td className="px-6 py-4 text-slate-500">{stat.skipped}</td>
-                          <td className="px-6 py-4 text-red-600 dark:text-red-400 font-medium">{stat.failed}</td>
-                          <td className="px-6 py-4">
-                            {stat.errors && stat.errors.length > 0 ? (
-                              <div className="max-h-24 overflow-y-auto space-y-1">
-                                {stat.errors.map((err, i) => (
-                                  <div key={i} className="text-xs text-red-600 dark:text-red-400">
-                                    <span className="font-semibold">Row {err.row} ({err.email}):</span> {err.reason}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 italic text-xs">No errors</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs text-slate-600 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-secondary-dark font-bold text-slate-500">
+                <tr>
+                  <th className="p-4">Row ID</th>
+                  <th className="p-4">Student Name</th>
+                  <th className="p-4">Email</th>
+                  <th className="p-4">Phone</th>
+                  <th className="p-4">Course</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-border-dark">
+                {filteredRequests.map((req) => (
+                  <tr key={req._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition">
+                    <td className="p-4 font-bold text-slate-400">{req.googleRowId || 'N/A'}</td>
+                    <td className="p-4 font-bold text-slate-800 dark:text-white">{req.fullName}</td>
+                    <td className="p-4 font-semibold text-slate-500">{req.email}</td>
+                    <td className="p-4 font-semibold text-slate-500">{req.phone}</td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1">
+                        {req.courses?.map((c, i) => (
+                          <span key={i} className="text-[9px] bg-primary/10 text-primary font-bold px-2.5 py-0.5 rounded">
+                            {c.title}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className={`inline-block font-extrabold uppercase text-[9px] px-2 py-0.5 rounded ${
+                        req.status === 'APPROVED' 
+                          ? 'bg-emerald-500/10 text-emerald-500' 
+                          : req.status === 'REJECTED'
+                          ? 'bg-red-500/10 text-red-500'
+                          : req.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-500/10 text-slate-500'
+                      }`}>
+                        {req.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => openDetails(req)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition text-[10px] font-bold flex items-center gap-1.5 ml-auto"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
-    </DashboardLayout>
+
+      {/* DETAILS MODAL */}
+      {showDetailsModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Student Details</h3>
+              <button onClick={() => setShowDetailsModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto space-y-4 flex-1 pr-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Personal Information</h4>
+                  <p><span className="font-bold text-slate-500">Name:</span> {selectedRequest.fullName}</p>
+                  <p><span className="font-bold text-slate-500">Email:</span> {selectedRequest.email}</p>
+                  <p><span className="font-bold text-slate-500">Phone:</span> {selectedRequest.phone}</p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Course Details</h4>
+                  <p><span className="font-bold text-slate-500">Course:</span> {selectedRequest.courses?.map(c => c.title).join(', ')}</p>
+                  <p><span className="font-bold text-slate-500">Batch:</span> {selectedRequest.preferredBatch}</p>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Google Form Raw Data</h4>
+                <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-border-dark max-h-48 overflow-y-auto">
+                  <pre className="text-[10px] text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono">
+                    {JSON.stringify(selectedRequest.rawFormData, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              {selectedRequest.status === 'PENDING' && (
+                <div>
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Rejection Reason (Optional)</h4>
+                  <input
+                    type="text"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Enter reason for rejection..."
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark"
+                  />
+                </div>
+              )}
+              {error && <div className="text-red-500 font-bold">{error}</div>}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t dark:border-border-dark">
+              {selectedRequest.status === 'PENDING' && (
+                <>
+                  <button
+                    onClick={handleReject}
+                    disabled={submitting}
+                    className="px-4 py-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 font-bold flex items-center gap-1"
+                  >
+                    {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />} Reject
+                  </button>
+                  <button
+                    onClick={() => openApproveWizard(selectedRequest)}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1"
+                  >
+                    Approve Student
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* APPROVAL WIZARD MODAL */}
+      {showApproveModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs">
+            {/* Header with Step Indicator */}
+            <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Approval Wizard</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Step {wizardStep} of 8</p>
+              </div>
+              <button onClick={() => setShowApproveModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/10 text-red-500 font-bold">
+                {error}
+              </div>
+            )}
+
+            {/* WIZARD CONTENT STEPS */}
+            <div className="space-y-4 min-h-[160px] flex flex-col justify-center">
+              
+              {/* STEP 1: REVIEW STUDENT */}
+              {wizardStep === 1 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-accent" /> Step 1: Review Student Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-slate-600 dark:text-slate-300">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Full Name</p>
+                      <p className="font-semibold">{selectedRequest.fullName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Email Address</p>
+                      <p className="font-semibold">{selectedRequest.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Contact Phone</p>
+                      <p className="font-semibold">{selectedRequest.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400">Preferred Batch</p>
+                      <p className="font-semibold">{selectedRequest.preferredBatch || 'Batch A'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 2: ASSIGN LEARNING PLAN */}
+              {wizardStep === 2 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-accent" /> Step 2: Select Learning Plan Tier
+                  </h4>
+                  <select
+                    value={approvePlan}
+                    onChange={(e) => setApprovePlan(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                  >
+                    <option value="">Select Learning Plan</option>
+                    <option value="self-paced">Self-Paced Plan</option>
+                    <option value="mentor-led">Mentor-Led Plan</option>
+                    <option value="advanced-mentor">Advanced Mentor Plan</option>
+                  </select>
+                </div>
+              )}
+
+              {/* STEP 3: ASSIGN BATCH */}
+              {wizardStep === 3 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-accent" /> Step 3: Assign Learning Batch
+                  </h4>
+                  <select
+                    value={approveBatch}
+                    onChange={(e) => setApproveBatch(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                  >
+                    <option value="Batch A">Batch A (Weekdays morning)</option>
+                    <option value="Batch B">Batch B (Weekdays evening)</option>
+                    <option value="Batch C">Batch C (Weekends batch)</option>
+                  </select>
+                </div>
+              )}
+
+              {/* STEP 4: ASSIGN MENTOR */}
+              {wizardStep === 4 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-accent" /> Step 4: Assign Instructor Mentor
+                  </h4>
+                  <select
+                    value={approveMentor}
+                    onChange={(e) => setApproveMentor(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                  >
+                    <option value="">No Mentor Assigned</option>
+                    {mentors.map((m) => (
+                      <option key={m._id} value={m._id}>
+                        {m.name} ({m.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* STEP 5: ACCESS START & EXPIRY DURATION */}
+              {wizardStep === 5 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-accent" /> Step 5: Set Access Duration Timeline
+                  </h4>
+                  <p className="text-slate-500 text-[10px]">Enrollment Validity Duration:</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      value={approveDuration}
+                      onChange={(e) => setApproveDuration(parseInt(e.target.value) || 6)}
+                      className="w-32 p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
+                    />
+                    <span className="font-bold text-slate-500">Months from today</span>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 6: CREATE STUDENT USER */}
+              {wizardStep === 6 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-accent" /> Step 6: Security Credentials
+                  </h4>
+                  <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                    <p className="font-bold text-emerald-600">Secure Account Provisioning</p>
+                    <p className="text-[10px] text-slate-500 leading-relaxed font-medium mt-1">
+                      A random temporary password will be securely compiled for the user. Password reset will be forced on first sign-in.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 7: ASSIGN COURSE(S) */}
+              {wizardStep === 7 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-accent" /> Step 7: Assign Learning Program Courses
+                  </h4>
+                  <div className="max-h-[120px] overflow-y-auto space-y-2">
+                    {courses.map((courseOption) => (
+                      <label key={courseOption._id} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 dark:border-border-dark cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 select-none">
+                        <input
+                          type="checkbox"
+                          checked={approveCourses.includes(courseOption._id)}
+                          onChange={() => handleCourseToggle(courseOption._id)}
+                          className="w-4 h-4 text-accent accent-accent rounded"
+                        />
+                        <span className="font-bold">{courseOption.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 8: WELCOME EMAIL & FINISH */}
+              {wizardStep === 8 && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
+                    <Mail className="w-4 h-4 text-accent" /> Step 8: Welcome Email & Finish
+                  </h4>
+                  <textarea
+                    placeholder="Approval comments or remarks..."
+                    value={approveRemarks}
+                    onChange={(e) => setApproveRemarks(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs h-16 resize-none"
+                  />
+                  <div className="p-3 bg-slate-50 dark:bg-secondary-dark rounded-lg text-slate-500 leading-normal">
+                    LMS access will be automatically mailed to <strong>{selectedRequest.email}</strong>.
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Navigation Actions */}
+            <div className="flex justify-between items-center border-t pt-4 dark:border-border-dark">
+              <button
+                type="button"
+                onClick={() => setWizardStep(prev => Math.max(1, prev - 1))}
+                disabled={wizardStep === 1}
+                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 disabled:opacity-40 flex items-center gap-1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+              
+              {wizardStep < 8 ? (
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(prev => Math.min(8, prev + 1))}
+                  className="px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary-light flex items-center gap-1"
+                >
+                  Next <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1.5"
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Finish & Activate</>}
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

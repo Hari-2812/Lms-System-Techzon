@@ -78,7 +78,7 @@ const GoogleFormSync: React.FC = () => {
   const fetchOnboardings = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/onboarding');
+      const res = await api.get('/admin/onboarding/requests');
       const allOnboardings: OnboardingRequest[] = res.data.data || [];
       const sheetsOnboardings = allOnboardings.filter(r => r.googleRowId);
       setRequests(sheetsOnboardings);
@@ -110,7 +110,7 @@ const GoogleFormSync: React.FC = () => {
   const handleTestConnection = async () => {
     setTestingConnection(true);
     try {
-      const res = await api.get('/onboarding/google-sheets/test');
+      const res = await api.get('/admin/onboarding/google-sheets/test');
       if (res.data.success) {
         alert(`Connection successful!\nRows detected: ${res.data.responseRows}`);
       } else {
@@ -126,7 +126,7 @@ const GoogleFormSync: React.FC = () => {
   const handleSyncSheets = async () => {
     setSyncing(true);
     try {
-      const res = await api.post('/onboarding/sync');
+      const res = await api.post('/admin/onboarding/sync');
       const syncData = res.data.summary || {};
       
       setSyncedCount(prev => prev + (syncData.created || 0)); // New Requests
@@ -181,7 +181,7 @@ const GoogleFormSync: React.FC = () => {
     setError('');
 
     try {
-      await api.post(`/onboarding/${selectedRequest._id}/approve`, {
+      await api.post(`/admin/onboarding/requests/${selectedRequest._id}/approve`, {
         courses: approveCourses,
         learningPlan: approvePlan,
         batch: approveBatch,
@@ -204,7 +204,7 @@ const GoogleFormSync: React.FC = () => {
     setError('');
 
     try {
-      await api.post(`/onboarding/${selectedRequest._id}/reject`, { reason: rejectReason });
+      await api.post(`/admin/onboarding/requests/${selectedRequest._id}/reject`, { reason: rejectReason });
       setShowDetailsModal(false);
       fetchOnboardings();
     } catch (err: any) {
