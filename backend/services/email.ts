@@ -22,6 +22,7 @@ export const sendEmail = async (options: {
   email: string;
   subject: string;
   html: string;
+  textContent?: string;
   attachments?: any[];
 }) => {
   try {
@@ -33,6 +34,7 @@ export const sendEmail = async (options: {
     const result = await brevo.transactionalEmails.sendTransacEmail({
       subject: options.subject,
       htmlContent: options.html,
+      textContent: options.textContent,
       sender: { name: EMAIL_FROM_NAME, email: EMAIL_FROM_EMAIL },
       to: [{ email: options.email }],
       attachment: options.attachments,
