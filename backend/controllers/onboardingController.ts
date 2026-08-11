@@ -6,7 +6,7 @@ import User from '../models/User';
 import Course from '../models/Course';
 import Enrollment from '../models/Enrollment';
 import LearningPlan from '../models/LearningPlan';
-import { sendWelcomeEmail } from '../services/email';
+import { sendWelcomeEmail, sendApprovalEmail } from '../services/email';
 import { createNotification } from '../services/notificationService';
 import logger from '../config/logger';
 
@@ -83,17 +83,30 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
       throw new Error(`Request is already ${request.status}`);
     }
 
-    const courseId = req.body.courseId || (req.body.courses && req.body.courses[0]);
-    if (!courseId) {
-      throw new Error(`Please select a course.`);
+    let courseId = req.body.courseId || (req.body.courses && req.body.courses[0]);
+    let course = null;
+
+    if (courseId) {
+      if (mongoose.Types.ObjectId.isValid(courseId)) {
+        course = await Course.findById(courseId).session(session);
+      } else {
+        // Fallback: maybe courseId is actually a title like "AI"
+        course = await Course.findOne({ 
+          title: { $regex: new RegExp(`^${courseId.trim()}$`, 'i') } 
+        }).session(session);
+      }
     }
-    if (!mongoose.Types.ObjectId.isValid(courseId)) {
-      throw new Error('Invalid course selected');
+    
+    // Fallback: if course is still not found and onboarding request has a course title
+    if (!course && request.courseDetails && request.courseDetails.course) {
+       course = await Course.findOne({
+         title: { $regex: new RegExp(`^${request.courseDetails.course.trim()}$`, 'i') }
+       }).session(session);
     }
 
-    const course = await Course.findById(courseId).session(session);
     if (!course) {
-      throw new Error('Selected course was not found.');
+      if (!courseId) throw new Error('Please select a course.');
+      else throw new Error('Selected course was not found.');
     }
 
     const email = request.personalDetails.email.toLowerCase().trim();
@@ -180,23 +193,22 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
     let emailSent = false;
     let emailReason = '';
     
-    if (isNewUser) {
-      try {
-        await sendWelcomeEmail(user.email, user.name, tempPassword, undefined);
-        emailSent = true;
+    try {
+      await sendApprovalEmail(user.email, user.name, course.title, isNewUser ? tempPassword : undefined);
+      emailSent = true;
+      logger.info(`[EMAIL] Approval email sent successfully\nRecipient: ${user.email}\nTemplate: student-approval`);
+      
+      if (isNewUser) {
         await createNotification({
           title: '🎓 Student Access Granted',
           message: `${user.name} has been provisioned and emailed access credentials.`,
           type: 'NEW_STUDENT_ONBOARDING',
           recipientRole: ['Admin', 'SuperAdmin'],
         });
-      } catch (err: any) {
-        logger.error('Welcome email failed:', err);
-        emailReason = err.message || 'Email service not configured or failed';
       }
-    } else {
-      // If it's an existing user, we might want to send a different email, but for now we mark it as sent or not applicable
-      emailSent = true; // We don't fail the email step for existing users
+    } catch (err: any) {
+      logger.error('Approval email failed:', err);
+      emailReason = err.message || 'Email service not configured or failed';
     }
 
     const responsePayload: any = {
@@ -283,7 +295,14 @@ export const resendApprovalEmail = async (req: Request, res: Response): Promise<
     let emailSent = false;
     let emailReason = '';
     try {
-      await sendWelcomeEmail(user.email, user.name, 'Use Password Reset if needed', undefined);
+      // Find course title if possible, or fallback to the requested course
+      let courseTitle = request.courseDetails?.course || 'Your Course';
+      if ((request as any).selectedCourseId) {
+        const course = await Course.findById((request as any).selectedCourseId);
+        if (course) courseTitle = course.title;
+      }
+      
+      await sendApprovalEmail(user.email, user.name, courseTitle, undefined);
       emailSent = true;
       logger.info(`[EMAIL] Approval email sent successfully\nRecipient: ${user.email}\nTemplate: student-approval`);
     } catch (err: any) {

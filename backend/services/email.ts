@@ -100,6 +100,41 @@ export const sendWelcomeEmail = async (
   });
 };
 
+export const sendApprovalEmail = async (
+  email: string,
+  name: string,
+  courseName: string,
+  tempPassword?: string
+): Promise<{ success: boolean; messageId: string }> => {
+  if (!process.env.BREVO_API_KEY) {
+    logger.warn('[EMAIL] Email service is not configured');
+    throw new Error('Email service is not configured');
+  }
+
+  const passwordBlock = tempPassword 
+    ? `\n\nYour LMS Temporary Password:\n<h2 style="color:#F57C20">${tempPassword}</h2>\nPlease change your password after login.`
+    : `\n\nPlease use the existing LMS login/password setup process to access your account.`;
+
+  const html = `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">
+  <p style="color: #333333; font-size: 16px;">Hello <strong>${name}</strong>,</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your Techzon LMS access has been approved.</p>
+  <p><strong>Course:</strong><br/>${courseName}</p>
+  <p><strong>Enrollment:</strong><br/>Active</p>
+  <p><strong>Login Email:</strong><br/>${email}</p>
+  <p style="color: #555555; font-size: 15px;">${passwordBlock.replace(/\n/g, '<br/>')}</p>
+  <br/>
+  <p>Regards,<br/>Techzon Wide</p>
+</div>
+`;
+
+  return await sendEmail({
+    email,
+    subject: `Your Techzon LMS Access Has Been Approved`,
+    html,
+  });
+};
+
 export const sendOTPEmail = async (
   email: string,
   code: string
