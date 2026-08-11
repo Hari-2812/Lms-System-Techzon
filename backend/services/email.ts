@@ -8,8 +8,14 @@ if (!process.env.BREVO_API_KEY) {
 const EMAIL_FROM_NAME = process.env.BREVO_SENDER_NAME || "Tech";
 const EMAIL_FROM_EMAIL = process.env.BREVO_SENDER_EMAIL || "v.hari2812@gmail.com";
 
+const brevoApiKey = process.env.BREVO_API_KEY;
+
+logger.info(
+  `[EMAIL] Brevo API key configured: ${Boolean(brevoApiKey)}`
+);
+
 const brevo = new BrevoClient({
-  apiKey: process.env.BREVO_API_KEY as string,
+  apiKey: brevoApiKey as string,
 });
 
 export const sendEmail = async (options: {
@@ -44,7 +50,12 @@ export const sendEmail = async (options: {
       subject: options.subject,
       stack: error.stack
     });
-    throw error;
+    
+    // Throw a clean error for the frontend
+    if (error.statusCode === 401 || (error.response && error.response.status === 401)) {
+      throw new Error("Email service authentication failed. Please contact the administrator.");
+    }
+    throw new Error("Email delivery failed. Please contact the administrator.");
   }
 };
 
