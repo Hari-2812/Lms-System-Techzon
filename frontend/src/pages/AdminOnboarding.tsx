@@ -179,6 +179,27 @@ const AdminOnboarding: React.FC = () => {
     }
   };
 
+  const handleResendEmail = async () => {
+    if (!selectedRequest) return;
+    setSubmitting(true);
+    setError('');
+    
+    try {
+      const response = await api.post(`/admin/onboarding/requests/${selectedRequest._id}/resend-email`);
+      const { email } = response.data;
+      
+      if (email.sent) {
+        toast.success('Approval email sent successfully.');
+      } else {
+        toast.error(`Email failed: ${email.error}`);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to resend email');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleReject = async () => {
     if (!selectedRequest) return;
     setSubmitting(true);
@@ -429,6 +450,15 @@ const AdminOnboarding: React.FC = () => {
                     {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5" /> Approve Student</>}
                   </button>
                 </>
+              )}
+              {selectedRequest.status === 'APPROVED' && (
+                <button
+                  onClick={handleResendEmail}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 flex items-center gap-1"
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Mail className="w-3.5 h-3.5" /> Resend Approval Email</>}
+                </button>
               )}
             </div>
           </div>

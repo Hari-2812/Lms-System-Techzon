@@ -20,21 +20,35 @@ export const getOnboardingRequests = async (req: Request, res: Response): Promis
     const requests = await OnboardingRequest.find(status ? { status } : {}).sort({ submittedAt: -1 });
     
     // Transform to match frontend expectations if necessary, or let frontend adapt
-    const transformed = requests.map(r => ({
-      _id: r._id,
-      googleRowId: r.sourceRowId,
-      fullName: r.personalDetails.fullName,
-      email: r.personalDetails.email,
-      phone: r.personalDetails.phone,
-      college: r.educationDetails?.college,
-      city: r.addressDetails?.city,
-      state: r.addressDetails?.state,
-      preferredBatch: r.courseDetails.batch,
-      courses: [{ _id: 'dummy', title: r.courseDetails.course }], // Mocking the object structure frontend expects for now, we map it on approval
-      status: r.status,
-      createdAt: r.submittedAt,
-      rawFormData: r.rawFormData
-    }));
+    const allCourses = await Course.find().select('_id title').lean();
+    
+    const transformed = requests.map(r => {
+      let resolvedCourseId = '';
+      let resolvedCourseTitle = '';
+      if (r.courseDetails && r.courseDetails.course) {
+        const matchingCourse = allCourses.find(c => c.title.toLowerCase().trim() === r.courseDetails.course.toLowerCase().trim());
+        if (matchingCourse) {
+          resolvedCourseId = matchingCourse._id.toString();
+          resolvedCourseTitle = matchingCourse.title;
+        }
+      }
+      
+      return {
+        _id: r._id,
+        googleRowId: r.sourceRowId,
+        fullName: r.personalDetails.fullName,
+        email: r.personalDetails.email,
+        phone: r.personalDetails.phone,
+        college: r.educationDetails?.college,
+        city: r.addressDetails?.city,
+        state: r.addressDetails?.state,
+        preferredBatch: r.courseDetails.batch,
+        courses: resolvedCourseId ? [{ _id: resolvedCourseId, title: resolvedCourseTitle }] : [], // Safely mapping the course
+        status: r.status,
+        createdAt: r.submittedAt,
+        rawFormData: r.rawFormData
+      };
+    });
 
     res.status(200).json({ success: true, data: transformed, total: requests.length });
   } catch (error: any) {
@@ -242,6 +256,50 @@ export const rejectOnboardingRequest = async (req: Request, res: Response): Prom
     
     res.status(200).json({ success: true, message: 'Request rejected' });
   } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const resendApprovalEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const request = await OnboardingRequest.findById(req.params.id);
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Request not found' });
+      return;
+    }
+    
+    if (request.status !== 'APPROVED') {
+      res.status(400).json({ success: false, message: 'Cannot resend email for unapproved request' });
+      return;
+    }
+
+    const email = request.personalDetails.email.toLowerCase().trim();
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(404).json({ success: false, message: 'Student user not found in the system' });
+      return;
+    }
+
+    let emailSent = false;
+    let emailReason = '';
+    try {
+      await sendWelcomeEmail(user.email, user.name, 'Use Password Reset if needed', undefined);
+      emailSent = true;
+      logger.info(`[EMAIL] Approval email sent successfully\nRecipient: ${user.email}\nTemplate: student-approval`);
+    } catch (err: any) {
+      logger.error(`[EMAIL] Approval email failed\nRecipient: ${user.email}\nReason: ${err.message}`);
+      emailReason = err.message || 'SMTP authentication failed';
+    }
+
+    res.status(200).json({
+      success: true,
+      email: {
+        sent: emailSent,
+        error: emailSent ? undefined : emailReason
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error resending email:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

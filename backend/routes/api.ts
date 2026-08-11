@@ -27,7 +27,13 @@ import {
 } from '../controllers/paymentController';
 // Onboarding Sync will be handled via onboardingSyncController
 import { syncGoogleSheets, getSyncStats, testGoogleConnectionRoute } from '../controllers/onboardingSyncController';
-import { getOnboardingRequests, getOnboardingRequestById, approveOnboardingRequest, rejectOnboardingRequest } from '../controllers/onboardingController';
+import { 
+  getOnboardingRequests, 
+  getOnboardingRequestById, 
+  approveOnboardingRequest, 
+  rejectOnboardingRequest,
+  resendApprovalEmail 
+} from '../controllers/onboardingController';
 import multer from 'multer';
 import {
   getCourses,
@@ -215,6 +221,7 @@ router.get('/admin/onboarding/requests', getOnboardingRequests);
 router.get('/admin/onboarding/requests/:id', getOnboardingRequestById);
 router.post('/admin/onboarding/requests/:id/approve', approveOnboardingRequest);
 router.post('/admin/onboarding/requests/:id/reject', rejectOnboardingRequest);
+router.post('/admin/onboarding/requests/:id/resend-email', resendApprovalEmail);
 
 // Sync routes
 router.get('/admin/onboarding/google-sheets/test', testGoogleConnectionRoute);
