@@ -60,6 +60,9 @@ const AdminOnboarding: React.FC = () => {
   // Dialog Modals
   const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showMigrationModal, setShowMigrationModal] = useState(false);
+  const [migrationStats, setMigrationStats] = useState<any>(null);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   
   const [rejectReason, setRejectReason] = useState('');
@@ -102,16 +105,43 @@ const AdminOnboarding: React.FC = () => {
   const handleTestConnection = async () => {
     setTestingConnection(true);
     try {
-      const res = await api.get('/admin/onboarding/google-sheets/test');
+      const res = await api.get('/admin/onboarding/sync/test');
       if (res.data.success) {
-        alert(`Connection successful!\nRows detected: ${res.data.responseRows}`);
+        toast.success(res.data.message || 'Connection successful!');
       } else {
-        alert(`Connection Failed: ${res.data.message}\nCode: ${res.data.code}`);
+        toast.error('Connection test failed.');
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Connection test failed due to an unknown error.');
+      toast.error(err.response?.data?.message || 'Connection test failed');
     } finally {
       setTestingConnection(false);
+    }
+  };
+
+  const openMigrationPreview = async () => {
+    setIsMigrating(true);
+    try {
+      const res = await api.post('/admin/onboarding/import-all-google-form?dryRun=true');
+      setMigrationStats(res.data.stats);
+      setShowMigrationModal(true);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to generate migration preview');
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
+  const executeMigration = async () => {
+    setIsMigrating(true);
+    try {
+      const res = await api.post('/admin/onboarding/import-all-google-form?dryRun=false');
+      toast.success(res.data.message || 'Migration completed successfully!');
+      setShowMigrationModal(false);
+      fetchOnboardings();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Migration failed');
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -231,8 +261,16 @@ const AdminOnboarding: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={openMigrationPreview}
+            disabled={isMigrating || syncing || testingConnection}
+            className="btn-outline py-2.5 px-4 flex items-center gap-1.5 text-xs font-bold rounded-xl border border-rose-200 text-rose-500 hover:bg-rose-50"
+          >
+            {isMigrating ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+            One-Time Migration
+          </button>
+          <button
             onClick={handleTestConnection}
-            disabled={testingConnection || syncing}
+            disabled={testingConnection || syncing || isMigrating}
             className="btn-outline py-2.5 px-4 flex items-center gap-1.5 text-xs font-bold rounded-xl border border-slate-200"
           >
             {testingConnection ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -240,7 +278,7 @@ const AdminOnboarding: React.FC = () => {
           </button>
           <button
             onClick={handleSyncSheets}
-            disabled={syncing || testingConnection}
+            disabled={syncing || testingConnection || isMigrating}
             className="btn-accent py-2.5 px-4 flex items-center gap-1.5"
           >
             {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
@@ -368,6 +406,56 @@ const AdminOnboarding: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* MIGRATION MODAL */}
+      {showMigrationModal && migrationStats && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-white dark:bg-card-dark rounded-2xl border border-rose-200 dark:border-rose-900 p-6 space-y-6 shadow-xl text-xs">
+            <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark border-rose-100">
+              <h3 className="text-lg font-bold text-rose-600 dark:text-rose-500 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> ONE-TIME GOOGLE FORM IMPORT
+              </h3>
+              <button onClick={() => setShowMigrationModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                This will import all valid Google Form submissions, including submissions with duplicate emails. 
+                Existing LMS students will NOT be deleted. Google Form/Sheet will NOT be modified. 
+                Duplicate FORM submissions will be allowed based on unique sourceRowId.
+              </p>
+              
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 font-mono text-[11px]">
+                <div className="flex justify-between"><span className="text-slate-500">Total Google Sheet rows:</span> <span className="font-bold">{migrationStats.totalRows}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Already imported:</span> <span className="font-bold">{migrationStats.alreadyImported}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Duplicate emails:</span> <span className="font-bold text-rose-500">{migrationStats.duplicateEmails}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Rows to import:</span> <span className="font-bold text-emerald-500">{migrationStats.rowsToImport}</span></div>
+                <div className="flex justify-between pt-2 border-t mt-2 border-slate-200"><span className="text-slate-500">Existing active users:</span> <span className="font-bold">{migrationStats.existingUsers}</span></div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t dark:border-border-dark">
+              <button
+                onClick={() => setShowMigrationModal(false)}
+                disabled={isMigrating}
+                className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeMigration}
+                disabled={isMigrating}
+                className="px-4 py-2 rounded-lg bg-rose-500 text-white font-bold hover:bg-rose-600 flex items-center gap-2"
+              >
+                {isMigrating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} 
+                Start Migration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DETAILS MODAL */}
       {showDetailsModal && selectedRequest && (

@@ -31,6 +31,7 @@ import {
   getOnboardingRequests, 
   getOnboardingRequestById, 
   approveOnboardingRequest, 
+  migrateDuplicateGoogleForms,
   rejectOnboardingRequest,
   resendApprovalEmail,
   deleteOnboardingRequest
@@ -220,6 +221,9 @@ router.use(authorize('SuperAdmin', 'Admin'));
 // Onboarding requests API
 router.get('/admin/onboarding/requests', getOnboardingRequests);
 router.get('/admin/onboarding/requests/:id', authorize('Admin', 'SuperAdmin'), getOnboardingRequestById);
+// Duplicate Migration
+router.post('/admin/onboarding/import-all-google-form', authorize('Admin', 'SuperAdmin'), migrateDuplicateGoogleForms);
+
 router.post('/admin/onboarding/requests/:id/approve', authorize('Admin', 'SuperAdmin'), approveOnboardingRequest);
 router.post('/admin/onboarding/requests/:id/reject', authorize('Admin', 'SuperAdmin'), rejectOnboardingRequest);
 router.post('/admin/onboarding/requests/:id/resend-email', authorize('Admin', 'SuperAdmin'), resendApprovalEmail);

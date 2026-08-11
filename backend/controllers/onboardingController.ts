@@ -4,6 +4,8 @@ import crypto from 'crypto';
 import OnboardingRequest from '../models/OnboardingRequest';
 import User from '../models/User';
 import Course from '../models/Course';
+import GoogleSyncRecord from '../models/GoogleSyncRecord';
+import { getAuthAndSheets, fetchSpreadsheetData, normalizeHeader, getField, normalizeCourseName } from '../services/onboardingSyncService';
 import Enrollment from '../models/Enrollment';
 import LearningPlan from '../models/LearningPlan';
 import { sendWelcomeEmail, sendApprovalEmail } from '../services/email';
@@ -344,6 +346,146 @@ export const resendApprovalEmail = async (req: Request, res: Response): Promise<
     });
   } catch (error: any) {
     logger.error('Error resending email:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const migrateDuplicateGoogleForms = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (process.env.IMPORT_DUPLICATE_GOOGLE_FORM_SUBMISSIONS !== 'true') {
+      res.status(403).json({ success: false, message: 'Migration mode is disabled. Please set IMPORT_DUPLICATE_GOOGLE_FORM_SUBMISSIONS=true in environment variables to proceed.' });
+      return;
+    }
+
+    const isDryRun = String(req.query.dryRun) === 'true' || req.body.dryRun === true;
+
+    // Fetch the sheet
+    const { sheets, spreadsheetId, worksheetName } = await getAuthAndSheets();
+    const rows = await fetchSpreadsheetData(sheets, spreadsheetId, worksheetName);
+
+    if (rows.length <= 1) {
+      res.status(200).json({ success: true, message: 'No data found in Google Sheet.' });
+      return;
+    }
+
+    const headerRow = rows[0].map((h: any) => normalizeHeader(h?.toString() || ''));
+    const dataRows = rows.slice(1);
+    const originalHeaders = rows[0];
+
+    const stats = {
+      totalRows: dataRows.length,
+      alreadyImported: 0,
+      duplicateEmails: 0,
+      rowsToImport: 0,
+      existingUsers: 0,
+      existingEnrollments: 0,
+      imported: 0,
+      skipped: 0
+    };
+
+    const seenEmailsInSheet = new Set<string>();
+
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      const rowNumber = i + 2;
+      const sourceRowId = `row-${rowNumber}`;
+
+      const emailRaw = getField(row, headerRow, 'Email') || getField(row, headerRow, 'Email Address') || getField(row, headerRow, 'Mail id');
+      const email = emailRaw ? emailRaw.toLowerCase().trim() : '';
+
+      if (!email) {
+        stats.skipped++;
+        continue;
+      }
+
+      // Check for already processed sourceRowId
+      const existingReq = await OnboardingRequest.findOne({ source: 'google_form', sourceRowId });
+      if (existingReq) {
+        stats.alreadyImported++;
+        seenEmailsInSheet.add(email); // Count it as seen so further identical emails count as duplicate
+        continue;
+      }
+
+      // Check if duplicate email
+      const userExists = await User.findOne({ email });
+      if (userExists || seenEmailsInSheet.has(email)) {
+        stats.duplicateEmails++;
+      }
+      seenEmailsInSheet.add(email);
+
+      if (userExists) {
+        stats.existingUsers++;
+      }
+
+      stats.rowsToImport++;
+
+      if (!isDryRun) {
+        // Essential Mapping
+        const fullName = getField(row, headerRow, 'Name') || getField(row, headerRow, 'Full Name');
+        const phone = getField(row, headerRow, 'Phone') || getField(row, headerRow, 'Phone Number') || getField(row, headerRow, 'Contact');
+        const courseStr = getField(row, headerRow, 'Course') || getField(row, headerRow, 'Course Name') || '';
+        const batchStr = getField(row, headerRow, 'Batch') || getField(row, headerRow, 'Preferred Batch') || '';
+        
+        const timestampRaw = getField(row, headerRow, 'Timestamp');
+        const submittedAt = timestampRaw ? new Date(timestampRaw) : new Date();
+        const mappedCourseTitle = normalizeCourseName(courseStr);
+
+        const rawFormData: Record<string, any> = {};
+        originalHeaders.forEach((h: any, idx: number) => {
+          if (h) {
+            rawFormData[h.toString()] = row[idx] !== undefined ? row[idx] : null;
+          }
+        });
+
+        const newRequest = new OnboardingRequest({
+          source: 'google_form',
+          sourceRowId,
+          submittedAt,
+          syncedAt: new Date(),
+          status: 'PENDING',
+          personalDetails: {
+            fullName: fullName || 'Unknown',
+            email: email,
+            phone: phone,
+            city: getField(row, headerRow, 'City'),
+            state: getField(row, headerRow, 'State'),
+            gender: getField(row, headerRow, 'Gender')
+          },
+          addressDetails: {
+            city: getField(row, headerRow, 'City'),
+            state: getField(row, headerRow, 'State'),
+          },
+          educationDetails: {
+            qualification: getField(row, headerRow, 'Qualification'),
+            college: getField(row, headerRow, 'College'),
+          },
+          courseDetails: {
+            course: mappedCourseTitle || courseStr,
+            batch: batchStr,
+          },
+          rawFormData
+        });
+
+        await newRequest.save();
+
+        await GoogleSyncRecord.create({
+          source: 'google_form',
+          sourceRowId,
+          syncedAt: new Date()
+        });
+
+        stats.imported++;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: isDryRun ? 'Dry run completed' : 'Migration completed successfully',
+      isDryRun,
+      stats
+    });
+  } catch (error: any) {
+    logger.error('Error during migration:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

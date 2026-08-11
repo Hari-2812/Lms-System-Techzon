@@ -16,11 +16,11 @@ const generateTempPassword = (): string => {
   return crypto.randomBytes(6).toString('hex');
 };
 
-const normalizeHeader = (header: string): string => {
+export const normalizeHeader = (header: string): string => {
   return header.toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 };
 
-const getField = (row: any[], headerRow: string[], headerName: string): string => {
+export const getField = (row: any[], headerRow: string[], headerName: string): string => {
   const normalized = normalizeHeader(headerName);
   const index = headerRow.findIndex((col) => col === normalized);
   return index >= 0 ? `${row[index] || ''}`.trim() : '';
@@ -35,7 +35,7 @@ const COURSE_MAPPING: Record<string, string> = {
   'mern stack': 'MERN Stack Development',
 };
 
-const normalizeCourseName = (courseName: string): string => {
+export const normalizeCourseName = (courseName: string): string => {
   const normalized = normalizeHeader(courseName);
   // Try to find a match in the mapping
   for (const [alias, actual] of Object.entries(COURSE_MAPPING)) {
@@ -51,7 +51,7 @@ const extractSpreadsheetId = (input: string): string => {
   return match ? match[1] : input;
 };
 
-const getAuthAndSheets = async () => {
+export const getAuthAndSheets = async () => {
   const settings = await Settings.findOne();
   const sheetsConfig = settings?.googleSheetsSettings;
 
@@ -84,7 +84,7 @@ const getAuthAndSheets = async () => {
   }
 };
 
-const fetchSpreadsheetData = async (sheets: any, spreadsheetId: string, worksheetName?: string) => {
+export const fetchSpreadsheetData = async (sheets: any, spreadsheetId: string, worksheetName?: string) => {
   try {
     let metadata;
     try {
