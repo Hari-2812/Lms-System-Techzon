@@ -135,6 +135,7 @@ export const loginWithPassword = async (req: Request, res: Response): Promise<vo
 
     res.status(200).json({
       success: true,
+      requiresPasswordChange: user.needsPasswordChange,
       token: accessToken,
       accessToken: accessToken,
       refreshToken: refreshToken,

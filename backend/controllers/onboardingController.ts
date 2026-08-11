@@ -9,10 +9,7 @@ import LearningPlan from '../models/LearningPlan';
 import { sendWelcomeEmail, sendApprovalEmail } from '../services/email';
 import { createNotification } from '../services/notificationService';
 import logger from '../config/logger';
-
-const generateTempPassword = (): string => {
-  return crypto.randomBytes(6).toString('hex');
-};
+import { generateSecureTemporaryPassword } from '../utils/passwordGenerator';
 
 export const getOnboardingRequests = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -116,7 +113,7 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
 
     if (!user) {
       isNewUser = true;
-      tempPassword = generateTempPassword();
+      tempPassword = generateSecureTemporaryPassword();
       user = new User({
         name: request.personalDetails.fullName || 'Unknown',
         email,
@@ -302,7 +299,17 @@ export const resendApprovalEmail = async (req: Request, res: Response): Promise<
         if (course) courseTitle = course.title;
       }
       
-      await sendApprovalEmail(user.email, user.name, courseTitle, undefined);
+      let tempPassword = undefined;
+      
+      // If the user's account requires a password change (i.e. they haven't logged in and changed it yet),
+      // we generate a brand new temporary password for security instead of sending the old one (which we don't have in plaintext anyway)
+      if (user.needsPasswordChange) {
+        tempPassword = generateSecureTemporaryPassword();
+        user.password = tempPassword;
+        await user.save(); // Mongoose pre-save hook will hash it
+      }
+      
+      await sendApprovalEmail(user.email, user.name, courseTitle, tempPassword);
       emailSent = true;
       logger.info(`[EMAIL] Approval email sent successfully\nRecipient: ${user.email}\nTemplate: student-approval`);
     } catch (err: any) {

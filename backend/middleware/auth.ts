@@ -43,6 +43,24 @@ export const protect = async (
       return;
     }
 
+    if (user.needsPasswordChange) {
+      // Allow access to auth-related routes so the user can change password or logout
+      const allowedPaths = ['/auth/update-password', '/auth/logout', '/auth/logout-all', '/auth/me'];
+      
+      // req.originalUrl contains the full path including /api prefix usually, but req.path is relative to the router
+      // Since this is mounted on /api, we should check if the path ends with one of the allowed paths
+      const isAllowed = allowedPaths.some(p => req.originalUrl.includes(p) || req.path.includes(p));
+      
+      if (!isAllowed) {
+        res.status(403).json({ 
+          success: false, 
+          message: 'Password change required before accessing the LMS.', 
+          requiresPasswordChange: true 
+        });
+        return;
+      }
+    }
+
     req.user = user as any;
     next();
   } catch (error) {
