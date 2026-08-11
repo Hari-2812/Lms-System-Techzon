@@ -66,6 +66,10 @@ export const getAuthAndSheets = async () => {
     throw error;
   }
 
+  logger.info(`[GOOGLE] Service account configured: true`);
+  logger.info(`[GOOGLE] Service account email domain: ${serviceAccountEmail.split('@')[1]}`);
+  logger.info(`[GOOGLE] Spreadsheet ID configured: true`);
+
   const spreadsheetId = extractSpreadsheetId(rawSpreadsheetId);
   const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
 
@@ -89,17 +93,21 @@ export const fetchSpreadsheetData = async (sheets: any, spreadsheetId: string, w
     let metadata;
     try {
       metadata = await sheets.spreadsheets.get({ spreadsheetId });
+      logger.info(`[GOOGLE] Spreadsheet access verified`);
     } catch (err: any) {
       if (err.code === 403 || err.status === 403) {
-         const error: any = new Error('Google authentication succeeded, but the configured spreadsheet cannot be accessed. Please verify that the Google service account has access to the response spreadsheet.');
+         logger.error(`[GOOGLE] Spreadsheet access DENIED for service account.`);
+         const error: any = new Error(`Google authentication succeeded, but the configured spreadsheet cannot be accessed. Please verify that the Google service account has access to the response spreadsheet. Original API Error: ${err.message}`);
          error.code = 'GOOGLE_SHEETS_ACCESS_DENIED';
          throw error;
       }
       if (err.code === 404 || err.status === 404) {
-         const error: any = new Error('Spreadsheet not found.');
+         logger.error(`[GOOGLE] Spreadsheet NOT FOUND.`);
+         const error: any = new Error(`Spreadsheet not found. Original API Error: ${err.message}`);
          error.code = 'SPREADSHEET_NOT_FOUND';
          throw error;
       }
+      logger.error(`[GOOGLE] Sheets API request failed: ${err.message}`);
       throw err;
     }
 
