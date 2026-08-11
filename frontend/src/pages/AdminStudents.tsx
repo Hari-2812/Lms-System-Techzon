@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Users, UserPlus, Mail, ShieldAlert, Loader2, Plus, X } from 'lucide-react';
+import { Users, UserPlus, Mail, ShieldAlert, Loader2, Plus, X, Edit, Eye, MoreVertical } from 'lucide-react';
 
 interface Student {
   _id: string;
@@ -18,6 +18,12 @@ interface Student {
   currentCourse?: string;
   lastActive?: string;
   batch?: string;
+  studentProfile?: {
+    phone?: string;
+    city?: string;
+    qualification?: string;
+    dateOfBirth?: string;
+  };
 }
 
 const AdminStudents: React.FC = () => {
@@ -34,6 +40,19 @@ const AdminStudents: React.FC = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'mentor' | 'admin'>('mentor');
   const [saving, setSaving] = useState(false);
+
+  // Edit Student states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    city: '',
+    qualification: '',
+    dateOfBirth: ''
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Manage Enrollments states
   const [courses, setCourses] = useState<any[]>([]);
@@ -90,19 +109,53 @@ const AdminStudents: React.FC = () => {
 
   const [resending, setResending] = useState<string | null>(null);
 
-  const handleResendCredentials = async (studentId: string) => {
-    setResending(studentId);
+  const handleResendCredentials = async (student: Student) => {
+    if (!window.confirm(`Resend Login Credentials?\n\nStudent: ${student.name}\nEmail: ${student.email}\n\nA new temporary password will be generated.\nThe student's current password will be replaced.`)) {
+      return;
+    }
+    
+    setResending(student._id);
     try {
-      const res = await api.post(`/users/${studentId}/resend-credentials`);
+      const res = await api.post(`/users/students/${student._id}/resend-credentials`);
       if (res.data.emailSent) {
-        alert('Welcome credentials email resent successfully!');
+        alert('Login credentials sent successfully.\n\nA new temporary password has been generated and sent to the student\'s email.');
       } else {
-        alert('Temporary password generated, but email delivery failed. Check SMTP configuration.');
+        alert('Credentials updated, but email delivery failed. Please use Resend Login Credentials again or check SMTP configuration.');
       }
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to resend welcome credentials.');
     } finally {
       setResending(null);
+    }
+  };
+
+  const handleEditClick = (student: Student) => {
+    setEditingStudent(student);
+    setEditForm({
+      name: student.name,
+      email: student.email,
+      phone: student.studentProfile?.phone || student.phone || '',
+      city: student.studentProfile?.city || '',
+      qualification: student.studentProfile?.qualification || '',
+      dateOfBirth: student.studentProfile?.dateOfBirth ? new Date(student.studentProfile.dateOfBirth).toISOString().split('T')[0] : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    
+    setSavingEdit(true);
+    try {
+      await api.put(`/users/students/${editingStudent._id}`, editForm);
+      alert('Student details updated successfully.');
+      setShowEditModal(false);
+      fetchUsers();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to update student details.');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -233,8 +286,27 @@ const AdminStudents: React.FC = () => {
                       <td className="px-6 py-4 text-slate-500 text-[11px] max-w-[150px] truncate" title={item.currentCourse}>{item.currentCourse || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{item.lastActive && item.lastActive !== 'Never' ? new Date(item.lastActive).toLocaleDateString() : 'Never'}</td>
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-                        <button onClick={() => navigate(`/admin/students/${item._id}`)} className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 text-xs font-bold">
-                          View Details
+                        <button 
+                          onClick={() => navigate(`/admin/students/${item._id}`)} 
+                          title="View Student"
+                          className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleEditClick(item)} 
+                          title="Edit Student"
+                          className="p-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleResendCredentials(item)} 
+                          title="Resend Login Credentials"
+                          disabled={resending === item._id}
+                          className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 transition disabled:opacity-50"
+                        >
+                          {resending === item._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                         </button>
                       </td>
                     </>
@@ -323,6 +395,97 @@ const AdminStudents: React.FC = () => {
               <button type="submit" disabled={saving} className="btn-accent w-full py-2.5 text-xs">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Provision Profile'}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {showEditModal && editingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 font-poppins">
+          <div className="w-full max-w-lg glass-card p-6 border border-white/5 space-y-4 text-left relative dark:bg-card-dark max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setShowEditModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-extrabold text-slate-800 dark:text-white text-base">Edit Student Details</h3>
+            <p className="text-xs text-slate-500">Update basic profile information for <strong>{editingStudent.name}</strong>.</p>
+
+            <form onSubmit={handleSaveEdit} className="space-y-4 text-xs font-semibold mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-slate-400">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent text-slate-800 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent text-slate-800 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400">Phone</label>
+                  <input
+                    type="text"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent text-slate-800 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={editForm.dateOfBirth}
+                    onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent text-slate-800 dark:text-white [color-scheme:light] dark:[color-scheme:dark]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400">Education / Qualification</label>
+                  <input
+                    type="text"
+                    value={editForm.qualification}
+                    onChange={(e) => setEditForm({ ...editForm, qualification: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent text-slate-800 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400">City</label>
+                  <input
+                    type="text"
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent text-slate-800 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-border-dark mt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="btn-accent px-6 py-2 text-xs flex items-center justify-center min-w-[120px]"
+                >
+                  {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
+                </button>
+              </div>
             </form>
           </div>
         </div>

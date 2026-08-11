@@ -272,8 +272,15 @@ router.delete('/lessons/:id', deleteLesson);
 // Quiz Scheduling
 router.post('/quizzes', createQuiz);
 
+import {
+  updateStudentDetails,
+  resendStudentCredentials
+} from '../controllers/adminStudentController';
+
 // User/Student Administration
 router.get('/users/students', authorize('Admin', 'SuperAdmin', 'Mentor'), getAdminStudentsList);
+router.put('/users/students/:studentId', authorize('Admin', 'SuperAdmin'), updateStudentDetails);
+router.post('/users/students/:studentId/resend-credentials', authorize('Admin', 'SuperAdmin'), resendStudentCredentials);
 // updateStudentEnrollments moved to generic users route or removed if not needed
 router.get('/analytics/students/:id', authorize('Admin', 'SuperAdmin', 'Mentor'), getStudentAnalyticsDetails);
 router.post('/analytics/students/:id/course/:courseId/reset', authorize('SuperAdmin', 'Admin'), adminResetProgress);

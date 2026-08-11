@@ -234,3 +234,62 @@ export const sendPasswordResetEmail = async (
     html,
   });
 };
+
+export const sendCredentialsResetEmail = async (
+  email: string,
+  name: string,
+  tempPassword: string
+): Promise<{ success: boolean; messageId: string }> => {
+  if (!process.env.BREVO_API_KEY) {
+    logger.warn('[EMAIL] Email service is not configured');
+    throw new Error('Email service is not configured');
+  }
+
+  const FRONTEND_URL = process.env.FRONTEND_URL || "https://lms-system-techzon.vercel.app";
+  const loginUrl = `${FRONTEND_URL}/login`;
+
+  const html = `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">
+  <p style="color: #333333; font-size: 16px;">Hello <strong>${name}</strong>,</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your LMS login credentials have been reset by the administrator.</p>
+  
+  <h3 style="color: #241252; margin-top: 25px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Your LMS Login Details</h3>
+  
+  <p><strong>Login Email:</strong><br/>${email}</p>
+  
+  <div style="margin-top: 20px;">
+    <p style="color: #333333; font-size: 15px; font-weight: bold; margin-bottom: 5px;">Temporary Password:</p>
+    <div style="background-color: #f9f9f9; border: 1px dashed #cccccc; padding: 15px; border-radius: 8px; display: inline-block;">
+      <h2 style="color: #F57C20; margin: 0; font-family: monospace; letter-spacing: 1px;">${tempPassword}</h2>
+    </div>
+  </div>
+  
+  <p style="color: #d9534f; font-size: 14px; font-weight: bold; margin-top: 15px;">
+    IMPORTANT:<br/>
+    This is a temporary password.<br/>
+    For security, you MUST change your password after your first login.<br/>
+    After logging in, you will automatically be asked to create a new password.
+  </p>
+  
+  <div style="text-align: center; margin: 35px 0;">
+    <a href="${loginUrl}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+      Login to LMS
+    </a>
+  </div>
+  
+  <p style="color: #555555; font-size: 14px;">If you have any questions, contact us at <a href="mailto:support@techzonwide.com" style="color: #F57C20;">support@techzonwide.com</a>.</p>
+  
+  <br/>
+  <p style="color: #888; font-size: 14px;">Regards,<br/>Techzon Wide</p>
+</div>
+`;
+
+  const textContent = `Welcome to Techzon LMS System\n\nHello ${name},\nYour LMS login credentials have been reset by the administrator.\n\nYour Login Email: ${email}\nYour Temporary Password: ${tempPassword}\n\nLogin to LMS: ${loginUrl}\n\nIMPORTANT:\nThis is a temporary password.\nFor security, you must change your password after logging in.\nAfter login, you will automatically be redirected to the password change screen.\n\nRegards,\nTechzon Wide\nsupport@techzonwide.com`;
+
+  return await sendEmail({
+    email,
+    subject: `Your Techzon LMS Login Credentials`,
+    html,
+    textContent
+  });
+};
