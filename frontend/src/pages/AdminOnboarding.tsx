@@ -59,16 +59,7 @@ const AdminOnboarding: React.FC = () => {
   // Dialog Modals
   const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showApproveModal, setShowApproveModal] = useState(false);
-
-  // Approval Wizard Parameters
-  const [wizardStep, setWizardStep] = useState(1);
-  const [approveCourses, setApproveCourses] = useState<string[]>([]);
-  const [approvePlan, setApprovePlan] = useState('');
-  const [approveBatch, setApproveBatch] = useState('Batch A');
-  const [approveMentor, setApproveMentor] = useState('');
-  const [approveDuration, setApproveDuration] = useState(6);
-  const [approveRemarks, setApproveRemarks] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   
   const [rejectReason, setRejectReason] = useState('');
   
@@ -150,46 +141,27 @@ const AdminOnboarding: React.FC = () => {
 
   const openDetails = (req: OnboardingRequest) => {
     setSelectedRequest(req);
+    setSelectedCourseId(req.courses?.[0]?._id || '');
+    setError('');
     setShowDetailsModal(true);
   };
 
-  const openApproveWizard = (req: OnboardingRequest) => {
-    setShowDetailsModal(false);
-    setSelectedRequest(req);
-    setWizardStep(1);
-    setApproveCourses(req.courses?.map(c => c._id) || []);
-    setApprovePlan(req.learningPlan?._id || '');
-    setApproveBatch(req.preferredBatch || 'Batch A');
-    setApproveMentor(req.preferredMentor?._id || '');
-    setApproveDuration(req.learningPlan?.durationMonths || 6);
-    setApproveRemarks('');
-    setError('');
-    setShowApproveModal(true);
-  };
 
-  const handleCourseToggle = (courseId: string) => {
-    if (approveCourses.includes(courseId)) {
-      setApproveCourses(approveCourses.filter((id) => id !== courseId));
-    } else {
-      setApproveCourses([...approveCourses, courseId]);
-    }
-  };
 
   const handleApprove = async () => {
     if (!selectedRequest) return;
+    if (!selectedCourseId) {
+      setError('Please select a valid course.');
+      return;
+    }
     setSubmitting(true);
     setError('');
 
     try {
       await api.post(`/admin/onboarding/requests/${selectedRequest._id}/approve`, {
-        courses: approveCourses,
-        learningPlan: approvePlan,
-        batch: approveBatch,
-        mentorId: approveMentor || undefined,
-        durationMonths: approveDuration,
-        remarks: approveRemarks,
+        courseId: selectedCourseId,
       });
-      setShowApproveModal(false);
+      setShowDetailsModal(false);
       fetchOnboardings();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to approve onboarding student');
@@ -387,9 +359,22 @@ const AdminOnboarding: React.FC = () => {
                   <p><span className="font-bold text-slate-500">Phone:</span> {selectedRequest.phone}</p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Course Details</h4>
-                  <p><span className="font-bold text-slate-500">Course:</span> {selectedRequest.courses?.map(c => c.title).join(', ')}</p>
-                  <p><span className="font-bold text-slate-500">Batch:</span> {selectedRequest.preferredBatch}</p>
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Course Selection</h4>
+                  {selectedRequest.status === 'PENDING' ? (
+                    <select
+                      value={selectedCourseId}
+                      onChange={(e) => setSelectedCourseId(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs mb-3"
+                    >
+                      <option value="">Select a Course</option>
+                      {courses.map((c) => (
+                        <option key={c._id} value={c._id}>{c.title}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p><span className="font-bold text-slate-500">Course:</span> {selectedRequest.courses?.map(c => c.title).join(', ')}</p>
+                  )}
+                  <p><span className="font-bold text-slate-500">Google Form Original Batch:</span> {selectedRequest.preferredBatch || 'N/A'}</p>
                 </div>
               </div>
               
@@ -428,234 +413,15 @@ const AdminOnboarding: React.FC = () => {
                     {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />} Reject
                   </button>
                   <button
-                    onClick={() => openApproveWizard(selectedRequest)}
+                    onClick={handleApprove}
+                    disabled={submitting}
                     className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1"
                   >
-                    Approve Student
+                    {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5" /> Approve Student</>}
                   </button>
                 </>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* APPROVAL WIZARD MODAL */}
-      {showApproveModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs">
-            {/* Header with Step Indicator */}
-            <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Approval Wizard</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Step {wizardStep} of 8</p>
-              </div>
-              <button onClick={() => setShowApproveModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 text-red-500 font-bold">
-                {error}
-              </div>
-            )}
-
-            {/* WIZARD CONTENT STEPS */}
-            <div className="space-y-4 min-h-[160px] flex flex-col justify-center">
-              
-              {/* STEP 1: REVIEW STUDENT */}
-              {wizardStep === 1 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-accent" /> Step 1: Review Student Information
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3 text-slate-600 dark:text-slate-300">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Full Name</p>
-                      <p className="font-semibold">{selectedRequest.fullName}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Email Address</p>
-                      <p className="font-semibold">{selectedRequest.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Contact Phone</p>
-                      <p className="font-semibold">{selectedRequest.phone}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400">Preferred Batch</p>
-                      <p className="font-semibold">{selectedRequest.preferredBatch || 'Batch A'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 2: ASSIGN LEARNING PLAN */}
-              {wizardStep === 2 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-accent" /> Step 2: Select Learning Plan Tier
-                  </h4>
-                  <select
-                    value={approvePlan}
-                    onChange={(e) => setApprovePlan(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                  >
-                    <option value="">Select Learning Plan</option>
-                    <option value="self-paced">Self-Paced Plan</option>
-                    <option value="mentor-led">Mentor-Led Plan</option>
-                    <option value="advanced-mentor">Advanced Mentor Plan</option>
-                  </select>
-                </div>
-              )}
-
-              {/* STEP 3: ASSIGN BATCH */}
-              {wizardStep === 3 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-accent" /> Step 3: Assign Learning Batch
-                  </h4>
-                  <select
-                    value={approveBatch}
-                    onChange={(e) => setApproveBatch(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                  >
-                    <option value="Batch A">Batch A (Weekdays morning)</option>
-                    <option value="Batch B">Batch B (Weekdays evening)</option>
-                    <option value="Batch C">Batch C (Weekends batch)</option>
-                  </select>
-                </div>
-              )}
-
-              {/* STEP 4: ASSIGN MENTOR */}
-              {wizardStep === 4 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-accent" /> Step 4: Assign Instructor Mentor
-                  </h4>
-                  <select
-                    value={approveMentor}
-                    onChange={(e) => setApproveMentor(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                  >
-                    <option value="">No Mentor Assigned</option>
-                    {mentors.map((m) => (
-                      <option key={m._id} value={m._id}>
-                        {m.name} ({m.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* STEP 5: ACCESS START & EXPIRY DURATION */}
-              {wizardStep === 5 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-accent" /> Step 5: Set Access Duration Timeline
-                  </h4>
-                  <p className="text-slate-500 text-[10px]">Enrollment Validity Duration:</p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      value={approveDuration}
-                      onChange={(e) => setApproveDuration(parseInt(e.target.value) || 6)}
-                      className="w-32 p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs"
-                    />
-                    <span className="font-bold text-slate-500">Months from today</span>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 6: CREATE STUDENT USER */}
-              {wizardStep === 6 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-accent" /> Step 6: Security Credentials
-                  </h4>
-                  <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                    <p className="font-bold text-emerald-600">Secure Account Provisioning</p>
-                    <p className="text-[10px] text-slate-500 leading-relaxed font-medium mt-1">
-                      A random temporary password will be securely compiled for the user. Password reset will be forced on first sign-in.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 7: ASSIGN COURSE(S) */}
-              {wizardStep === 7 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4 text-accent" /> Step 7: Assign Learning Program Courses
-                  </h4>
-                  <div className="max-h-[120px] overflow-y-auto space-y-2">
-                    {courses.map((courseOption) => (
-                      <label key={courseOption._id} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 dark:border-border-dark cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 select-none">
-                        <input
-                          type="checkbox"
-                          checked={approveCourses.includes(courseOption._id)}
-                          onChange={() => handleCourseToggle(courseOption._id)}
-                          className="w-4 h-4 text-accent accent-accent rounded"
-                        />
-                        <span className="font-bold">{courseOption.title}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 8: WELCOME EMAIL & FINISH */}
-              {wizardStep === 8 && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-800 dark:text-white text-xs border-b pb-1 dark:border-border-dark flex items-center gap-1.5">
-                    <Mail className="w-4 h-4 text-accent" /> Step 8: Welcome Email & Finish
-                  </h4>
-                  <textarea
-                    placeholder="Approval comments or remarks..."
-                    value={approveRemarks}
-                    onChange={(e) => setApproveRemarks(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs h-16 resize-none"
-                  />
-                  <div className="p-3 bg-slate-50 dark:bg-secondary-dark rounded-lg text-slate-500 leading-normal">
-                    LMS access will be automatically mailed to <strong>{selectedRequest.email}</strong>.
-                  </div>
-                </div>
-              )}
-
-            </div>
-
-            {/* Navigation Actions */}
-            <div className="flex justify-between items-center border-t pt-4 dark:border-border-dark">
-              <button
-                type="button"
-                onClick={() => setWizardStep(prev => Math.max(1, prev - 1))}
-                disabled={wizardStep === 1}
-                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold hover:bg-slate-200 disabled:opacity-40 flex items-center gap-1"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
-              </button>
-              
-              {wizardStep < 8 ? (
-                <button
-                  type="button"
-                  onClick={() => setWizardStep(prev => Math.min(8, prev + 1))}
-                  className="px-4 py-2 rounded-lg bg-primary text-white font-bold hover:bg-primary-light flex items-center gap-1"
-                >
-                  Next <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1.5"
-                >
-                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Finish & Activate</>}
-                </button>
-              )}
-            </div>
-
           </div>
         </div>
       )}

@@ -69,9 +69,17 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
       throw new Error(`Request is already ${request.status}`);
     }
 
-    const { courses, learningPlan, batch, mentorId, durationMonths, remarks } = req.body;
-    if (!courses || !courses.length) {
-      throw new Error('No course selected for approval');
+    const { courseId } = req.body;
+    if (!courseId) {
+      throw new Error('Please select a course');
+    }
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      throw new Error('Invalid course selected');
+    }
+
+    const course = await Course.findById(courseId).session(session);
+    if (!course) {
+      throw new Error('Selected course was not found.');
     }
 
     const email = request.personalDetails.email.toLowerCase().trim();
@@ -109,26 +117,34 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
       await user.save({ session });
     }
 
-    // Provision Enrollment(s)
-    const validPlan = await LearningPlan.findById(learningPlan).session(session);
-    
-    for (const courseId of courses) {
-      const course = await Course.findById(courseId).session(session);
-      if (!course) continue;
+    // Provision Enrollment
+    let planCode = 'self-paced'; // Default
+    if (request.courseDetails.courseType) {
+       planCode = request.courseDetails.courseType.toLowerCase().replace(/\s+/g, '-');
+    } else if (request.courseDetails.preferredMode) {
+       planCode = request.courseDetails.preferredMode.toLowerCase().replace(/\s+/g, '-');
+    }
+    // Fallback normalization just in case
+    if (planCode.includes('mentor')) planCode = 'mentor-led';
+    if (planCode.includes('advanced')) planCode = 'advanced-mentor';
 
-      const existingEnrollment = await Enrollment.findOne({ studentId: user._id, courseId: course._id }).session(session);
-      if (!existingEnrollment) {
-        await Enrollment.create([{
-          studentId: user._id,
-          courseId: course._id,
-          learningPlanId: validPlan?._id,
-          batch: batch || request.courseDetails.batch || 'Batch A',
-          startDate: new Date(),
-          expiryDate: new Date(new Date().setMonth(new Date().getMonth() + (durationMonths || 6))),
-          status: 'active',
-          progress: { completedLessons: [], percentComplete: 0 }
-        }], { session });
-      }
+    const validPlan = await LearningPlan.findOne({ code: planCode }).session(session) || await LearningPlan.findOne({ code: 'self-paced' }).session(session);
+    if (!validPlan) {
+       throw new Error('No learning plan is configured for this course.');
+    }
+    
+    const existingEnrollment = await Enrollment.findOne({ studentId: user._id, courseId: course._id }).session(session);
+    if (!existingEnrollment) {
+      await Enrollment.create([{
+        studentId: user._id,
+        courseId: course._id,
+        learningPlanId: validPlan._id,
+        batch: request.courseDetails.batch || 'Batch A',
+        startDate: new Date(),
+        expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 6)),
+        status: 'active',
+        progress: { completedLessons: [], percentComplete: 0 }
+      }], { session });
     }
 
     // Update Request Status
@@ -138,6 +154,9 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
     // @ts-ignore
     request.approvedBy = (req as any).user?._id;
     request.student = { userId: user._id as mongoose.Types.ObjectId };
+    // Keep record of selected vs original
+    (request as any).selectedCourseId = course._id;
+    (request as any).formCourse = request.courseDetails.course;
     await request.save({ session });
 
     await session.commitTransaction();
