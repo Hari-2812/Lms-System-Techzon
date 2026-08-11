@@ -269,22 +269,13 @@ export const runOnboardingSync = async () => {
         });
       } catch (saveErr: any) {
         // If it's a duplicate key error (E11000) for source_1_sourceRowId_1, 
-        // it means an OnboardingRequest for this row already exists from before GoogleSyncRecord was added.
+        // it means an OnboardingRequest for this row already exists from before GoogleSyncRecord was added,
+        // or a concurrent process inserted it.
         if (saveErr.code === 11000) {
            stat.created--; // Revert the optimistic created increment
            stat.alreadySynced++;
-           
-           // Retroactively backfill the missing GoogleSyncRecord to heal the history
-           try {
-             await GoogleSyncRecord.create({
-               source: 'google_form',
-               sourceRowId,
-               syncedAt: new Date()
-             });
-             logger.info(`[SYNC] Backfilled missing GoogleSyncRecord for legacy row: ${sourceRowId}`);
-           } catch (backfillErr: any) {
-             // Ignore if it was inserted concurrently
-           }
+           // We do NOT backfill GoogleSyncRecord here, because doing so prevents an admin
+           // from cleanly resetting stale OnboardingRequest data.
         } else {
            stat.created--; // Revert
            stat.skipped++;

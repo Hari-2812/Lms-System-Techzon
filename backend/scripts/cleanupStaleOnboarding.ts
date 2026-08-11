@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 import OnboardingRequest from '../models/OnboardingRequest';
+import GoogleSyncRecord from '../models/GoogleSyncRecord';
 import User from '../models/User';
 
 // Load environment variables
@@ -49,34 +50,35 @@ const cleanupStaleOnboardingData = async () => {
     }
 
     // 2. Identify stale records
-    // We want to delete local OnboardingRequests that are NOT linked to an active student or process.
-    // Safe to delete: REJECTED, DELETED, CANCELLED, EXPIRED
-    const staleStatuses = ['REJECTED', 'DELETED', 'CANCELLED', 'EXPIRED'];
-    
-    const staleRecords = await OnboardingRequest.find({
-      status: { $in: staleStatuses }
-    });
-
-    console.log(`Found ${staleRecords.length} stale onboarding records with statuses: ${staleStatuses.join(', ')}`);
+    // We want to delete local OnboardingRequests that are NOT linked to an active student.
+    const allRequests = await OnboardingRequest.find({ source: 'google_form' });
 
     let removedCount = 0;
     let preservedActiveCount = 0;
 
-    for (const record of staleRecords) {
-      // Double check if there's an active User with this email just to be extra safe
-      const user = await User.findOne({ email: record.personalDetails.email.toLowerCase() });
+    for (const record of allRequests) {
+      // Check if there's an active User with this email
+      let userIsActive = false;
       
-      if (user && user.status === 'active') {
+      if (record.personalDetails && record.personalDetails.email) {
+        const user = await User.findOne({ email: record.personalDetails.email.toLowerCase() });
+        if (user && user.status === 'active') {
+          userIsActive = true;
+        }
+      }
+      
+      if (userIsActive) {
         preservedActiveCount++;
       } else {
         if (isConfirm) {
           await OnboardingRequest.findByIdAndDelete(record._id);
+          await GoogleSyncRecord.deleteOne({ source: 'google_form', sourceRowId: record.sourceRowId });
         }
         removedCount++;
       }
     }
 
-    console.log(`Onboarding records checked: ${staleRecords.length}`);
+    console.log(`Onboarding records checked: ${allRequests.length}`);
     console.log(`Active student-linked records preserved: ${preservedActiveCount}`);
     console.log(`Stale onboarding records to remove: ${removedCount}`);
     console.log(`Google Sheet: UNCHANGED`);
@@ -87,9 +89,9 @@ const cleanupStaleOnboardingData = async () => {
       console.log('NOTE: This was a dry run. To actually remove the records, run with the --confirm flag.');
       console.log('Example: npx ts-node scripts/cleanupStaleOnboarding.ts --confirm');
     } else {
-      console.log(`SUCCESS: ${removedCount} stale records were permanently removed.`);
-      console.log('Google Form data, Google Sheet data, and GoogleSyncRecord history have been PRESERVED.');
-      console.log('Students whose old records were cleaned can now re-apply, and new submissions will be processed correctly.');
+      console.log(`SUCCESS: ${removedCount} stale records and their sync histories were permanently removed.`);
+      console.log('Google Form data and Google Sheet data have been PRESERVED.');
+      console.log('The next sync will treat the deleted rows as fresh applications.');
     }
 
   } catch (error) {
