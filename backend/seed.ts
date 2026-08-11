@@ -14,7 +14,7 @@ import Enrollment from './models/Enrollment';
 import LiveClass from './models/LiveClass';
 import Settings from './models/Settings';
 import AuditLog from './models/AuditLog';
-import Onboarding from './models/Onboarding';
+
 
 const seedDatabase = async () => {
   const mongoUri = process.env.MONGODB_URI;
@@ -40,7 +40,6 @@ const seedDatabase = async () => {
       LiveClass.deleteMany({}),
       Settings.deleteMany({}),
       AuditLog.deleteMany({}),
-      Onboarding.deleteMany({}),
     ]);
     console.log('Database wiped clean.');
 

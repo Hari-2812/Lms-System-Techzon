@@ -25,18 +25,8 @@ import {
   razorpayWebhook,
   simulatePaymentWebhook,
 } from '../controllers/paymentController';
-import {
-  submitOnboarding,
-  getOnboardings,
-  getOnboardingDetails,
-  updateOnboarding,
-  deleteOnboarding,
-  rejectOnboarding,
-  approveOnboarding,
-  resendCredentials,
-  syncGoogleSheets,
-  updateStudentEnrollments,
-} from '../controllers/onboardingController';
+// Onboarding Sync will be handled via onboardingSyncController
+import { syncGoogleSheets, getSyncStats } from '../controllers/onboardingSyncController';
 import multer from 'multer';
 import {
   getCourses,
@@ -74,7 +64,7 @@ import {
 } from '../controllers/progressController';
 import { getStudentCertificates, verifyCertificate } from '../controllers/certificateController';
 import { createTicket, getTickets, addMessageToTicket, updateTicketStatus } from '../controllers/ticketController';
-import { syncGoogleSheetsOnboardings } from '../controllers/googleSheetsController';
+// googleSheetsController removed
 import { postRuntimeError } from '../controllers/logController';
 import {
   getSettings,
@@ -111,7 +101,7 @@ router.post('/payments/simulate-webhook', simulatePaymentWebhook);
 router.get('/certificates/verify/:key', verifyCertificate);
 router.get('/plans', getPlans);
 router.get('/learning-plans', getPlans);
-router.post('/onboarding', submitOnboarding);
+// Public onboarding route removed
 router.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   res.status(200).json({
@@ -219,16 +209,9 @@ router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'S
 // ==========================================
 router.use(authorize('SuperAdmin', 'Admin'));
 
-// Onboarding Management Operations
-router.get('/onboarding', getOnboardings);
+// Legacy onboarding admin routes removed
 router.post('/onboarding/sync', syncGoogleSheets);
-router.post('/google/sync', syncGoogleSheetsOnboardings);
-router.get('/onboarding/:id', getOnboardingDetails);
-router.put('/onboarding/:id', updateOnboarding);
-router.delete('/onboarding/:id', deleteOnboarding);
-router.post('/onboarding/:id/approve', approveOnboarding);
-router.post('/onboarding/:id/reject', rejectOnboarding);
-router.post('/users/:id/resend-credentials', resendCredentials);
+router.get('/onboarding/sync-stats', getSyncStats);
 
 // System Settings Edits
 router.put('/settings', updateSettings);
@@ -276,7 +259,7 @@ router.post('/quizzes', createQuiz);
 
 // User/Student Administration
 router.get('/users/students', authorize('Admin', 'SuperAdmin', 'Mentor'), getAdminStudentsList);
-router.put('/users/students/:id/enrollments', authorize('SuperAdmin', 'Admin'), updateStudentEnrollments);
+// updateStudentEnrollments moved to generic users route or removed if not needed
 router.get('/analytics/students/:id', authorize('Admin', 'SuperAdmin', 'Mentor'), getStudentAnalyticsDetails);
 router.post('/analytics/students/:id/course/:courseId/reset', authorize('SuperAdmin', 'Admin'), adminResetProgress);
 router.post('/analytics/students/:id/course/:courseId/complete', authorize('SuperAdmin', 'Admin'), adminMarkComplete);

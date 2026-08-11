@@ -1,47 +1,42 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISyncStat extends Document {
-  lastSync: Date;
-  foldersFound: number;
-  fetched: number;
-  imported: number;
+  timestamp: Date;
+  totalRows: number;
+  processed: number;
+  created: number;
   updated: number;
+  alreadySynced: number;
+  failed: number;
   skipped: number;
-  deleted: number;
-  coursesCreated: number;
-  modulesCreated: number;
-  lessonsCreated: number;
-  videosLinked: number;
-  brokenLessons: number;
-  courseStats: Array<{
-    courseName: string;
-    count: number;
+  syncErrors: Array<{
+    row: number;
+    email: string;
+    reason: string;
+    message: string;
   }>;
 }
 
-const syncStatSchema: Schema = new Schema(
+const SyncStatSchema: Schema<ISyncStat> = new Schema(
   {
-    lastSync: { type: Date, required: true },
-    foldersFound: { type: Number, default: 0 },
-    fetched: { type: Number, default: 0 },
-    imported: { type: Number, default: 0 },
+    timestamp: { type: Date, default: Date.now },
+    totalRows: { type: Number, default: 0 },
+    processed: { type: Number, default: 0 },
+    created: { type: Number, default: 0 },
     updated: { type: Number, default: 0 },
+    alreadySynced: { type: Number, default: 0 },
+    failed: { type: Number, default: 0 },
     skipped: { type: Number, default: 0 },
-    deleted: { type: Number, default: 0 },
-    coursesCreated: { type: Number, default: 0 },
-    modulesCreated: { type: Number, default: 0 },
-    lessonsCreated: { type: Number, default: 0 },
-    videosLinked: { type: Number, default: 0 },
-    brokenLessons: { type: Number, default: 0 },
-    courseStats: [
+    syncErrors: [
       {
-        courseName: { type: String },
-        count: { type: Number },
-      }
-    ]
+        row: Number,
+        email: String,
+        reason: String,
+        message: String,
+      },
+    ],
   },
   { timestamps: true }
 );
 
-const SyncStat = mongoose.models.SyncStat || mongoose.model<ISyncStat>('SyncStat', syncStatSchema);
-export default SyncStat;
+export default mongoose.model<ISyncStat>('SyncStat', SyncStatSchema);

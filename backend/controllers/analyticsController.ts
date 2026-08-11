@@ -10,7 +10,7 @@ import AuditLog from '../models/AuditLog';
 import Settings from '../models/Settings';
 import Submission from '../models/Submission';
 import QuizResult from '../models/QuizResult';
-import Onboarding from '../models/Onboarding';
+
 import Notification from '../models/Notification';
 import logger from '../config/logger';
 
@@ -91,21 +91,7 @@ export const clearTestData = async (req: any, res: Response): Promise<void> => {
       }
     }
 
-    const onboardingDuplicateGroups = await Onboarding.aggregate([
-      { $match: { email: { $exists: true, $ne: '' } } },
-      { $group: { _id: '$email', docs: { $push: { _id: '$_id', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
-      { $match: { count: { $gt: 1 } } },
-    ]);
-
-    let duplicateOnboardingsRemoved = 0;
-    for (const group of onboardingDuplicateGroups) {
-      group.docs.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      const idsToRemove = group.docs.slice(1).map((doc: any) => doc._id);
-      if (idsToRemove.length > 0) {
-        const { deletedCount } = await Onboarding.deleteMany({ _id: { $in: idsToRemove } });
-        duplicateOnboardingsRemoved += deletedCount || 0;
-      }
-    }
+    const duplicateOnboardingsRemoved = 0;
 
     const enrollmentDuplicateGroups = await Enrollment.aggregate([
       { $group: { _id: { studentId: '$studentId', courseId: '$courseId' }, docs: { $push: { _id: '$_id', createdAt: '$createdAt' } }, count: { $sum: 1 } } },
@@ -146,7 +132,7 @@ export const clearTestData = async (req: any, res: Response): Promise<void> => {
     ];
 
     const testUsersDeleted = (await User.deleteMany({ role: 'Student', $or: testPattern })).deletedCount || 0;
-    const testOnboardingsDeleted = (await Onboarding.deleteMany({ $or: testPattern })).deletedCount || 0;
+    // Test onboarding cleanup removed
     const testNotificationsDeleted = (await Notification.deleteMany({
       $or: [
         { 'metadata.email': { $regex: /@example\.com$/i } },
@@ -160,7 +146,7 @@ export const clearTestData = async (req: any, res: Response): Promise<void> => {
     await AuditLog.create({
       userId: req.user._id,
       action: 'CLEAR_TEST_DATA',
-      details: `Cleared development test records: duplicate users ${duplicateUsersRemoved}, duplicate onboardings ${duplicateOnboardingsRemoved}, duplicate enrollments ${duplicateEnrollmentsRemoved}, duplicate notifications ${duplicateNotificationsRemoved}, test users ${testUsersDeleted}, test onboardings ${testOnboardingsDeleted}, test notifications ${testNotificationsDeleted}`,
+      details: `Cleared development test records: duplicate users ${duplicateUsersRemoved}, duplicate onboardings ${duplicateOnboardingsRemoved}, duplicate enrollments ${duplicateEnrollmentsRemoved}, duplicate notifications ${duplicateNotificationsRemoved}, test users ${testUsersDeleted}, test notifications ${testNotificationsDeleted}`,
     });
 
     res.status(200).json({
@@ -171,7 +157,7 @@ export const clearTestData = async (req: any, res: Response): Promise<void> => {
         duplicateEnrollmentsRemoved,
         duplicateNotificationsRemoved,
         testUsersDeleted,
-        testOnboardingsDeleted,
+        testOnboardingsDeleted: 0,
         testNotificationsDeleted,
       },
     });
@@ -201,18 +187,13 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
     const totalCourses = await Course.countDocuments();
     const activeEnrollments = await Enrollment.countDocuments({ status: 'active' });
 
-    // Onboarding summation instead of payments
-    const pendingOnboardingRequests = await Onboarding.countDocuments({ status: 'pending' });
-    const totalOnboardingRequests = await Onboarding.countDocuments();
+    const pendingOnboardingRequests = 0;
+    const totalOnboardingRequests = 0;
 
     const pendingTickets = await SupportTicket.countDocuments({ status: { $ne: 'closed' } });
 
     // Recent Onboarding Requests instead of payments
-    const recentOnboardings = await Onboarding.find()
-      .populate('courses', 'title')
-      .populate('learningPlan', 'name')
-      .sort('-createdAt')
-      .limit(5);
+    const recentOnboardings: any[] = [];
 
     // Recent Activity Logs
     const recentAuditLogs = await AuditLog.find()
@@ -385,15 +366,7 @@ export const exportReport = async (req: Request, res: Response): Promise<void> =
     let csvData = '';
 
     if (type === 'onboardings') {
-      const onboardings = await Onboarding.find().populate('courses', 'title').populate('learningPlan', 'name');
-      csvData = 'Student Name,Student Email,Phone,College,Degree,City,State,Courses,Plan,Status,Date\n';
-      onboardings.forEach((o: any) => {
-        const courseTitles = o.courses ? o.courses.map((c: any) => c.title).join(' | ') : '';
-        csvData += `"${o.fullName}","${o.email}","${o.phone}","${o.college}","${o.degree}","${o.city}","${o.state}","${courseTitles}","${o.learningPlan?.name || ''}","${o.status}","${o.createdAt.toISOString()}"\n`;
-      });
-      res.setHeader('Content-Type', 'text/csv');
-      res.attachment('onboarding_requests_report.csv');
-      res.status(200).send(csvData);
+      res.status(400).json({ success: false, message: 'Onboarding exports are no longer supported here.' });
       return;
     }
 

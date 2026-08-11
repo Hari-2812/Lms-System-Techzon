@@ -35,6 +35,28 @@ export interface IUser extends Document {
 
   needsPasswordChange?: boolean;
 
+  studentProfile?: {
+    phone?: string;
+    dateOfBirth?: Date;
+    gender?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    college?: string;
+    qualification?: string;
+    occupation?: string;
+    experience?: string;
+  };
+
+  sourceInformation?: {
+    source?: string;
+    sourceRowId?: string;
+    sourceSubmittedAt?: Date;
+    syncedAt?: Date;
+    syncStatus?: 'PENDING' | 'SYNCED' | 'UPDATED' | 'FAILED';
+  };
+
   createdAt: Date;
   updatedAt: Date;
 
@@ -123,11 +145,34 @@ new Schema(
 
 
     needsPasswordChange: {
-
       type: Boolean,
-
       default: false
+    },
 
+    studentProfile: {
+      phone: String,
+      dateOfBirth: Date,
+      gender: String,
+      address: String,
+      city: String,
+      state: String,
+      pincode: String,
+      college: String,
+      qualification: String,
+      occupation: String,
+      experience: String
+    },
+
+    sourceInformation: {
+      source: { type: String, default: 'direct' },
+      sourceRowId: String,
+      sourceSubmittedAt: Date,
+      syncedAt: Date,
+      syncStatus: {
+        type: String,
+        enum: ['PENDING', 'SYNCED', 'UPDATED', 'FAILED'],
+        default: 'PENDING'
+      }
     },
 
 

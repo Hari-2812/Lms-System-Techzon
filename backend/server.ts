@@ -20,7 +20,7 @@ import apiRoutes from './routes/api';
 import { seedDefaultPlans } from './controllers/planController';
 import { seedDefaultSettings } from './controllers/analyticsController';
 import { startExpiryScheduler } from './jobs/expiryJob';
-import { startGoogleSheetWatcher } from './jobs/googleSheetWatcher';
+import { startGoogleSyncScheduler } from './jobs/onboardingSyncJob';
 
 const app = express();
 app.set("trust proxy", 1);
@@ -39,7 +39,7 @@ connectDB().then(async () => {
     await seedDefaultPlans();
     await seedDefaultSettings();
     startExpiryScheduler();
-    startGoogleSheetWatcher();
+    startGoogleSyncScheduler();
   } catch (error) {
     logger.error('Database seeding failed:', error);
   }
