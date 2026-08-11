@@ -50,6 +50,7 @@ const GoogleFormSync: React.FC = () => {
   // UI lists state
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Dialog Modals
@@ -110,19 +111,40 @@ const GoogleFormSync: React.FC = () => {
     fetchMentorsAndCourses();
   }, []);
 
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const res = await api.get('/onboarding/google-sheets/test');
+      if (res.data.success) {
+        alert(`Connection successful!\nRows detected: ${res.data.responseRows}`);
+      } else {
+        alert(`Connection Failed: ${res.data.message}\nCode: ${res.data.code}`);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Connection test failed due to an unknown error.');
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const handleSyncSheets = async () => {
     setSyncing(true);
     try {
-      const res = await api.post('/google/sync');
-      const syncData = res.data.data;
-      setSyncedCount(prev => prev + syncData.synced);
-      setDuplicateCount(prev => prev + syncData.duplicates);
-      setFailedCount(prev => prev + syncData.skipped);
+      const res = await api.post('/onboarding/sync');
+      const syncData = res.data.summary || {};
+      setSyncedCount(prev => prev + (syncData.created || 0) + (syncData.updated || 0));
+      setDuplicateCount(prev => prev + (syncData.alreadySynced || 0));
+      setFailedCount(prev => prev + (syncData.failed || 0) + (syncData.skipped || 0));
       setLastSyncTime(new Date().toLocaleTimeString());
       alert(res.data.message || 'Synchronization successfully completed!');
       fetchOnboardings();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Google Spreadsheet synchronization failed. Please verify credentials in system settings.');
+      const data = err.response?.data;
+      if (data && data.message) {
+         alert(`Sync Failed: ${data.message}\n\nError Code: ${data.code || 'UNKNOWN'}`);
+      } else {
+         alert('Google Spreadsheet synchronization failed. Please verify credentials in system settings.');
+      }
     } finally {
       setSyncing(false);
     }
@@ -187,14 +209,24 @@ const GoogleFormSync: React.FC = () => {
           <h2 className="text-xl font-bold tracking-tight">Google Form Responses Sync</h2>
           <p className="text-slate-500 text-xs mt-1">Import student records from your restricted Google spreadsheet and provision accounts</p>
         </div>
-        <button
-          onClick={handleSyncSheets}
-          disabled={syncing}
-          className="btn-accent py-2.5 px-4 flex items-center gap-1.5"
-        >
-          {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Sync Google Sheet Now
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleTestConnection}
+            disabled={testingConnection || syncing}
+            className="btn-outline py-2.5 px-4 flex items-center gap-1.5 text-xs font-bold rounded-xl border border-slate-200"
+          >
+            {testingConnection ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Test Connection
+          </button>
+          <button
+            onClick={handleSyncSheets}
+            disabled={syncing || testingConnection}
+            className="btn-accent py-2.5 px-4 flex items-center gap-1.5"
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Sync Google Sheet Now
+          </button>
+        </div>
       </div>
 
       {/* Sync statistics row */}

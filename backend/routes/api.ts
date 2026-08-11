@@ -26,7 +26,7 @@ import {
   simulatePaymentWebhook,
 } from '../controllers/paymentController';
 // Onboarding Sync will be handled via onboardingSyncController
-import { syncGoogleSheets, getSyncStats } from '../controllers/onboardingSyncController';
+import { syncGoogleSheets, getSyncStats, testGoogleConnectionRoute } from '../controllers/onboardingSyncController';
 import multer from 'multer';
 import {
   getCourses,
@@ -210,6 +210,7 @@ router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'S
 router.use(authorize('SuperAdmin', 'Admin'));
 
 // Legacy onboarding admin routes removed
+router.get('/onboarding/google-sheets/test', testGoogleConnectionRoute);
 router.post('/onboarding/sync', syncGoogleSheets);
 router.get('/onboarding/sync-stats', getSyncStats);
 

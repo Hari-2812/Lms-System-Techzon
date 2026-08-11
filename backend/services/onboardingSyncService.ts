@@ -44,41 +44,126 @@ const normalizeCourseName = (courseName: string): string => {
   return courseName.trim(); // Return as-is if no alias matches
 };
 
-export const runOnboardingSync = async () => {
-  console.log('[SYNC] Starting Google Form Onboarding Sync');
-  
+const extractSpreadsheetId = (input: string): string => {
+  const match = input.match(/\/d\/(.*?)(\/|$)/);
+  return match ? match[1] : input;
+};
+
+const getAuthAndSheets = async () => {
   const settings = await Settings.findOne();
   const sheetsConfig = settings?.googleSheetsSettings;
 
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID?.trim() || sheetsConfig?.spreadsheetId?.trim();
+  const rawSpreadsheetId = process.env.GOOGLE_SPREADSHEET_ID?.trim() || sheetsConfig?.spreadsheetId?.trim();
   const worksheetName = process.env.GOOGLE_WORKSHEET_NAME?.trim() || sheetsConfig?.worksheetName?.trim();
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
   const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY || '';
 
-  if (!spreadsheetId || !worksheetName || !serviceAccountEmail || !privateKeyRaw) {
-    throw new Error('Google Sheets integration is not fully configured.');
+  if (!rawSpreadsheetId || !serviceAccountEmail || !privateKeyRaw) {
+    const error: any = new Error('Google Sheets credentials missing.');
+    error.code = 'CREDENTIALS_MISSING';
+    throw error;
   }
 
-  const stat = new SyncStat();
-  
+  const spreadsheetId = extractSpreadsheetId(rawSpreadsheetId);
+  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+
   try {
-    const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
     const auth = new google.auth.JWT({
       email: serviceAccountEmail,
       key: privateKey,
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
-
     const sheets = google.sheets({ version: 'v4', auth });
-    const range = `${worksheetName}!A1:Z`;
+    return { auth, sheets, spreadsheetId, worksheetName };
+  } catch (err: any) {
+    const error: any = new Error('Google authentication failed.');
+    error.code = 'AUTH_FAILED';
+    throw error;
+  }
+};
 
+const fetchSpreadsheetData = async (sheets: any, spreadsheetId: string, worksheetName?: string) => {
+  try {
+    let metadata;
+    try {
+      metadata = await sheets.spreadsheets.get({ spreadsheetId });
+    } catch (err: any) {
+      if (err.code === 403 || err.status === 403) {
+         const error: any = new Error('Google authentication succeeded, but the configured spreadsheet cannot be accessed. Please verify that the Google service account has access to the response spreadsheet.');
+         error.code = 'GOOGLE_SHEETS_ACCESS_DENIED';
+         throw error;
+      }
+      if (err.code === 404 || err.status === 404) {
+         const error: any = new Error('Spreadsheet not found.');
+         error.code = 'SPREADSHEET_NOT_FOUND';
+         throw error;
+      }
+      throw err;
+    }
+
+    const sheetsList = metadata.data.sheets || [];
+    let targetSheet = sheetsList[0]?.properties?.title;
+
+    if (worksheetName) {
+      const match = sheetsList.find((s: any) => s.properties?.title === worksheetName);
+      if (match) {
+        targetSheet = match.properties?.title;
+      } else {
+        const error: any = new Error(`Google Spreadsheet connected successfully, but the configured worksheet '${worksheetName}' was not found.`);
+        error.code = 'WORKSHEET_NOT_FOUND';
+        throw error;
+      }
+    }
+
+    const range = `${targetSheet}!A1:Z`;
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range,
       valueRenderOption: 'FORMATTED_VALUE',
     });
 
-    const rows = res.data.values || [];
+    return res.data.values || [];
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const testGoogleConnection = async () => {
+  try {
+    const { sheets, spreadsheetId, worksheetName } = await getAuthAndSheets();
+    const rows = await fetchSpreadsheetData(sheets, spreadsheetId, worksheetName);
+    
+    return {
+      success: true,
+      googleAuthentication: true,
+      sheetsApi: true,
+      spreadsheetAccess: true,
+      worksheetAccess: true,
+      responseRows: Math.max(0, rows.length - 1)
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      code: err.code || 'UNKNOWN_ERROR',
+      message: err.message || 'Connection test failed',
+      details: {
+        googleAuthentication: err.code !== 'CREDENTIALS_MISSING' && err.code !== 'AUTH_FAILED',
+        spreadsheetAccess: err.code !== 'CREDENTIALS_MISSING' && err.code !== 'AUTH_FAILED' && err.code !== 'GOOGLE_SHEETS_ACCESS_DENIED' && err.code !== 'SPREADSHEET_NOT_FOUND',
+        worksheetAccess: err.code !== 'CREDENTIALS_MISSING' && err.code !== 'AUTH_FAILED' && err.code !== 'GOOGLE_SHEETS_ACCESS_DENIED' && err.code !== 'SPREADSHEET_NOT_FOUND' && err.code !== 'WORKSHEET_NOT_FOUND',
+      }
+    };
+  }
+};
+
+export const runOnboardingSync = async () => {
+  console.log('[SYNC] Starting Google Form Onboarding Sync');
+  
+  const stat = new SyncStat();
+  
+  try {
+    const { sheets, spreadsheetId, worksheetName } = await getAuthAndSheets();
+    const rows = await fetchSpreadsheetData(sheets, spreadsheetId, worksheetName);
+
     stat.totalRows = Math.max(0, rows.length - 1);
 
     if (rows.length <= 1) {
@@ -87,7 +172,7 @@ export const runOnboardingSync = async () => {
       return stat;
     }
 
-    const headerRow = rows[0].map((h) => normalizeHeader(h?.toString() || ''));
+    const headerRow = rows[0].map((h: any) => normalizeHeader(h?.toString() || ''));
     const dataRows = rows.slice(1);
     
     const defaultPlan = await LearningPlan.findOne();
@@ -217,7 +302,7 @@ export const runOnboardingSync = async () => {
     
   } catch (error: any) {
     logger.error('Google Sheets sync error:', error);
-    stat.syncErrors.push({ row: 0, email: 'system', reason: 'Fatal Error', message: error.message });
+    stat.syncErrors.push({ row: 0, email: 'system', reason: error.code || 'Fatal Error', message: error.message });
     await stat.save();
     throw error;
   }
