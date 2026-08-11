@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../redux/store';
 import api from '../services/api';
 import { 
   RefreshCw, Check, X, Search, Loader2, Sparkles, 
@@ -38,6 +40,8 @@ interface CourseOption {
 }
 
 const AdminOnboarding: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  
   const [requests, setRequests] = useState<OnboardingRequest[]>([]);
   const [mentors, setMentors] = useState<MentorOption[]>([]);
   const [courses, setCourses] = useState<CourseOption[]>([]);
