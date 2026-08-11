@@ -489,3 +489,108 @@ export const migrateDuplicateGoogleForms = async (req: Request, res: Response): 
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const repairMissingOnboardingRequests = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { sheets, spreadsheetId, worksheetName } = await getAuthAndSheets();
+    const rows = await fetchSpreadsheetData(sheets, spreadsheetId, worksheetName);
+
+    if (rows.length <= 1) {
+      res.status(200).json({ success: true, message: 'No data found in Google Sheet to repair from.' });
+      return;
+    }
+
+    const headerRow = rows[0].map((h: any) => normalizeHeader(h?.toString() || ''));
+    const dataRows = rows.slice(1);
+    const originalHeaders = rows[0];
+
+    const stats = {
+      syncRecords: await GoogleSyncRecord.countDocuments({ source: 'google_form' }),
+      onboardingRequests: await OnboardingRequest.countDocuments({ source: 'google_form' }),
+      pendingOnboardingRequests: await OnboardingRequest.countDocuments({ source: 'google_form', status: 'PENDING' }),
+      missingOnboardingRequests: 0,
+      repaired: 0,
+      alreadyPresent: 0,
+      failed: 0
+    };
+
+    // Calculate missing
+    const allSyncRecords = await GoogleSyncRecord.find({ source: 'google_form' });
+    const allRequests = await OnboardingRequest.find({ source: 'google_form' });
+    const reqIds = new Set(allRequests.map(r => r.sourceRowId));
+    
+    const missingIds = allSyncRecords.map(r => r.sourceRowId).filter(id => !reqIds.has(id));
+    stats.missingOnboardingRequests = missingIds.length;
+
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      const rowNumber = i + 2;
+      const sourceRowId = `row-${rowNumber}`;
+
+      if (missingIds.includes(sourceRowId)) {
+        try {
+          const emailRaw = getField(row, headerRow, 'Email') || getField(row, headerRow, 'Email Address') || getField(row, headerRow, 'Mail id');
+          const email = emailRaw ? emailRaw.toLowerCase().trim() : '';
+
+          const fullName = getField(row, headerRow, 'Name') || getField(row, headerRow, 'Full Name');
+          const phone = getField(row, headerRow, 'Phone') || getField(row, headerRow, 'Phone Number') || getField(row, headerRow, 'Contact');
+          const courseStr = getField(row, headerRow, 'Course') || getField(row, headerRow, 'Course Name') || '';
+          const batchStr = getField(row, headerRow, 'Batch') || getField(row, headerRow, 'Preferred Batch') || '';
+          
+          const timestampRaw = getField(row, headerRow, 'Timestamp');
+          const submittedAt = timestampRaw ? new Date(timestampRaw) : new Date();
+          const mappedCourseTitle = normalizeCourseName(courseStr);
+
+          const rawFormData: Record<string, any> = {};
+          originalHeaders.forEach((h: any, idx: number) => {
+            if (h) {
+              rawFormData[h.toString()] = row[idx] !== undefined ? row[idx] : null;
+            }
+          });
+
+          const newRequest = new OnboardingRequest({
+            source: 'google_form',
+            sourceRowId,
+            submittedAt,
+            syncedAt: new Date(),
+            status: 'PENDING',
+            personalDetails: {
+              fullName: fullName || 'Unknown',
+              email: email,
+              phone: phone,
+              city: getField(row, headerRow, 'City'),
+              state: getField(row, headerRow, 'State'),
+              gender: getField(row, headerRow, 'Gender')
+            },
+            addressDetails: {
+              city: getField(row, headerRow, 'City'),
+              state: getField(row, headerRow, 'State'),
+            },
+            educationDetails: {
+              qualification: getField(row, headerRow, 'Qualification'),
+              college: getField(row, headerRow, 'College'),
+            },
+            courseDetails: {
+              course: mappedCourseTitle || courseStr,
+              batch: batchStr,
+            },
+            rawFormData
+          });
+
+          await newRequest.save();
+          stats.repaired++;
+        } catch (e) {
+          stats.failed++;
+          logger.error(`Repair failed for ${sourceRowId}:`, e);
+        }
+      } else if (reqIds.has(sourceRowId)) {
+        stats.alreadyPresent++;
+      }
+    }
+
+    res.status(200).json({ success: true, stats });
+  } catch (error: any) {
+    logger.error('Error repairing requests:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

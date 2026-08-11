@@ -7,6 +7,7 @@ export interface ISyncStat extends Document {
   created: number;
   updated: number;
   alreadySynced: number;
+  repaired: number;
   failed: number;
   skipped: number;
   syncErrors: Array<{
@@ -25,6 +26,7 @@ const SyncStatSchema: Schema<ISyncStat> = new Schema(
     created: { type: Number, default: 0 },
     updated: { type: Number, default: 0 },
     alreadySynced: { type: Number, default: 0 },
+    repaired: { type: Number, default: 0 },
     failed: { type: Number, default: 0 },
     skipped: { type: Number, default: 0 },
     syncErrors: [

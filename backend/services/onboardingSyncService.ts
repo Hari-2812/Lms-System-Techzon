@@ -221,14 +221,24 @@ export const runOnboardingSync = async () => {
       
       // 1. Check if this exact row has been synced before
       let syncRecord = await GoogleSyncRecord.findOne({ source: 'google_form', sourceRowId });
+      let existingReq = await OnboardingRequest.findOne({ source: 'google_form', sourceRowId });
 
-      if (syncRecord) {
+      if (syncRecord && existingReq) {
          stat.alreadySynced++;
-         continue; // Completely skip if we've already synced this row
+         continue; // Both exist, properly synced
       }
 
-      // 2. If it hasn't been synced, create a NEW onboarding request.
-      stat.created++;
+      if (syncRecord && !existingReq) {
+        console.log(`[SYNC] Rebuilding missing onboarding request for ${sourceRowId}`);
+        stat.repaired++;
+      } else if (!syncRecord && existingReq) {
+        console.log(`[SYNC] Rebuilding missing sync record for ${sourceRowId}`);
+        await GoogleSyncRecord.create({ source: 'google_form', sourceRowId, syncedAt: new Date() });
+        stat.alreadySynced++;
+        continue;
+      } else {
+        stat.created++;
+      }
       let request = new OnboardingRequest({
         source: 'google_form',
         sourceRowId,
@@ -261,12 +271,14 @@ export const runOnboardingSync = async () => {
       try {
         await request.save();
         
-        // 3. Save sync history
-        await GoogleSyncRecord.create({
-          source: 'google_form',
-          sourceRowId,
-          syncedAt: new Date()
-        });
+        // 3. Save sync history if it wasn't already there
+        if (!syncRecord) {
+          await GoogleSyncRecord.create({
+            source: 'google_form',
+            sourceRowId,
+            syncedAt: new Date()
+          });
+        }
       } catch (saveErr: any) {
         // If it's a duplicate key error (E11000) for source_1_sourceRowId_1, 
         // it means an OnboardingRequest for this row already exists from before GoogleSyncRecord was added,
@@ -291,7 +303,7 @@ export const runOnboardingSync = async () => {
     }
 
     await stat.save();
-    console.log(`[SYNC] Completed. New: ${stat.created}, Updated: ${stat.updated}, Already Pending/Processed: ${stat.alreadySynced}, Skipped: ${stat.skipped}`);
+    console.log(`[SYNC] Completed. New: ${stat.created}, Repaired: ${stat.repaired}, Updated: ${stat.updated}, Already Pending/Processed: ${stat.alreadySynced}, Skipped: ${stat.skipped}`);
     return stat;
     
   } catch (error: any) {

@@ -34,7 +34,8 @@ import {
   migrateDuplicateGoogleForms,
   rejectOnboardingRequest,
   resendApprovalEmail,
-  deleteOnboardingRequest
+  deleteOnboardingRequest,
+  repairMissingOnboardingRequests
 } from '../controllers/onboardingController';
 import multer from 'multer';
 import {
@@ -223,6 +224,7 @@ router.get('/admin/onboarding/requests', getOnboardingRequests);
 router.get('/admin/onboarding/requests/:id', authorize('Admin', 'SuperAdmin'), getOnboardingRequestById);
 // Duplicate Migration
 router.post('/admin/onboarding/import-all-google-form', authorize('Admin', 'SuperAdmin'), migrateDuplicateGoogleForms);
+router.post('/admin/onboarding/repair', authorize('Admin', 'SuperAdmin'), repairMissingOnboardingRequests);
 
 router.post('/admin/onboarding/requests/:id/approve', authorize('Admin', 'SuperAdmin'), approveOnboardingRequest);
 router.post('/admin/onboarding/requests/:id/reject', authorize('Admin', 'SuperAdmin'), rejectOnboardingRequest);

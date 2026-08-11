@@ -63,6 +63,7 @@ const AdminOnboarding: React.FC = () => {
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [migrationStats, setMigrationStats] = useState<any>(null);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   
   const [rejectReason, setRejectReason] = useState('');
@@ -142,6 +143,23 @@ const AdminOnboarding: React.FC = () => {
       toast.error(err.response?.data?.message || 'Migration failed');
     } finally {
       setIsMigrating(false);
+    }
+  };
+
+  const handleRepair = async () => {
+    setIsRepairing(true);
+    try {
+      const res = await api.post('/admin/onboarding/repair');
+      const s = res.data.stats;
+      toast.success(
+        `Repair Complete:\nMissing: ${s.missingOnboardingRequests}\nRepaired: ${s.repaired}\nAlready Present: ${s.alreadyPresent}\nFailed: ${s.failed}`,
+        { duration: 8000, style: { whiteSpace: 'pre-line' } }
+      );
+      fetchOnboardings();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Repair failed');
+    } finally {
+      setIsRepairing(false);
     }
   };
 
@@ -260,6 +278,16 @@ const AdminOnboarding: React.FC = () => {
           <p className="text-slate-500 text-xs mt-1">Import student records from your restricted Google spreadsheet and provision accounts</p>
         </div>
         <div className="flex gap-2">
+          {user?.role === 'SuperAdmin' && (
+            <button
+              onClick={handleRepair}
+              disabled={isRepairing || syncing || testingConnection || isMigrating}
+              className="btn-outline py-2.5 px-4 flex items-center gap-1.5 text-xs font-bold rounded-xl border border-indigo-200 text-indigo-500 hover:bg-indigo-50"
+            >
+              {isRepairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+              Repair Missing
+            </button>
+          )}
           <button
             onClick={openMigrationPreview}
             disabled={isMigrating || syncing || testingConnection}
