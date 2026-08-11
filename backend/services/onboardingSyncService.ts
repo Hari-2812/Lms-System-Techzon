@@ -258,14 +258,45 @@ export const runOnboardingSync = async () => {
         rawFormData
       });
       
-      await request.save();
-      
-      // 3. Save sync history
-      await GoogleSyncRecord.create({
-        source: 'google_form',
-        sourceRowId,
-        syncedAt: new Date()
-      });
+      try {
+        await request.save();
+        
+        // 3. Save sync history
+        await GoogleSyncRecord.create({
+          source: 'google_form',
+          sourceRowId,
+          syncedAt: new Date()
+        });
+      } catch (saveErr: any) {
+        // If it's a duplicate key error (E11000) for source_1_sourceRowId_1, 
+        // it means an OnboardingRequest for this row already exists from before GoogleSyncRecord was added.
+        if (saveErr.code === 11000) {
+           stat.created--; // Revert the optimistic created increment
+           stat.alreadySynced++;
+           
+           // Retroactively backfill the missing GoogleSyncRecord to heal the history
+           try {
+             await GoogleSyncRecord.create({
+               source: 'google_form',
+               sourceRowId,
+               syncedAt: new Date()
+             });
+             logger.info(`[SYNC] Backfilled missing GoogleSyncRecord for legacy row: ${sourceRowId}`);
+           } catch (backfillErr: any) {
+             // Ignore if it was inserted concurrently
+           }
+        } else {
+           stat.created--; // Revert
+           stat.skipped++;
+           stat.syncErrors.push({ 
+             row: rowNumber, 
+             email, 
+             reason: 'Save Error', 
+             message: saveErr.message 
+           });
+           logger.error(`[SYNC] Save Error for row ${rowNumber}:`, saveErr);
+        }
+      }
     }
 
     await stat.save();

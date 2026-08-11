@@ -8,8 +8,12 @@ import User from '../models/User';
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const cleanupStaleOnboardingData = async () => {
+  const isConfirm = process.argv.includes('--confirm');
+
   try {
-    console.log('--- Stale Onboarding Cleanup Started ---');
+    console.log('====================================');
+    console.log('ONBOARDING RESET PREVIEW');
+    console.log('====================================\n');
     
     // Connect to database
     const mongoUri = process.env.MONGODB_URI;
@@ -63,23 +67,30 @@ const cleanupStaleOnboardingData = async () => {
       const user = await User.findOne({ email: record.personalDetails.email.toLowerCase() });
       
       if (user && user.status === 'active') {
-        // Even if the onboarding request says REJECTED, if there's an active user with this email,
-        // it's safer to just leave the record alone (or unlink it). 
-        // We will remove it here because the active User relies on Enrollment, not OnboardingRequest.
-        // But to be extremely safe, we'll just log it.
-        console.log(`[SAFE] Removing stale request for email ${record.personalDetails.email} (User is active, but request is ${record.status})`);
+        preservedActiveCount++;
+      } else {
+        if (isConfirm) {
+          await OnboardingRequest.findByIdAndDelete(record._id);
+        }
+        removedCount++;
       }
-
-      await OnboardingRequest.findByIdAndDelete(record._id);
-      removedCount++;
     }
 
-    console.log(`\n--- Cleanup Summary ---`);
-    console.log(`Stale records removed: ${removedCount}`);
-    console.log(`Active students affected: 0`);
+    console.log(`Onboarding records checked: ${staleRecords.length}`);
+    console.log(`Active student-linked records preserved: ${preservedActiveCount}`);
+    console.log(`Stale onboarding records to remove: ${removedCount}`);
+    console.log(`Google Sheet: UNCHANGED`);
+    console.log(`Active enrollments: UNCHANGED`);
+    console.log(`Course data: UNCHANGED\n`);
     
-    console.log('\nNOTE: Google Form data, Google Sheet data, and GoogleSyncRecord history have been PRESERVED.');
-    console.log('Students whose old records were cleaned can now re-apply, and new submissions will be processed correctly.');
+    if (!isConfirm) {
+      console.log('NOTE: This was a dry run. To actually remove the records, run with the --confirm flag.');
+      console.log('Example: npx ts-node scripts/cleanupStaleOnboarding.ts --confirm');
+    } else {
+      console.log(`SUCCESS: ${removedCount} stale records were permanently removed.`);
+      console.log('Google Form data, Google Sheet data, and GoogleSyncRecord history have been PRESERVED.');
+      console.log('Students whose old records were cleaned can now re-apply, and new submissions will be processed correctly.');
+    }
 
   } catch (error) {
     console.error('Error during cleanup:', error);
