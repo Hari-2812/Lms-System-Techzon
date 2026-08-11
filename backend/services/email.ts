@@ -122,6 +122,9 @@ export const sendApprovalEmail = async (
     throw new Error('Email service is not configured');
   }
 
+  const FRONTEND_URL = process.env.FRONTEND_URL || "https://lms-system-techzon.vercel.app";
+  const loginUrl = `${FRONTEND_URL}/login`;
+
   const passwordBlock = tempPassword 
     ? `
 <div style="margin-top: 20px;">
@@ -151,7 +154,7 @@ export const sendApprovalEmail = async (
   ${passwordBlock}
   
   <div style="text-align: center; margin: 35px 0;">
-    <a href="https://lms-system-techzon.vercel.app/login" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+    <a href="${loginUrl}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
       Login to LMS
     </a>
   </div>
@@ -163,10 +166,15 @@ export const sendApprovalEmail = async (
 </div>
 `;
 
+  const textContent = tempPassword
+    ? `Welcome to Techzon LMS System\n\nHello ${name},\nYour student account has been approved.\n\nCourse: ${courseName}\nLMS Login Email: ${email}\nTemporary Password: ${tempPassword}\nLogin: ${loginUrl}\n\nIMPORTANT: This is a temporary password. You must change your password after your first login.\n\nRegards,\nTechzon Wide\nsupport@techzonwide.com`
+    : `Welcome to Techzon LMS System\n\nHello ${name},\nYour student account has been approved.\n\nCourse: ${courseName}\nLMS Login Email: ${email}\nLogin: ${loginUrl}\n\nPlease use the existing LMS login/password setup process to access your account.\n\nRegards,\nTechzon Wide\nsupport@techzonwide.com`;
+
   return await sendEmail({
     email,
-    subject: `Your Techzon LMS Access Has Been Approved`,
+    subject: `Your Techzon LMS Account Is Ready`,
     html,
+    textContent
   });
 };
 
