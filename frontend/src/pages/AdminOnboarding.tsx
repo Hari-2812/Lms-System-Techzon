@@ -78,8 +78,9 @@ const AdminOnboarding: React.FC = () => {
       const allOnboardings: OnboardingRequest[] = res.data.data || [];
       const sheetsOnboardings = allOnboardings.filter(r => r.googleRowId);
       setRequests(sheetsOnboardings);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching sheets requests:', err);
+      toast.error('Unable to load onboarding requests');
     } finally {
       setLoading(false);
     }
@@ -264,10 +265,14 @@ const AdminOnboarding: React.FC = () => {
     }
   };
 
+  const normalizeStatus = (s: string) => String(s || '').trim().toUpperCase();
+
   const filteredRequests = requests.filter((req) => {
     const term = searchQuery.toLowerCase();
-    const matchSearch = req.fullName.toLowerCase().includes(term) || req.email.toLowerCase().includes(term);
-    return matchSearch && req.status === activeTab;
+    const fullName = String(req.fullName || '').toLowerCase();
+    const email = String(req.email || '').toLowerCase();
+    const matchSearch = fullName.includes(term) || email.includes(term);
+    return matchSearch && normalizeStatus(req.status) === activeTab;
   });
 
   return (
@@ -347,7 +352,7 @@ const AdminOnboarding: React.FC = () => {
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            {tab} ({requests.filter(r => r.status === tab).length})
+            {tab} ({requests.filter(r => normalizeStatus(r.status) === tab).length})
           </button>
         ))}
       </div>

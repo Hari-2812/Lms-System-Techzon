@@ -36,8 +36,13 @@ export const deleteOnboardingRequest = async (req: Request, res: Response): Prom
 
 export const getOnboardingRequests = async (req: Request, res: Response): Promise<void> => {
   try {
-    const status = req.query.status as string || 'PENDING';
-    const requests = await OnboardingRequest.find(status ? { status } : {}).sort({ submittedAt: -1 });
+    const status = req.query.status as string;
+    const query: any = {};
+    if (status && status.toUpperCase() !== 'ALL') {
+      query.status = { $regex: new RegExp(`^${status}$`, 'i') };
+    }
+    
+    const requests = await OnboardingRequest.find(query).sort({ submittedAt: -1 });
     
     // Transform to match frontend expectations if necessary, or let frontend adapt
     const allCourses = await Course.find().select('_id title').lean();
@@ -64,7 +69,7 @@ export const getOnboardingRequests = async (req: Request, res: Response): Promis
         state: r.addressDetails?.state,
         preferredBatch: r.courseDetails.batch,
         courses: resolvedCourseId ? [{ _id: resolvedCourseId, title: resolvedCourseTitle }] : [], // Safely mapping the course
-        status: r.status,
+        status: r.status ? r.status.toUpperCase() : 'PENDING',
         createdAt: r.submittedAt,
         rawFormData: r.rawFormData
       };
