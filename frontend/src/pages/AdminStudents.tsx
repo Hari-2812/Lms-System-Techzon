@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Users, UserPlus, Mail, ShieldAlert, Loader2, Plus, X, Edit, Eye, MoreVertical } from 'lucide-react';
+import { Users, UserPlus, Mail, ShieldAlert, Loader2, Plus, X, Edit, Eye, MoreVertical, Trash2 } from 'lucide-react';
 
 interface Student {
   _id: string;
@@ -53,6 +53,12 @@ const AdminStudents: React.FC = () => {
     dateOfBirth: ''
   });
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Delete Student states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   // Manage Enrollments states
   const [courses, setCourses] = useState<any[]>([]);
@@ -156,6 +162,29 @@ const AdminStudents: React.FC = () => {
       alert(error.response?.data?.message || 'Failed to update student details.');
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteClick = (student: Student) => {
+    setStudentToDelete(student);
+    setDeleteConfirmEmail('');
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!studentToDelete) return;
+    if (deleteConfirmEmail !== studentToDelete.email) return;
+
+    setDeleting(true);
+    try {
+      await api.delete(`/users/students/${studentToDelete._id}`);
+      alert('Student deleted successfully.\nThe student\'s LMS access has been completely removed.');
+      setShowDeleteModal(false);
+      fetchUsers();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Unable to delete student.\nNo changes were completed. Please try again.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -307,6 +336,13 @@ const AdminStudents: React.FC = () => {
                           className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 transition disabled:opacity-50"
                         >
                           {resending === item._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteClick(item)} 
+                          title="Delete Student"
+                          className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </>
@@ -487,6 +523,73 @@ const AdminStudents: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Student Modal */}
+      {showDeleteModal && studentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 font-poppins">
+          <div className="w-full max-w-lg glass-card p-6 border border-white/5 space-y-4 text-left relative dark:bg-card-dark">
+            <button onClick={() => setShowDeleteModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Delete Student?</h3>
+            </div>
+            
+            <div className="text-sm text-slate-600 dark:text-slate-300 space-y-3">
+              <p>You are about to permanently remove:</p>
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
+                <p><strong>Student:</strong> {studentToDelete.name}</p>
+                <p><strong>Email:</strong> {studentToDelete.email}</p>
+              </div>
+              <p>This will remove the student's LMS account and access.</p>
+              
+              <ul className="list-disc pl-5 space-y-1 text-slate-500 text-xs">
+                <li>LMS access</li>
+                <li>Active enrollments</li>
+                <li>Progress records</li>
+                <li>Course access</li>
+                <li>Student profile</li>
+              </ul>
+              
+              <p className="text-red-500 font-bold text-xs">This action cannot be undone.</p>
+            </div>
+
+            <div className="space-y-2 pt-4">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Type the student's email to confirm:
+              </label>
+              <input
+                type="text"
+                placeholder={studentToDelete.email}
+                value={deleteConfirmEmail}
+                onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent text-slate-800 dark:text-white focus:border-red-500"
+              />
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-border-dark flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting || deleteConfirmEmail !== studentToDelete.email}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg text-xs font-bold flex items-center justify-center min-w-[150px] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Permanently Delete Student'}
+              </button>
+            </div>
           </div>
         </div>
       )}
