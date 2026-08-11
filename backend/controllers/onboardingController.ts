@@ -101,30 +101,21 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
       throw new Error(`Request is already ${request.status}`);
     }
 
-    let courseId = req.body.courseId || (req.body.courses && req.body.courses[0]);
+    let courseId = req.body.courseId;
     let course = null;
 
-    if (courseId) {
-      if (mongoose.Types.ObjectId.isValid(courseId)) {
-        course = await Course.findById(courseId).session(session);
-      } else {
-        // Fallback: maybe courseId is actually a title like "AI"
-        course = await Course.findOne({ 
-          title: { $regex: new RegExp(`^${courseId.trim()}$`, 'i') } 
-        }).session(session);
-      }
-    }
-    
-    // Fallback: if course is still not found and onboarding request has a course title
-    if (!course && request.courseDetails && request.courseDetails.course) {
-       course = await Course.findOne({
-         title: { $regex: new RegExp(`^${request.courseDetails.course.trim()}$`, 'i') }
-       }).session(session);
+    if (!courseId) {
+      throw new Error('Please select a course.');
     }
 
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      throw new Error('Invalid course selected');
+    }
+
+    course = await Course.findById(courseId).session(session);
+
     if (!course) {
-      if (!courseId) throw new Error('Please select a course.');
-      else throw new Error('Selected course was not found.');
+      throw new Error('Invalid course selected');
     }
 
     const email = request.personalDetails.email.toLowerCase().trim();
@@ -173,9 +164,15 @@ export const approveOnboardingRequest = async (req: Request, res: Response): Pro
     if (planCode.includes('mentor')) planCode = 'mentor-led';
     if (planCode.includes('advanced')) planCode = 'advanced-mentor';
 
-    const validPlan = await LearningPlan.findOne({ code: planCode }).session(session) || await LearningPlan.findOne({ code: 'self-paced' }).session(session);
+    let validPlan = await LearningPlan.findOne({ code: planCode }).session(session);
     if (!validPlan) {
-       throw new Error('No learning plan is configured for this course.');
+       validPlan = await LearningPlan.findOne({ code: 'self-paced' }).session(session);
+    }
+    if (!validPlan) {
+       validPlan = await LearningPlan.findOne().session(session);
+    }
+    if (!validPlan) {
+       throw new Error('No learning plan is configured in the system. Please create a Learning Plan first.');
     }
     
     const existingEnrollment = await Enrollment.findOne({ studentId: user._id, courseId: course._id }).session(session);

@@ -152,7 +152,7 @@ const AdminOnboarding: React.FC = () => {
   const handleApprove = async () => {
     if (!selectedRequest) return;
     if (!selectedCourseId) {
-      setError('Please select a valid course.');
+      setError('Please select a course.');
       return;
     }
     setSubmitting(true);
