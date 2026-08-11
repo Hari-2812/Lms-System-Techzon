@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { 
   RefreshCw, Check, X, Search, Loader2, Sparkles, 
-  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock, AlertTriangle, Layers, Calendar
+  ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock, AlertTriangle, Layers, Calendar, Eye, Ban
 } from 'lucide-react';
 
 interface OnboardingRequest {
@@ -15,13 +15,14 @@ interface OnboardingRequest {
   city: string;
   state: string;
   courses: { _id: string; title: string }[];
-  learningPlan: { _id: string; name: string; durationMonths: number };
+  learningPlan?: { _id: string; name: string; durationMonths: number };
   preferredBatch: string;
   preferredMentor?: { _id: string; name: string };
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FAILED';
   remarks?: string;
   createdAt: string;
   googleRowId?: string;
+  rawFormData?: any;
 }
 
 interface MentorOption {
@@ -41,11 +42,13 @@ const GoogleFormSync: React.FC = () => {
   const [courses, setCourses] = useState<CourseOption[]>([]);
   
   // Stats summary state
-  const [totalRows, setTotalRows] = useState(0);
   const [syncedCount, setSyncedCount] = useState(0);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string>('Never');
+  
+  // UI Tab State
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'FAILED'>('PENDING');
 
   // UI lists state
   const [loading, setLoading] = useState(true);
@@ -55,6 +58,7 @@ const GoogleFormSync: React.FC = () => {
 
   // Dialog Modals
   const [selectedRequest, setSelectedRequest] = useState<OnboardingRequest | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
 
   // Approval Wizard Parameters
@@ -66,6 +70,8 @@ const GoogleFormSync: React.FC = () => {
   const [approveDuration, setApproveDuration] = useState(6);
   const [approveRemarks, setApproveRemarks] = useState('');
   
+  const [rejectReason, setRejectReason] = useState('');
+  
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -73,13 +79,9 @@ const GoogleFormSync: React.FC = () => {
     setLoading(true);
     try {
       const res = await api.get('/onboarding');
-      // Filter Google Sheets source onboardings
       const allOnboardings: OnboardingRequest[] = res.data.data || [];
       const sheetsOnboardings = allOnboardings.filter(r => r.googleRowId);
       setRequests(sheetsOnboardings);
-
-      // Accumulate stats based on list
-      setTotalRows(sheetsOnboardings.length + duplicateCount);
     } catch (err) {
       console.error('Error fetching sheets requests:', err);
     } finally {
@@ -90,14 +92,8 @@ const GoogleFormSync: React.FC = () => {
   const fetchMentorsAndCourses = async () => {
     try {
       const [mentorsRes, coursesRes] = await Promise.all([
-        api.get('/users?role=Mentor').catch((err) => {
-          console.error('Failed to load mentors:', err);
-          return { data: { data: [] } };
-        }),
-        api.get('/courses').catch((err) => {
-          console.error('Failed to load courses:', err);
-          return { data: { data: [] } };
-        })
+        api.get('/users?role=Mentor').catch(() => ({ data: { data: [] } })),
+        api.get('/courses').catch(() => ({ data: { data: [] } }))
       ]);
       setMentors(mentorsRes.data.data || []);
       setCourses(coursesRes.data.data || []);
@@ -132,12 +128,14 @@ const GoogleFormSync: React.FC = () => {
     try {
       const res = await api.post('/onboarding/sync');
       const syncData = res.data.summary || {};
-      setSyncedCount(prev => prev + (syncData.created || 0) + (syncData.updated || 0));
-      setDuplicateCount(prev => prev + (syncData.alreadySynced || 0));
-      setFailedCount(prev => prev + (syncData.failed || 0) + (syncData.skipped || 0));
+      
+      setSyncedCount(prev => prev + (syncData.created || 0)); // New Requests
+      setDuplicateCount(prev => prev + (syncData.alreadySynced || 0) + (syncData.updated || 0)); // Already Pending / Updated
+      setFailedCount(prev => prev + (syncData.skipped || 0) + (syncData.failed || 0));
+      
       setLastSyncTime(new Date().toLocaleTimeString());
       alert(res.data.message || 'Synchronization successfully completed!');
-      fetchOnboardings();
+      fetchOnboardings(); // Auto refresh
     } catch (err: any) {
       const data = err.response?.data;
       if (data && data.message) {
@@ -150,7 +148,13 @@ const GoogleFormSync: React.FC = () => {
     }
   };
 
+  const openDetails = (req: OnboardingRequest) => {
+    setSelectedRequest(req);
+    setShowDetailsModal(true);
+  };
+
   const openApproveWizard = (req: OnboardingRequest) => {
+    setShowDetailsModal(false);
     setSelectedRequest(req);
     setWizardStep(1);
     setApproveCourses(req.courses?.map(c => c._id) || []);
@@ -194,12 +198,26 @@ const GoogleFormSync: React.FC = () => {
     }
   };
 
+  const handleReject = async () => {
+    if (!selectedRequest) return;
+    setSubmitting(true);
+    setError('');
+
+    try {
+      await api.post(`/onboarding/${selectedRequest._id}/reject`, { reason: rejectReason });
+      setShowDetailsModal(false);
+      fetchOnboardings();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to reject request');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredRequests = requests.filter((req) => {
     const term = searchQuery.toLowerCase();
-    return (
-      req.fullName.toLowerCase().includes(term) ||
-      req.email.toLowerCase().includes(term)
-    );
+    const matchSearch = req.fullName.toLowerCase().includes(term) || req.email.toLowerCase().includes(term);
+    return matchSearch && req.status === activeTab;
   });
 
   return (
@@ -230,32 +248,45 @@ const GoogleFormSync: React.FC = () => {
       </div>
 
       {/* Sync statistics row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="glass-card p-4 text-center">
           <p className="text-[10px] uppercase font-bold text-slate-400">Last Sync Time</p>
           <p className="text-sm font-extrabold text-slate-700 dark:text-white mt-1">{lastSyncTime}</p>
         </div>
         <div className="glass-card p-4 text-center">
-          <p className="text-[10px] uppercase font-bold text-slate-400">Synced in Session</p>
+          <p className="text-[10px] uppercase font-bold text-slate-400">New Requests</p>
           <p className="text-sm font-extrabold text-emerald-500 mt-1">+{syncedCount}</p>
         </div>
         <div className="glass-card p-4 text-center">
-          <p className="text-[10px] uppercase font-bold text-slate-400">Total Synced Rows</p>
-          <p className="text-sm font-extrabold text-primary mt-1">{requests.length}</p>
-        </div>
-        <div className="glass-card p-4 text-center">
-          <p className="text-[10px] uppercase font-bold text-slate-400">Duplicates Detected</p>
+          <p className="text-[10px] uppercase font-bold text-slate-400">Already Pending/Updated</p>
           <p className="text-sm font-extrabold text-amber-500 mt-1">{duplicateCount}</p>
         </div>
         <div className="glass-card p-4 text-center">
-          <p className="text-[10px] uppercase font-bold text-slate-400">Skipped Rows</p>
+          <p className="text-[10px] uppercase font-bold text-slate-400">Failed / Skipped</p>
           <p className="text-sm font-extrabold text-red-500 mt-1">{failedCount}</p>
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-slate-100 dark:bg-secondary-dark p-1 rounded-xl">
+        {(['PENDING', 'APPROVED', 'REJECTED', 'FAILED'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+              activeTab === tab
+                ? 'bg-white dark:bg-card-dark text-accent shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            {tab} ({requests.filter(r => r.status === tab).length})
+          </button>
+        ))}
+      </div>
+
       {/* Filter and Search Bar */}
       <div className="flex justify-between items-center">
-        <h3 className="text-sm font-bold text-slate-800 dark:text-white">Imported Sheet Responses</h3>
+        <h3 className="text-sm font-bold text-slate-800 dark:text-white">{activeTab} Requests</h3>
         <div className="relative w-72">
           <Search className="absolute left-3.5 w-4 h-4 text-slate-400 top-1/2 -translate-y-1/2" />
           <input
@@ -277,8 +308,7 @@ const GoogleFormSync: React.FC = () => {
         ) : filteredRequests.length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <AlertTriangle className="w-12 h-12 mx-auto text-slate-400" />
-            <h4 className="font-bold text-slate-600 dark:text-slate-300">No sheets data found</h4>
-            <p className="text-xs text-slate-400">Click the Sync button to fetch registration records from your Google Spreadsheet.</p>
+            <h4 className="font-bold text-slate-600 dark:text-slate-300">No {activeTab.toLowerCase()} requests found</h4>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -289,7 +319,7 @@ const GoogleFormSync: React.FC = () => {
                   <th className="p-4">Student Name</th>
                   <th className="p-4">Email</th>
                   <th className="p-4">Phone</th>
-                  <th className="p-4">Selected Course</th>
+                  <th className="p-4">Course</th>
                   <th className="p-4">Status</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
@@ -303,8 +333,8 @@ const GoogleFormSync: React.FC = () => {
                     <td className="p-4 font-semibold text-slate-500">{req.phone}</td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1">
-                        {req.courses?.map((c) => (
-                          <span key={c._id} className="text-[9px] bg-primary/10 text-primary font-bold px-2.5 py-0.5 rounded">
+                        {req.courses?.map((c, i) => (
+                          <span key={i} className="text-[9px] bg-primary/10 text-primary font-bold px-2.5 py-0.5 rounded">
                             {c.title}
                           </span>
                         ))}
@@ -312,24 +342,22 @@ const GoogleFormSync: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <span className={`inline-block font-extrabold uppercase text-[9px] px-2 py-0.5 rounded ${
-                        req.status === 'approved' 
+                        req.status === 'APPROVED' 
                           ? 'bg-emerald-500/10 text-emerald-500' 
-                          : req.status === 'rejected'
+                          : req.status === 'REJECTED'
                           ? 'bg-red-500/10 text-red-500'
-                          : 'bg-amber-500/10 text-amber-500'
+                          : req.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-500/10 text-slate-500'
                       }`}>
-                        {req.status === 'approved' ? 'Imported' : req.status}
+                        {req.status}
                       </span>
                     </td>
                     <td className="p-4 text-right">
-                      {req.status === 'pending' && (
-                        <button
-                          onClick={() => openApproveWizard(req)}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition text-[10px] font-bold"
-                        >
-                          Approve & Provision
-                        </button>
-                      )}
+                      <button
+                        onClick={() => openDetails(req)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 transition text-[10px] font-bold flex items-center gap-1.5 ml-auto"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View Details
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -338,6 +366,79 @@ const GoogleFormSync: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* DETAILS MODAL */}
+      {showDetailsModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Student Details</h3>
+              <button onClick={() => setShowDetailsModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto space-y-4 flex-1 pr-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Personal Information</h4>
+                  <p><span className="font-bold text-slate-500">Name:</span> {selectedRequest.fullName}</p>
+                  <p><span className="font-bold text-slate-500">Email:</span> {selectedRequest.email}</p>
+                  <p><span className="font-bold text-slate-500">Phone:</span> {selectedRequest.phone}</p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Course Details</h4>
+                  <p><span className="font-bold text-slate-500">Course:</span> {selectedRequest.courses?.map(c => c.title).join(', ')}</p>
+                  <p><span className="font-bold text-slate-500">Batch:</span> {selectedRequest.preferredBatch}</p>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Google Form Raw Data</h4>
+                <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-border-dark max-h-48 overflow-y-auto">
+                  <pre className="text-[10px] text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono">
+                    {JSON.stringify(selectedRequest.rawFormData, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              {selectedRequest.status === 'PENDING' && (
+                <div>
+                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Rejection Reason (Optional)</h4>
+                  <input
+                    type="text"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Enter reason for rejection..."
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark"
+                  />
+                </div>
+              )}
+              {error && <div className="text-red-500 font-bold">{error}</div>}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t dark:border-border-dark">
+              {selectedRequest.status === 'PENDING' && (
+                <>
+                  <button
+                    onClick={handleReject}
+                    disabled={submitting}
+                    className="px-4 py-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 font-bold flex items-center gap-1"
+                  >
+                    {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />} Reject
+                  </button>
+                  <button
+                    onClick={() => openApproveWizard(selectedRequest)}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1"
+                  >
+                    Approve Student
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* APPROVAL WIZARD MODAL */}
       {showApproveModal && selectedRequest && (

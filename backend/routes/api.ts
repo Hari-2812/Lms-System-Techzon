@@ -27,6 +27,7 @@ import {
 } from '../controllers/paymentController';
 // Onboarding Sync will be handled via onboardingSyncController
 import { syncGoogleSheets, getSyncStats, testGoogleConnectionRoute } from '../controllers/onboardingSyncController';
+import { getOnboardingRequests, getOnboardingRequestById, approveOnboardingRequest, rejectOnboardingRequest } from '../controllers/onboardingController';
 import multer from 'multer';
 import {
   getCourses,
@@ -209,7 +210,13 @@ router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'S
 // ==========================================
 router.use(authorize('SuperAdmin', 'Admin'));
 
-// Legacy onboarding admin routes removed
+// Onboarding requests API
+router.get('/onboarding', getOnboardingRequests);
+router.get('/onboarding/:id', getOnboardingRequestById);
+router.post('/onboarding/:id/approve', approveOnboardingRequest);
+router.post('/onboarding/:id/reject', rejectOnboardingRequest);
+
+// Sync routes
 router.get('/onboarding/google-sheets/test', testGoogleConnectionRoute);
 router.post('/onboarding/sync', syncGoogleSheets);
 router.get('/onboarding/sync-stats', getSyncStats);
