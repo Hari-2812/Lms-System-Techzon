@@ -5,6 +5,7 @@ import Enrollment from '../models/Enrollment';
 import LearningPlan from '../models/LearningPlan';
 import SyncStat from '../models/SyncStat';
 import OnboardingRequest from '../models/OnboardingRequest';
+import GoogleSyncRecord from '../models/GoogleSyncRecord';
 import Settings from '../models/Settings';
 import logger from '../config/logger';
 import crypto from 'crypto';
@@ -217,59 +218,54 @@ export const runOnboardingSync = async () => {
       const mappedCourseTitle = normalizeCourseName(courseStr);
 
       const sourceRowId = `row-${rowNumber}`;
-      let request = await OnboardingRequest.findOne({ source: 'google_form', sourceRowId });
+      
+      // 1. Check if this exact row has been synced before
+      let syncRecord = await GoogleSyncRecord.findOne({ source: 'google_form', sourceRowId });
 
-      if (request) {
-        if (request.status === 'PENDING') {
-           // We might just update it in case they edited the form row
-           request.personalDetails.fullName = fullName || request.personalDetails.fullName;
-           request.personalDetails.phone = phone || request.personalDetails.phone;
-           request.courseDetails.course = mappedCourseTitle || request.courseDetails.course;
-           request.courseDetails.batch = batchStr || request.courseDetails.batch;
-           request.rawFormData = rawFormData;
-           request.syncedAt = new Date();
-           await request.save();
-           
-           if (request.submittedAt.getTime() === submittedAt.getTime()) {
-             stat.alreadySynced++;
-           } else {
-             stat.updated++;
-           }
-        } else {
-           stat.alreadySynced++;
-        }
-      } else {
-        stat.created++;
-        request = new OnboardingRequest({
-          source: 'google_form',
-          sourceRowId,
-          submittedAt,
-          syncedAt: new Date(),
-          status: 'PENDING',
-          personalDetails: {
-            fullName: fullName || 'Unknown',
-            email: email,
-            phone: phone,
-            city: getField(row, headerRow, 'City'),
-            state: getField(row, headerRow, 'State'),
-            gender: getField(row, headerRow, 'Gender')
-          },
-          addressDetails: {
-            city: getField(row, headerRow, 'City'),
-            state: getField(row, headerRow, 'State'),
-          },
-          educationDetails: {
-            qualification: getField(row, headerRow, 'Qualification'),
-            college: getField(row, headerRow, 'College'),
-          },
-          courseDetails: {
-            course: mappedCourseTitle || courseStr,
-            batch: batchStr,
-          },
-          rawFormData
-        });
-        await request.save();
+      if (syncRecord) {
+         stat.alreadySynced++;
+         continue; // Completely skip if we've already synced this row
       }
+
+      // 2. If it hasn't been synced, create a NEW onboarding request.
+      stat.created++;
+      let request = new OnboardingRequest({
+        source: 'google_form',
+        sourceRowId,
+        submittedAt,
+        syncedAt: new Date(),
+        status: 'PENDING',
+        personalDetails: {
+          fullName: fullName || 'Unknown',
+          email: email,
+          phone: phone,
+          city: getField(row, headerRow, 'City'),
+          state: getField(row, headerRow, 'State'),
+          gender: getField(row, headerRow, 'Gender')
+        },
+        addressDetails: {
+          city: getField(row, headerRow, 'City'),
+          state: getField(row, headerRow, 'State'),
+        },
+        educationDetails: {
+          qualification: getField(row, headerRow, 'Qualification'),
+          college: getField(row, headerRow, 'College'),
+        },
+        courseDetails: {
+          course: mappedCourseTitle || courseStr,
+          batch: batchStr,
+        },
+        rawFormData
+      });
+      
+      await request.save();
+      
+      // 3. Save sync history
+      await GoogleSyncRecord.create({
+        source: 'google_form',
+        sourceRowId,
+        syncedAt: new Date()
+      });
     }
 
     await stat.save();

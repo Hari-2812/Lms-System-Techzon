@@ -32,7 +32,8 @@ import {
   getOnboardingRequestById, 
   approveOnboardingRequest, 
   rejectOnboardingRequest,
-  resendApprovalEmail 
+  resendApprovalEmail,
+  deleteOnboardingRequest
 } from '../controllers/onboardingController';
 import multer from 'multer';
 import {
@@ -218,10 +219,11 @@ router.use(authorize('SuperAdmin', 'Admin'));
 
 // Onboarding requests API
 router.get('/admin/onboarding/requests', getOnboardingRequests);
-router.get('/admin/onboarding/requests/:id', getOnboardingRequestById);
-router.post('/admin/onboarding/requests/:id/approve', approveOnboardingRequest);
-router.post('/admin/onboarding/requests/:id/reject', rejectOnboardingRequest);
-router.post('/admin/onboarding/requests/:id/resend-email', resendApprovalEmail);
+router.get('/admin/onboarding/requests/:id', authorize('Admin', 'SuperAdmin'), getOnboardingRequestById);
+router.post('/admin/onboarding/requests/:id/approve', authorize('Admin', 'SuperAdmin'), approveOnboardingRequest);
+router.post('/admin/onboarding/requests/:id/reject', authorize('Admin', 'SuperAdmin'), rejectOnboardingRequest);
+router.post('/admin/onboarding/requests/:id/resend-email', authorize('Admin', 'SuperAdmin'), resendApprovalEmail);
+router.delete('/admin/onboarding/requests/:id', authorize('Admin', 'SuperAdmin'), deleteOnboardingRequest);
 
 // Sync routes
 router.get('/admin/onboarding/google-sheets/test', testGoogleConnectionRoute);

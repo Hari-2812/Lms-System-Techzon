@@ -11,6 +11,27 @@ import { createNotification } from '../services/notificationService';
 import logger from '../config/logger';
 import { generateSecureTemporaryPassword } from '../utils/passwordGenerator';
 
+export const deleteOnboardingRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const request = await OnboardingRequest.findById(req.params.id);
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Request not found' });
+      return;
+    }
+
+    // Only allow deletion of terminal states to be safe, or just let admin do whatever?
+    // We allow it, but note that the GoogleSyncRecord is NOT deleted.
+    // So the next sync will NOT respawn this exact row.
+    // A fresh form submission by the same student will create a new row and a new request.
+    await OnboardingRequest.findByIdAndDelete(req.params.id);
+    
+    res.status(200).json({ success: true, message: 'Onboarding request removed successfully. Google sync history preserved.' });
+  } catch (error: any) {
+    logger.error('Error deleting onboarding request:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getOnboardingRequests = async (req: Request, res: Response): Promise<void> => {
   try {
     const status = req.query.status as string || 'PENDING';
