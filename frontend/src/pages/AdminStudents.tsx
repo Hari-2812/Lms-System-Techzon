@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Users, UserPlus, Mail, ShieldAlert, Loader2, Plus, X, Edit, Eye, MoreVertical, Trash2 } from 'lucide-react';
+import {
+  Users, Edit, Trash2, Shield, Search, BookOpen, Clock, AlertTriangle, ChevronDown, CheckCircle, Mail, Eye, Upload, UserPlus, FileDown,
+  Loader2, RefreshCw
+} from 'lucide-react';
 
 interface Student {
   _id: string;
@@ -31,6 +34,7 @@ const AdminStudents: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [mentors, setMentors] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'students' | 'mentors'>('students');
 
   // Create Mentor/Admin states
@@ -72,6 +76,8 @@ const AdminStudents: React.FC = () => {
   }, []);
 
   const fetchUsers = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const resStuds = await api.get('/users/students');
       setStudents(resStuds.data.data || []);
@@ -81,8 +87,9 @@ const AdminStudents: React.FC = () => {
       
       const resCourses = await api.get('/courses');
       setCourses(resCourses.data.data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      setError(error.response?.data?.message || 'Unable to load students.');
     } finally {
       setLoading(false);
     }
@@ -215,6 +222,22 @@ const AdminStudents: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <AlertTriangle className="w-12 h-12 text-red-500" />
+        <h3 className="text-xl font-bold text-slate-800 dark:text-white">Unable to load students</h3>
+        <p className="text-slate-500">{error}</p>
+        <button 
+          onClick={fetchUsers}
+          className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" /> Retry
+        </button>
       </div>
     );
   }

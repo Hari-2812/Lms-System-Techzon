@@ -8,6 +8,7 @@ import LiveClass from '../models/LiveClass';
 import SupportTicket from '../models/SupportTicket';
 import AuditLog from '../models/AuditLog';
 import Settings from '../models/Settings';
+import Progress from '../models/Progress';
 import Submission from '../models/Submission';
 import QuizResult from '../models/QuizResult';
 
