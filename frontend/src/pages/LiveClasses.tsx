@@ -43,12 +43,35 @@ const LiveClasses: React.FC = () => {
   };
 
   const handleJoinClass = async (id: string, meetingLink: string) => {
+    if (!meetingLink || meetingLink.trim() === '') {
+      alert('Meeting link is not available for this class.');
+      return;
+    }
+
+    const isValidUrl = meetingLink.startsWith('http://') || meetingLink.startsWith('https://');
+    if (!isValidUrl) {
+      alert('Meeting link is unavailable or invalid.');
+      return;
+    }
+
+    // Open synchronously to avoid browser popup blockers
+    const newWindow = window.open('', '_blank', 'noopener,noreferrer');
+
     try {
       await api.post(`/live-classes/${id}/join`);
-      window.open(meetingLink, '_blank');
+      if (newWindow) {
+        newWindow.location.href = meetingLink;
+      } else {
+        // Fallback if popup was still blocked
+        window.location.href = meetingLink;
+      }
       fetchLiveClasses();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      if (newWindow) {
+        newWindow.close();
+      }
+      alert(error.response?.data?.message || 'Error joining class');
     }
   };
 
@@ -109,9 +132,18 @@ const LiveClasses: React.FC = () => {
 
                 <button
                   onClick={() => handleJoinClass(cls._id, cls.meetingLink)}
-                  className="btn-primary w-full py-3 text-sm flex items-center justify-center gap-2"
+                  disabled={!cls.meetingLink}
+                  className={`w-full py-3 text-sm flex items-center justify-center gap-2 ${
+                    !cls.meetingLink 
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500 rounded-xl' 
+                      : 'btn-primary'
+                  }`}
                 >
-                  Join Class <ExternalLink className="w-4 h-4" />
+                  {!cls.meetingLink ? (
+                    'Meeting Link Unavailable'
+                  ) : (
+                    <>Join Class <ExternalLink className="w-4 h-4" /></>
+                  )}
                 </button>
               </div>
             ))}
