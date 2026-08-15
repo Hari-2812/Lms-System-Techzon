@@ -485,12 +485,19 @@ const AdminStudentDetails: React.FC = () => {
                             </span>
                           </td>
                           <td className="p-4">
-                            <span className={`text-xs font-bold ${row.auditStatus.includes('Correct') ? 'text-green-500' : row.auditStatus.includes('Incorrect') ? 'text-red-500' : 'text-yellow-500'}`}>
-                              {row.auditStatus}
-                            </span>
+                            {row.accessVerified && row.paymentStatus === 'captured' && row.enrollmentStatus === 'active' ? (
+                              <div className="text-xs text-green-600">
+                                <span className="font-bold flex items-center gap-1">✓ CORRECT ACCESS</span>
+                                {row.accessVerifiedAt && <p className="text-[10px] text-slate-400 mt-1">Verified on: {new Date(row.accessVerifiedAt).toLocaleDateString()}</p>}
+                              </div>
+                            ) : (
+                              <span className={`text-xs font-bold ${row.auditStatus.includes('Correct') ? 'text-green-500' : row.auditStatus.includes('Incorrect') || row.auditStatus.includes('NOT VALID') ? 'text-red-500' : 'text-yellow-500'}`}>
+                                {row.auditStatus}
+                              </span>
+                            )}
                           </td>
                           <td className="p-4 text-right space-x-2 whitespace-nowrap">
-                            {row.auditStatus === '⚠ NOT VERIFIED' && (
+                            {row.paymentStatus === 'captured' && row.enrollmentStatus === 'active' && !row.accessVerified && (
                               <button 
                                 onClick={() => handleVerifyCourse(row.courseId)}
                                 disabled={actionLoading === `verify-${row.courseId}`}
@@ -499,7 +506,7 @@ const AdminStudentDetails: React.FC = () => {
                                 {actionLoading === `verify-${row.courseId}` ? 'Verifying...' : '✓ Correct Access'}
                               </button>
                             )}
-                            {row.auditStatus.includes('Incorrect Access') && (
+                            {(row.auditStatus.includes('Incorrect Access') || row.auditStatus.includes('NOT VALID') || (row.enrollmentStatus && row.enrollmentStatus !== 'active' && row.enrollmentStatus !== 'NONE')) && (
                               <button 
                                 onClick={() => handleRemoveAccess(row.courseId, row.courseName)}
                                 disabled={actionLoading === `remove-${row.courseId}`}
