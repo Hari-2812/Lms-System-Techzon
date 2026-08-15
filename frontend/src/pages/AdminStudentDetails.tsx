@@ -12,8 +12,17 @@ const AdminStudentDetails: React.FC = () => {
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  const [auditData, setAuditData] = useState<any>(null);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [activeTab, setActiveTab] = useState<'analytics' | 'audit'>('analytics');
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [allCourses, setAllCourses] = useState<any[]>([]);
+  const [selectedCourseToAssign, setSelectedCourseToAssign] = useState('');
+  
   useEffect(() => {
     fetchAnalytics();
+    fetchAudit();
+    fetchAllCourses();
   }, [studentId]);
 
   const fetchAnalytics = async () => {
@@ -29,6 +38,28 @@ const AdminStudentDetails: React.FC = () => {
     }
   };
 
+  const fetchAudit = async () => {
+    if (!studentId) return;
+    try {
+      setLoadingAudit(true);
+      const res = await api.get(`/admin/students/${studentId}/audit`);
+      setAuditData(res.data.data);
+    } catch (e: any) {
+      console.error('Failed to load audit data', e);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  const fetchAllCourses = async () => {
+    try {
+      const res = await api.get('/courses');
+      setAllCourses(res.data.data || []);
+    } catch (e) {
+      console.error('Failed to load courses', e);
+    }
+  };
+
   const handleAction = async (action: string, courseId: string) => {
     if (!window.confirm(`Are you sure you want to perform this action?`)) return;
     setActionLoading(`${action}-${courseId}`);
@@ -37,6 +68,37 @@ const AdminStudentDetails: React.FC = () => {
       await fetchAnalytics();
     } catch (e: any) {
       alert(e.response?.data?.error || 'Action failed');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRemoveAccess = async (courseId: string, courseName: string) => {
+    if (!window.confirm(`Are you sure you want to remove LMS access for ${courseName}? This will disable the enrollment but preserve payment history.`)) return;
+    setActionLoading(`remove-${courseId}`);
+    try {
+      await api.patch(`/admin/students/${studentId}/enrollment/${courseId}/remove`);
+      await fetchAudit();
+      await fetchAnalytics();
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Action failed');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAssignCourse = async () => {
+    if (!selectedCourseToAssign) return;
+    setActionLoading('assign');
+    try {
+      await api.post(`/admin/students/${studentId}/enrollment/assign`, { courseId: selectedCourseToAssign });
+      setShowAssignModal(false);
+      setSelectedCourseToAssign('');
+      await fetchAudit();
+      await fetchAnalytics();
+      alert('Course assigned successfully.');
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Action failed');
     } finally {
       setActionLoading(null);
     }
@@ -92,6 +154,25 @@ const AdminStudentDetails: React.FC = () => {
         </div>
       </div>
 
+      <div className="flex gap-4 border-b border-slate-200 dark:border-white/10 mb-6">
+        <button 
+          onClick={() => setActiveTab('analytics')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'analytics' ? 'border-accent text-accent' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+        >
+          Progress & Analytics
+        </button>
+        <button 
+          onClick={() => setActiveTab('audit')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'audit' ? 'border-accent text-accent' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+        >
+          Course Access Audit
+          {auditData?.summary?.incorrectAccess > 0 && (
+            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{auditData.summary.incorrectAccess}</span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'analytics' ? (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Profile & Stats */}
         <div className="lg:col-span-1 space-y-6">
@@ -308,6 +389,162 @@ const AdminStudentDetails: React.FC = () => {
 
         </div>
       </div>
+      ) : (
+        <div className="space-y-6">
+          {loadingAudit ? (
+            <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-accent" /></div>
+          ) : auditData ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="glass-card p-4 text-center">
+                  <p className="text-xs text-slate-500 font-bold uppercase">Total Courses</p>
+                  <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.totalCourses}</p>
+                </div>
+                <div className="glass-card p-4 text-center border-b-2 border-b-green-500">
+                  <p className="text-xs text-slate-500 font-bold uppercase">Paid</p>
+                  <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.paidCourses}</p>
+                </div>
+                <div className="glass-card p-4 text-center border-b-2 border-b-blue-500">
+                  <p className="text-xs text-slate-500 font-bold uppercase">Active Enrollments</p>
+                  <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.activeEnrollments}</p>
+                </div>
+                <div className="glass-card p-4 text-center border-b-2 border-b-red-500">
+                  <p className="text-xs text-slate-500 font-bold uppercase">Incorrect Access</p>
+                  <p className="text-2xl font-black text-red-500 mt-1">{auditData.summary.incorrectAccess}</p>
+                </div>
+                <div className="glass-card p-4 text-center border-b-2 border-b-accent">
+                  <p className="text-xs text-slate-500 font-bold uppercase">LMS Status</p>
+                  <p className={`text-sm font-black mt-2 ${auditData.summary.lmsAccess === 'GRANTED' ? 'text-green-500' : 'text-slate-500'}`}>{auditData.summary.lmsAccess}</p>
+                </div>
+              </div>
+
+              {auditData.summary.incorrectAccess > 0 && (
+                <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 p-4 rounded-xl flex items-start gap-4">
+                  <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full text-red-600">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-red-800 dark:text-red-400">⚠ COURSE ACCESS MISMATCH</h4>
+                    <p className="text-xs text-red-600 dark:text-red-300 mt-1">Student has LMS access to courses without verified payment or valid enrollment. Please review the audit below and remove incorrect access.</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="glass-card overflow-hidden">
+                <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 dark:text-white">Course Access Audit</h3>
+                  <button 
+                    onClick={() => setShowAssignModal(true)}
+                    className="btn-accent py-1.5 px-3 text-[10px]"
+                  >
+                    Assign Course
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/50 text-[10px] uppercase text-slate-500">
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Course</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Payment</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Enrollment</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">LMS Access</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Status</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {auditData.audit.map((row: any) => (
+                        <tr key={row.courseId} className="hover:bg-slate-50 dark:hover:bg-white/5 transition border-b border-slate-100 dark:border-white/5 last:border-0">
+                          <td className="p-4 font-bold text-slate-800 dark:text-white">{row.courseName}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.paymentStatus === 'captured' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {row.paymentStatus === 'captured' ? 'PAID' : row.paymentStatus || 'NONE'}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.enrollmentStatus === 'active' ? 'bg-blue-100 text-blue-700' : row.enrollmentStatus === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {row.enrollmentStatus || 'NONE'}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.lmsAccess === 'GRANTED' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {row.lmsAccess}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`text-xs font-bold ${row.auditStatus.includes('Correct') ? 'text-green-500' : row.auditStatus.includes('Incorrect') ? 'text-red-500' : 'text-yellow-500'}`}>
+                              {row.auditStatus}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            {row.auditStatus.includes('Incorrect Access') && (
+                              <button 
+                                onClick={() => handleRemoveAccess(row.courseId, row.courseName)}
+                                disabled={actionLoading === `remove-${row.courseId}`}
+                                className="bg-red-50 text-red-500 hover:bg-red-100 px-3 py-1.5 rounded text-xs font-bold transition disabled:opacity-50"
+                              >
+                                {actionLoading === `remove-${row.courseId}` ? 'Removing...' : 'Remove Access'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {auditData.audit.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-slate-500">No course data found for this student.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-center text-slate-500">Failed to load audit data.</p>
+          )}
+        </div>
+      )}
+
+      {/* Assign Course Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-card-dark rounded-2xl w-full max-w-md shadow-2xl p-6">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Assign Course</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Select a course to assign. The student must have a verified payment for this course.
+            </p>
+            <div className="space-y-4">
+              <select
+                value={selectedCourseToAssign}
+                onChange={(e) => setSelectedCourseToAssign(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-accent dark:text-white"
+              >
+                <option value="">-- Select Course --</option>
+                {allCourses.map(c => (
+                  <option key={c._id} value={c._id}>{c.title}</option>
+                ))}
+              </select>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-border-dark">
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="btn-secondary py-2 px-4"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignCourse}
+                  disabled={!selectedCourseToAssign || actionLoading === 'assign'}
+                  className="btn-accent py-2 px-4 disabled:opacity-50"
+                >
+                  {actionLoading === 'assign' ? 'Assigning...' : 'Assign'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -3,6 +3,10 @@ import User from '../models/User';
 import logger from '../config/logger';
 import { generateSecureTemporaryPassword } from '../utils/passwordGenerator';
 import { sendCredentialsResetEmail } from '../services/email';
+import Enrollment from '../models/Enrollment';
+import Payment from '../models/Payment';
+import Course from '../models/Course';
+import mongoose from 'mongoose';
 
 export const updateStudentDetails = async (req: Request, res: Response): Promise<void> => {
   const { studentId } = req.params;
@@ -216,6 +220,202 @@ export const deleteStudentCompletely = async (req: Request, res: Response): Prom
 
   } catch (error: any) {
     logger.error('Error permanently deleting student:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getStudentAccessAudit = async (req: Request, res: Response): Promise<void> => {
+  const { studentId } = req.params;
+
+  try {
+    const student = await User.findById(studentId);
+    if (!student) {
+      res.status(404).json({ success: false, message: 'Student not found' });
+      return;
+    }
+
+    const enrollments = await Enrollment.find({ studentId }).populate('courseId', 'title _id');
+    const payments = await Payment.find({ 
+      $or: [
+        { studentEmail: student.email },
+      ]
+    }).populate('courseId', 'title _id');
+
+    // Audit logic
+    const auditMap = new Map<string, any>();
+
+    // Process payments
+    for (const payment of payments) {
+      const courseIdStr = payment.courseId?._id?.toString() || payment.courseId?.toString();
+      if (!courseIdStr) continue;
+      
+      if (!auditMap.has(courseIdStr)) {
+        auditMap.set(courseIdStr, {
+          courseId: courseIdStr,
+          courseName: (payment.courseId as any)?.title || 'Unknown Course',
+          paymentStatus: payment.status,
+          paymentId: payment.orderId,
+          enrollmentStatus: 'NONE',
+          lmsAccess: 'DENIED',
+          auditStatus: '⚠ Enrollment Missing'
+        });
+      } else {
+        const entry = auditMap.get(courseIdStr);
+        if (payment.status === 'captured') {
+          entry.paymentStatus = 'captured';
+          entry.paymentId = payment.orderId;
+        }
+      }
+    }
+
+    // Process enrollments
+    for (const enr of enrollments) {
+      const courseIdStr = enr.courseId?._id?.toString() || enr.courseId?.toString();
+      if (!courseIdStr) continue;
+
+      if (!auditMap.has(courseIdStr)) {
+        auditMap.set(courseIdStr, {
+          courseId: courseIdStr,
+          courseName: (enr.courseId as any)?.title || 'Unknown Course',
+          paymentStatus: 'NONE',
+          paymentId: null,
+          enrollmentStatus: enr.status,
+          lmsAccess: enr.status === 'active' ? 'GRANTED' : 'DENIED',
+          auditStatus: enr.status === 'active' ? '⚠ Incorrect Access' : '⚠ No Payment'
+        });
+      } else {
+        const entry = auditMap.get(courseIdStr);
+        entry.enrollmentStatus = enr.status;
+        entry.lmsAccess = enr.status === 'active' ? 'GRANTED' : 'DENIED';
+        
+        if (entry.paymentStatus === 'captured' && enr.status === 'active') {
+          entry.auditStatus = '✓ Correct Access';
+        } else if (entry.paymentStatus !== 'captured' && enr.status === 'active') {
+          entry.auditStatus = '⚠ Incorrect Access';
+        } else if (enr.status === 'expired') {
+          entry.auditStatus = '⚠ Enrollment Expired';
+        } else if (enr.status === 'suspended') {
+          entry.auditStatus = '⚠ Enrollment Suspended';
+        }
+      }
+    }
+
+    const auditResults = Array.from(auditMap.values());
+
+    const summary = {
+      totalCourses: auditResults.length,
+      paidCourses: auditResults.filter(a => a.paymentStatus === 'captured').length,
+      activeEnrollments: auditResults.filter(a => a.enrollmentStatus === 'active').length,
+      incorrectAccess: auditResults.filter(a => a.auditStatus.includes('Incorrect Access')).length,
+      lmsAccess: auditResults.some(a => a.lmsAccess === 'GRANTED') ? 'GRANTED' : 'DENIED'
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        student: {
+          _id: student._id,
+          name: student.name,
+          email: student.email,
+          phone: student.studentProfile?.phone,
+          status: student.status
+        },
+        summary,
+        audit: auditResults,
+        enrollments,
+        payments
+      }
+    });
+
+  } catch (error: any) {
+    logger.error('Error fetching student access audit:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const removeStudentCourseAccess = async (req: Request, res: Response): Promise<void> => {
+  const { studentId, courseId } = req.params;
+
+  try {
+    const enrollment = await Enrollment.findOne({ studentId, courseId, status: 'active' });
+    if (!enrollment) {
+      res.status(404).json({ success: false, message: 'Active enrollment not found for this course.' });
+      return;
+    }
+
+    enrollment.status = 'suspended';
+    await enrollment.save();
+
+    logger.info(`[ADMIN_ACTION] Admin removed course access for student ${studentId}, course ${courseId}`);
+
+    res.status(200).json({ success: true, message: 'Course access removed successfully.' });
+  } catch (error: any) {
+    logger.error('Error removing student course access:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const assignStudentCourse = async (req: Request, res: Response): Promise<void> => {
+  const { studentId } = req.params;
+  const { courseId } = req.body;
+
+  try {
+    const student = await User.findById(studentId);
+    if (!student) {
+      res.status(404).json({ success: false, message: 'Student not found.' });
+      return;
+    }
+
+    // Verify payment
+    const payment = await Payment.findOne({ studentEmail: student.email, courseId, status: 'captured' });
+    if (!payment) {
+      res.status(400).json({ success: false, message: 'This student has no verified payment for this course. Cannot grant standard course access.' });
+      return;
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ success: false, message: 'Course not found.' });
+      return;
+    }
+
+  // reactivate a suspended one.
+    let enrollment = await Enrollment.findOne({ studentId, courseId });
+    if (enrollment) {
+      if (enrollment.status === 'active') {
+        res.status(400).json({ success: false, message: 'Student is already actively enrolled in this course.' });
+        return;
+      }
+      enrollment.status = 'active';
+      const plan = await mongoose.model('LearningPlan').findOne({ courseId, isDefault: true });
+      if (plan) {
+        enrollment.learningPlanId = plan._id as any;
+        enrollment.expiryDate = new Date(Date.now() + (plan as any).durationDays * 24 * 60 * 60 * 1000);
+      }
+      await enrollment.save();
+    } else {
+      const plan = await mongoose.model('LearningPlan').findOne({ courseId, isDefault: true });
+      if (!plan) {
+        res.status(400).json({ success: false, message: 'No default learning plan found for this course.' });
+        return;
+      }
+
+      enrollment = new Enrollment({
+        studentId,
+        courseId,
+        learningPlanId: plan._id,
+        status: 'active',
+        startDate: new Date(),
+        expiryDate: new Date(Date.now() + (plan as any).durationDays * 24 * 60 * 60 * 1000),
+      });
+      await enrollment.save();
+    }
+
+    logger.info(`[ADMIN_ACTION] Admin assigned course ${courseId} to student ${studentId}`);
+
+    res.status(200).json({ success: true, message: 'Course assigned successfully.', data: enrollment });
+  } catch (error: any) {
+    logger.error('Error assigning student course:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

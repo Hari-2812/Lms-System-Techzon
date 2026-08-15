@@ -403,11 +403,15 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
     const studentsWithAnalytics = await Promise.all(
       students.map(async (student) => {
         const enrollments = await Enrollment.find({ studentId: student._id }).populate('courseId', 'title').lean();
+        const payments = await Payment.find({ studentEmail: student.email, status: 'captured' }).lean();
         
         let overallProgress = 0;
         let lastActive: Date | string = 'Never';
         let currentCourse = 'N/A';
         let batch = 'N/A';
+        let paidCourseCount = new Set(payments.map(p => p.courseId?.toString())).size;
+        let activeEnrollmentCount = enrollments.filter(e => e.status === 'active').length;
+        let incorrectAccess = 0;
 
         if (enrollments.length > 0) {
           const totalProgress = enrollments.reduce((sum, e) => sum + (e.progress?.percentComplete || 0), 0);
@@ -416,6 +420,10 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
           const sorted = [...enrollments].sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
           currentCourse = (sorted[0].courseId as any)?.title || 'N/A';
           batch = sorted[0].batch || 'N/A';
+
+          // calculate incorrect access
+          const paidCourseIds = new Set(payments.map(p => p.courseId?.toString()));
+          incorrectAccess = enrollments.filter(e => e.status === 'active' && !paidCourseIds.has(e.courseId?._id?.toString())).length;
         }
 
         const lastProgress = await mongoose.model('Progress').findOne({ userId: student._id }).sort({ lastWatched: -1 }).lean() as any;
@@ -427,6 +435,9 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
           ...student,
           enrolledCourses: enrollments.map((e) => (e.courseId as any)?._id || e.courseId),
           enrolledCourseCount: enrollments.length,
+          activeEnrollmentCount,
+          paidCourseCount,
+          incorrectAccess,
           overallProgress,
           currentCourse,
           lastActive,

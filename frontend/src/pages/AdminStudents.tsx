@@ -291,12 +291,11 @@ const AdminStudents: React.FC = () => {
                 <th className="px-6 py-4">Name & Email</th>
                 {activeTab === 'students' ? (
                   <>
-                    <th className="px-6 py-4">Batch</th>
-                    <th className="px-6 py-4">Courses</th>
-                    <th className="px-6 py-4">Progress</th>
-                    <th className="px-6 py-4">Current Course</th>
-                    <th className="px-6 py-4">Last Active</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4">Batch</th>
+                      <th className="px-6 py-4 text-center">Paid</th>
+                      <th className="px-6 py-4 text-center">Active Enrolled</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                   </>
                 ) : (
                   <>
@@ -326,17 +325,19 @@ const AdminStudents: React.FC = () => {
                   {activeTab === 'students' ? (
                     <>
                       <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{item.batch || 'General'}</td>
-                      <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{item.enrolledCourseCount || 0}</td>
+                      <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-white">{item.paidCourseCount || 0}</td>
+                      <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-white">{item.activeEnrollmentCount || 0}</td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                           <span className="font-bold text-accent">{item.overallProgress || 0}%</span>
-                           <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden hidden lg:block">
-                             <div className="h-full bg-accent" style={{width: `${item.overallProgress || 0}%`}}></div>
-                           </div>
-                        </div>
+                        {item.incorrectAccess > 0 ? (
+                          <span className="px-2 py-1 bg-red-100 text-red-600 rounded text-[10px] font-bold">
+                            ⚠ {item.incorrectAccess} MISMATCH
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-green-100 text-green-600 rounded text-[10px] font-bold">
+                            OK
+                          </span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-slate-500 text-[11px] max-w-[150px] truncate" title={item.currentCourse}>{item.currentCourse || 'N/A'}</td>
-                      <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{item.lastActive && item.lastActive !== 'Never' ? new Date(item.lastActive).toLocaleDateString() : 'Never'}</td>
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
                         <button 
                           onClick={() => navigate(`/admin/students/${item._id}`)} 

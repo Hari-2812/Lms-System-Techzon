@@ -303,7 +303,10 @@ router.post('/quizzes', createQuiz);
 import {
   updateStudentDetails,
   resendStudentCredentials,
-  deleteStudentCompletely
+  deleteStudentCompletely,
+  getStudentAccessAudit,
+  removeStudentCourseAccess,
+  assignStudentCourse
 } from '../controllers/adminStudentController';
 
 // User/Student Administration
@@ -311,7 +314,12 @@ router.get('/users/students', authorize('Admin', 'SuperAdmin', 'Mentor'), getAdm
 router.put('/users/students/:studentId', authorize('Admin', 'SuperAdmin'), updateStudentDetails);
 router.post('/users/students/:studentId/resend-credentials', authorize('Admin', 'SuperAdmin'), resendStudentCredentials);
 router.delete('/users/students/:studentId', authorize('Admin', 'SuperAdmin'), deleteStudentCompletely);
-// updateStudentEnrollments moved to generic users route or removed if not needed
+
+// Course Access Management
+router.get('/admin/students/:studentId/audit', authorize('Admin', 'SuperAdmin'), getStudentAccessAudit);
+router.patch('/admin/students/:studentId/enrollment/:courseId/remove', authorize('Admin', 'SuperAdmin'), removeStudentCourseAccess);
+router.post('/admin/students/:studentId/enrollment/assign', authorize('Admin', 'SuperAdmin'), assignStudentCourse);
+
 router.get('/analytics/students/:id', authorize('Admin', 'SuperAdmin', 'Mentor'), getStudentAnalyticsDetails);
 router.post('/analytics/students/:id/course/:courseId/reset', authorize('SuperAdmin', 'Admin'), adminResetProgress);
 router.post('/analytics/students/:id/course/:courseId/complete', authorize('SuperAdmin', 'Admin'), adminMarkComplete);
