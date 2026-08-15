@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import LiveClass from '../models/LiveClass';
 import AuditLog from '../models/AuditLog';
 import Enrollment from '../models/Enrollment';
@@ -127,21 +128,27 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
     const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
     const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
     
-    let studentIds: string[] = [];
+    let studentIdsToNotify: string[] = [];
     if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
-      const uniqueIds = [...new Set(req.body.studentIds)];
-      studentIds = uniqueIds.filter((id: any) => enrolledStudentIds.includes(id.toString()));
-      liveClass.studentIds = studentIds as any;
+      const requestedStudentIds = req.body.studentIds
+        .filter((id: unknown): id is string => typeof id === 'string')
+        .map((id: string) => id.trim())
+        .filter(Boolean);
+
+      const uniqueIds = [...new Set(requestedStudentIds)];
+      studentIdsToNotify = uniqueIds.filter(id => enrolledStudentIds.includes(id));
+      
+      liveClass.studentIds = studentIdsToNotify.map(id => new mongoose.Types.ObjectId(id));
       await liveClass.save();
     } else {
       // Legacy behavior if not provided
-      studentIds = enrolledStudentIds;
+      studentIdsToNotify = enrolledStudentIds;
     }
     
     let notificationsFailed = false;
     try {
-      if (studentIds.length > 0) {
-        const notifications = studentIds.map(studentId => ({
+      if (studentIdsToNotify.length > 0) {
+        const notifications = studentIdsToNotify.map(studentId => ({
           title: 'Live Class Scheduled',
           message: `A new live class "${liveClass.title}" has been scheduled for your course.`,
           type: 'LIVE_CLASS_CREATED',
@@ -152,7 +159,7 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
         await Notification.insertMany(notifications);
 
         const io = getIO();
-        studentIds.forEach(studentId => {
+        studentIdsToNotify.forEach(studentId => {
           io.to(`user:${studentId}`).emit('notification:new', {
             title: 'Live Class Scheduled',
             message: `A new live class "${liveClass.title}" has been scheduled.`,
@@ -185,13 +192,20 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
     }
 
     // Filter studentIds if provided
-    let newStudentIds: any[] | undefined;
+    let newStudentIds: string[] | undefined;
     if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
       const enrollments = await Enrollment.find({ courseId: liveClassToUpdate.courseId, status: 'active' });
       const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
-      const uniqueIds = [...new Set(req.body.studentIds)];
-      newStudentIds = uniqueIds.filter((sid: any) => enrolledStudentIds.includes(sid.toString()));
-      req.body.studentIds = newStudentIds;
+      
+      const requestedStudentIds = req.body.studentIds
+        .filter((id: unknown): id is string => typeof id === 'string')
+        .map((id: string) => id.trim())
+        .filter(Boolean);
+
+      const uniqueIds = [...new Set(requestedStudentIds)];
+      newStudentIds = uniqueIds.filter(sid => enrolledStudentIds.includes(sid));
+      
+      req.body.studentIds = newStudentIds.map(id => new mongoose.Types.ObjectId(id));
     }
 
     const liveClass = await LiveClass.findByIdAndUpdate(id, req.body, { new: true });
