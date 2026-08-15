@@ -46,7 +46,8 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const sidebarItems: SidebarItem[] = [
     // Students
     { name: 'My Courses', path: '/dashboard', icon: <BookOpen className="w-5 h-5" />, roles: ['Student'] },
-    { name: 'Live Classes', path: '/live-classes', icon: <Calendar className="w-5 h-5" />, roles: ['Student', 'Mentor', 'Admin', 'SuperAdmin'] },
+    { name: 'Live Classes', path: '/live-classes', icon: <Calendar className="w-5 h-5" />, roles: ['Student'] },
+    { name: 'Live Classes', path: '/admin/live-classes', icon: <Calendar className="w-5 h-5" />, roles: ['Mentor', 'Admin', 'SuperAdmin'] },
     { name: 'My Certificates', path: '/certificates', icon: <Award className="w-5 h-5" />, roles: ['Student'] },
     
     // Mentors
