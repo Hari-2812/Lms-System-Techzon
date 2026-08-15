@@ -56,9 +56,11 @@ import {
 } from '../controllers/courseController';
 import {
   getLiveClasses,
+  getLiveClassDetails,
   createLiveClass,
   joinLiveClass,
   updateLiveClass,
+  cancelLiveClass,
 } from '../controllers/liveClassController';
 import {
   createAssignment,
@@ -204,6 +206,7 @@ router.get('/certificates/student', authorize('Student'), getStudentCertificates
 
 // Live Classes joining
 router.get('/live-classes', getLiveClasses);
+router.get('/live-classes/:id', getLiveClassDetails);
 router.post('/live-classes/:id/join', authorize('Student'), checkPlanFeature('liveClasses'), joinLiveClass);
 
 // ==========================================
@@ -211,6 +214,7 @@ router.post('/live-classes/:id/join', authorize('Student'), checkPlanFeature('li
 // ==========================================
 router.post('/live-classes', authorize('Mentor', 'Admin', 'SuperAdmin'), createLiveClass);
 router.put('/live-classes/:id', authorize('Mentor', 'Admin', 'SuperAdmin'), updateLiveClass);
+router.patch('/live-classes/:id/cancel', authorize('Mentor', 'Admin', 'SuperAdmin'), cancelLiveClass);
 router.get('/assignments/submissions', authorize('Mentor', 'Admin', 'SuperAdmin'), getSubmissionsForGrading);
 router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'SuperAdmin'), gradeSubmission);
 

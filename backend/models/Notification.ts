@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface INotification extends Document {
   title: string;
   message: string;
-  type: 'ONBOARDING_CREATED' | 'NEW_ONBOARDING' | 'NEW_STUDENT_ONBOARDING' | 'STUDENT_APPROVED' | 'STUDENT_REJECTED' | 'EMAIL_SENT' | 'EMAIL_FAILED';
+  type: 'ONBOARDING_CREATED' | 'NEW_ONBOARDING' | 'NEW_STUDENT_ONBOARDING' | 'STUDENT_APPROVED' | 'STUDENT_REJECTED' | 'EMAIL_SENT' | 'EMAIL_FAILED' | 'LIVE_CLASS_CREATED' | 'LIVE_CLASS_UPDATED' | 'LIVE_CLASS_CANCELLED' | 'LIVE_CLASS_REMINDER';
   recipientRole: ('SuperAdmin' | 'Admin' | 'Mentor' | 'Student')[];
   recipientId?: mongoose.Types.ObjectId;
   isRead: boolean;
@@ -22,7 +22,7 @@ const NotificationSchema: Schema<INotification> = new Schema(
     message: { type: String, required: true },
     type: {
       type: String,
-      enum: ['ONBOARDING_CREATED', 'NEW_ONBOARDING', 'NEW_STUDENT_ONBOARDING', 'STUDENT_APPROVED', 'STUDENT_REJECTED', 'EMAIL_SENT', 'EMAIL_FAILED'],
+      enum: ['ONBOARDING_CREATED', 'NEW_ONBOARDING', 'NEW_STUDENT_ONBOARDING', 'STUDENT_APPROVED', 'STUDENT_REJECTED', 'EMAIL_SENT', 'EMAIL_FAILED', 'LIVE_CLASS_CREATED', 'LIVE_CLASS_UPDATED', 'LIVE_CLASS_CANCELLED', 'LIVE_CLASS_REMINDER'],
       required: true,
     },
     recipientRole: {

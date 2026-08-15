@@ -286,7 +286,8 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
     const supportTickets = await SupportTicket.find({ studentId }).sort('-createdAt');
 
     // Upcoming Live Classes (scheduled check)
-    const liveClasses = await LiveClass.find({ status: 'scheduled' })
+    const courseIds = enrollments.map((e) => e.courseId);
+    const liveClasses = await LiveClass.find({ status: 'scheduled', courseId: { $in: courseIds } })
       .populate('courseId', 'title')
       .populate('mentorId', 'name')
       .sort('scheduledTime')

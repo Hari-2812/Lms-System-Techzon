@@ -14,6 +14,7 @@ import ChangePassword from '../pages/ChangePassword';
 const StudentDashboard = React.lazy(() => import('../pages/StudentDashboard'));
 const CourseDetails = React.lazy(() => import('../pages/CourseDetails'));
 const LiveClasses = React.lazy(() => import('../pages/LiveClasses'));
+const AdminLiveClasses = React.lazy(() => import('../pages/AdminLiveClasses'));
 const Certificates = React.lazy(() => import('../pages/Certificates'));
 const Tickets = React.lazy(() => import('../pages/Tickets'));
 
@@ -160,6 +161,14 @@ const AppRoutes: React.FC = () => {
                       element={
                         <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                           <AdminCourses />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/live-classes"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin', 'Mentor']}>
+                          <AdminLiveClasses />
                         </RoleGuard>
                       }
                     />
