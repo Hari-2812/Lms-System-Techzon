@@ -104,6 +104,19 @@ const AdminStudentDetails: React.FC = () => {
     }
   };
 
+  const handleVerifyCourse = async (courseId: string) => {
+    setActionLoading(`verify-${courseId}`);
+    try {
+      await api.post(`/admin/students/${studentId}/enrollment/${courseId}/verify`);
+      await fetchAudit();
+      alert('Course access verified successfully.');
+    } catch (e: any) {
+      alert(e.response?.data?.message || 'Unable to verify course access. Please check payment and enrollment.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -476,7 +489,16 @@ const AdminStudentDetails: React.FC = () => {
                               {row.auditStatus}
                             </span>
                           </td>
-                          <td className="p-4 text-right">
+                          <td className="p-4 text-right space-x-2 whitespace-nowrap">
+                            {row.auditStatus === '⚠ NOT VERIFIED' && (
+                              <button 
+                                onClick={() => handleVerifyCourse(row.courseId)}
+                                disabled={actionLoading === `verify-${row.courseId}`}
+                                className="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold transition disabled:opacity-50"
+                              >
+                                {actionLoading === `verify-${row.courseId}` ? 'Verifying...' : '✓ Correct Access'}
+                              </button>
+                            )}
                             {row.auditStatus.includes('Incorrect Access') && (
                               <button 
                                 onClick={() => handleRemoveAccess(row.courseId, row.courseName)}

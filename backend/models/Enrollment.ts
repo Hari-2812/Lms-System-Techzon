@@ -16,6 +16,9 @@ export interface IEnrollment extends Document {
   status: 'active' | 'expired' | 'suspended' | 'completed';
   certificateIssued: boolean;
   certificateId?: mongoose.Types.ObjectId;
+  accessVerified?: boolean;
+  accessVerifiedAt?: Date;
+  accessVerifiedBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +45,9 @@ const EnrollmentSchema: Schema<IEnrollment> = new Schema(
     },
     certificateIssued: { type: Boolean, default: false },
     certificateId: { type: Schema.Types.ObjectId, ref: 'Certificate' },
+    accessVerified: { type: Boolean, default: false },
+    accessVerifiedAt: { type: Date },
+    accessVerifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );

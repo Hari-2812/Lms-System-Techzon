@@ -306,7 +306,8 @@ import {
   deleteStudentCompletely,
   getStudentAccessAudit,
   removeStudentCourseAccess,
-  assignStudentCourse
+  assignStudentCourse,
+  verifyStudentCourseAccess
 } from '../controllers/adminStudentController';
 
 // User/Student Administration
@@ -319,6 +320,7 @@ router.delete('/users/students/:studentId', authorize('Admin', 'SuperAdmin'), de
 router.get('/admin/students/:studentId/audit', authorize('Admin', 'SuperAdmin'), getStudentAccessAudit);
 router.patch('/admin/students/:studentId/enrollment/:courseId/remove', authorize('Admin', 'SuperAdmin'), removeStudentCourseAccess);
 router.post('/admin/students/:studentId/enrollment/assign', authorize('Admin', 'SuperAdmin'), assignStudentCourse);
+router.post('/admin/students/:studentId/enrollment/:courseId/verify', authorize('Admin', 'SuperAdmin'), verifyStudentCourseAccess);
 
 router.get('/analytics/students/:id', authorize('Admin', 'SuperAdmin', 'Mentor'), getStudentAnalyticsDetails);
 router.post('/analytics/students/:id/course/:courseId/reset', authorize('SuperAdmin', 'Admin'), adminResetProgress);

@@ -257,7 +257,8 @@ export const getStudentAccessAudit = async (req: Request, res: Response): Promis
           paymentId: payment.orderId,
           enrollmentStatus: 'NONE',
           lmsAccess: 'DENIED',
-          auditStatus: '⚠ Enrollment Missing'
+          auditStatus: '⚠ Enrollment Missing',
+          accessVerified: false
         });
       } else {
         const entry = auditMap.get(courseIdStr);
@@ -281,21 +282,45 @@ export const getStudentAccessAudit = async (req: Request, res: Response): Promis
           paymentId: null,
           enrollmentStatus: enr.status,
           lmsAccess: enr.status === 'active' ? 'GRANTED' : 'DENIED',
-          auditStatus: enr.status === 'active' ? '⚠ Incorrect Access' : '⚠ No Payment'
+          auditStatus: enr.status === 'active' ? '⚠ Incorrect Access' : '⚠ No Payment',
+          accessVerified: enr.accessVerified,
+          accessVerifiedAt: enr.accessVerifiedAt,
+          accessVerifiedBy: enr.accessVerifiedBy
         });
       } else {
         const entry = auditMap.get(courseIdStr);
         entry.enrollmentStatus = enr.status;
         entry.lmsAccess = enr.status === 'active' ? 'GRANTED' : 'DENIED';
         
+        entry.accessVerified = enr.accessVerified;
+        entry.accessVerifiedAt = enr.accessVerifiedAt;
+        entry.accessVerifiedBy = enr.accessVerifiedBy;
+        
+        let currentStatus = '';
         if (entry.paymentStatus === 'captured' && enr.status === 'active') {
-          entry.auditStatus = '✓ Correct Access';
+          currentStatus = 'ELIGIBLE';
         } else if (entry.paymentStatus !== 'captured' && enr.status === 'active') {
-          entry.auditStatus = '⚠ Incorrect Access';
+          currentStatus = '⚠ INCORRECT ACCESS';
         } else if (enr.status === 'expired') {
-          entry.auditStatus = '⚠ Enrollment Expired';
+          currentStatus = '⚠ Enrollment Expired';
         } else if (enr.status === 'suspended') {
-          entry.auditStatus = '⚠ Enrollment Suspended';
+          currentStatus = '⚠ Enrollment Suspended';
+        } else {
+          currentStatus = '⚠ Not Verified';
+        }
+
+        if (enr.accessVerified) {
+          if (currentStatus === 'ELIGIBLE') {
+            entry.auditStatus = '✓ CORRECT ACCESS';
+          } else {
+            entry.auditStatus = '⚠ ACCESS NO LONGER VALID';
+          }
+        } else {
+          if (currentStatus === 'ELIGIBLE') {
+            entry.auditStatus = '⚠ NOT VERIFIED';
+          } else {
+            entry.auditStatus = currentStatus;
+          }
         }
       }
     }
@@ -344,6 +369,7 @@ export const removeStudentCourseAccess = async (req: Request, res: Response): Pr
     }
 
     enrollment.status = 'suspended';
+    enrollment.accessVerified = false;
     await enrollment.save();
 
     logger.info(`[ADMIN_ACTION] Admin removed course access for student ${studentId}, course ${courseId}`);
@@ -416,6 +442,49 @@ export const assignStudentCourse = async (req: Request, res: Response): Promise<
     res.status(200).json({ success: true, message: 'Course assigned successfully.', data: enrollment });
   } catch (error: any) {
     logger.error('Error assigning student course:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const verifyStudentCourseAccess = async (req: Request, res: Response): Promise<void> => {
+  const { studentId, courseId } = req.params;
+  const adminId = (req as any).user._id;
+
+  try {
+    const student = await User.findById(studentId);
+    if (!student) {
+      res.status(404).json({ success: false, message: 'Student not found.' });
+      return;
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ success: false, message: 'Course not found.' });
+      return;
+    }
+
+    const enrollment = await Enrollment.findOne({ studentId, courseId, status: 'active' });
+    if (!enrollment) {
+      res.status(400).json({ success: false, message: 'Cannot verify: no active enrollment found.' });
+      return;
+    }
+
+    const payment = await Payment.findOne({ studentEmail: student.email, courseId, status: 'captured' });
+    if (!payment) {
+      res.status(400).json({ success: false, message: 'Cannot verify: no captured payment found.' });
+      return;
+    }
+
+    enrollment.accessVerified = true;
+    enrollment.accessVerifiedAt = new Date();
+    enrollment.accessVerifiedBy = adminId;
+    await enrollment.save();
+
+    logger.info(`[ADMIN_ACTION] Admin verified course access for student ${studentId}, course ${courseId}`);
+
+    res.status(200).json({ success: true, message: 'Course access verified successfully.' });
+  } catch (error: any) {
+    logger.error('Error verifying student course access:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
