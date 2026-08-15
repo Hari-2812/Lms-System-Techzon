@@ -235,6 +235,49 @@ const AdminLiveClasses: React.FC = () => {
     setShowForm(true);
   };
 
+  const handleStartClass = (cls: LiveClassItem) => {
+    if (!cls.meetingLink || cls.meetingLink.trim() === '') {
+      alert('Meeting link is not available.');
+      return;
+    }
+
+    try {
+      const parsedUrl = new URL(cls.meetingLink.trim());
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        alert('Invalid meeting link.');
+        return;
+      }
+      
+      // Open immediately to bypass popup blocker
+      window.open(parsedUrl.toString(), '_blank', 'noopener,noreferrer');
+      
+      // Call API in background to update status and send notifications
+      api.patch(`/live-classes/${cls._id}/start`).then(() => {
+        if (selectedCourse) fetchClassesForCourse(selectedCourse._id);
+      }).catch(error => {
+        console.error('Failed to start class:', error);
+        alert(error.response?.data?.message || 'Error starting class. Meeting was opened but status might not be updated.');
+      });
+      
+    } catch {
+      alert('Invalid meeting link.');
+    }
+  };
+
+  const handleOpenMeeting = (cls: LiveClassItem) => {
+    if (!cls.meetingLink || cls.meetingLink.trim() === '') {
+      alert('Meeting link is not available.');
+      return;
+    }
+
+    try {
+      const parsedUrl = new URL(cls.meetingLink.trim());
+      window.open(parsedUrl.toString(), '_blank', 'noopener,noreferrer');
+    } catch {
+      alert('Invalid meeting link.');
+    }
+  };
+
   const handleCancelClass = async (id: string) => {
     if (window.confirm('Are you sure you want to cancel this class? Students will be notified.')) {
       try {
@@ -354,8 +397,8 @@ const AdminLiveClasses: React.FC = () => {
                     <div key={cls._id} className={`glass-card p-6 border-l-4 ${cls.status === 'cancelled' ? 'border-l-red-500 opacity-70' : cls.status === 'completed' ? 'border-l-green-500' : 'border-l-blue-500'} flex flex-col md:flex-row md:items-center justify-between gap-6`}>
                       <div className="space-y-2 min-w-0 flex-1">
                         <div className="flex items-center gap-3">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${cls.status === 'cancelled' ? 'bg-red-500/10 text-red-500' : cls.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                            {cls.status === 'scheduled' ? 'UPCOMING' : cls.status.toUpperCase()}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${cls.status === 'cancelled' ? 'bg-red-500/10 text-red-500' : cls.status === 'completed' ? 'bg-green-500/10 text-green-500' : cls.status === 'live' ? 'bg-accent/10 text-accent animate-pulse' : 'bg-blue-500/10 text-blue-500'}`}>
+                            {cls.status === 'scheduled' ? 'UPCOMING' : cls.status === 'live' ? 'LIVE NOW' : cls.status.toUpperCase()}
                           </span>
                           <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold px-2 py-0.5 rounded-full uppercase">
                             {cls.meetingPlatform}
@@ -381,6 +424,9 @@ const AdminLiveClasses: React.FC = () => {
                         </button>
                         {cls.status === 'scheduled' && (
                           <>
+                            <button onClick={() => handleStartClass(cls)} className="btn-primary py-1.5 px-3 text-[10px] flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 border-none">
+                              <Video className="w-3 h-3" /> Start Class
+                            </button>
                             <button onClick={() => openEditForm(cls)} className="btn-secondary py-1.5 px-3 text-[10px] flex items-center justify-center gap-1.5">
                               <Edit className="w-3 h-3" /> Edit
                             </button>
@@ -388,6 +434,11 @@ const AdminLiveClasses: React.FC = () => {
                               <X className="w-3 h-3" /> Cancel
                             </button>
                           </>
+                        )}
+                        {cls.status === 'live' && (
+                          <button onClick={() => handleOpenMeeting(cls)} className="btn-accent py-1.5 px-3 text-[10px] flex items-center justify-center gap-1.5">
+                            <ExternalLink className="w-3 h-3" /> Open Meeting
+                          </button>
                         )}
                       </div>
                     </div>

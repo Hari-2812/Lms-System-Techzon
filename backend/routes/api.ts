@@ -62,6 +62,7 @@ import {
   updateLiveClass,
   cancelLiveClass,
   getCourseStudents,
+  startLiveClass,
 } from '../controllers/liveClassController';
 import {
   createAssignment,
@@ -229,6 +230,7 @@ router.post(
 );
 router.put('/live-classes/:id', authorize('Mentor', 'Admin', 'SuperAdmin'), updateLiveClass);
 router.patch('/live-classes/:id/cancel', authorize('Mentor', 'Admin', 'SuperAdmin'), cancelLiveClass);
+router.patch('/live-classes/:id/start', authorize('Mentor', 'Admin', 'SuperAdmin'), startLiveClass);
 router.get('/assignments/submissions', authorize('Mentor', 'Admin', 'SuperAdmin'), getSubmissionsForGrading);
 router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'SuperAdmin'), gradeSubmission);
 

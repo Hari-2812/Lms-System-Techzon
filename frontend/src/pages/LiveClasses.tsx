@@ -42,7 +42,7 @@ const LiveClasses: React.FC = () => {
     }
   };
 
-  const handleJoinClass = async (id: string, meetingLink: string) => {
+  const handleJoinClass = (id: string, meetingLink: string) => {
     if (!meetingLink || meetingLink.trim() === '') {
       alert('Meeting link is not available for this class.');
       return;
@@ -54,24 +54,18 @@ const LiveClasses: React.FC = () => {
       return;
     }
 
-    // Open synchronously to avoid browser popup blockers
-    const newWindow = window.open('', '_blank', 'noopener,noreferrer');
-
+    // Open synchronously to avoid browser popup blockers and about:blank issues
     try {
-      await api.post(`/live-classes/${id}/join`);
-      if (newWindow) {
-        newWindow.location.href = meetingLink;
-      } else {
-        // Fallback if popup was still blocked
-        window.location.href = meetingLink;
-      }
-      fetchLiveClasses();
-    } catch (error: any) {
-      console.error(error);
-      if (newWindow) {
-        newWindow.close();
-      }
-      alert(error.response?.data?.message || 'Error joining class');
+      const parsedUrl = new URL(meetingLink.trim());
+      window.open(parsedUrl.toString(), '_blank', 'noopener,noreferrer');
+      
+      // Record attendance asynchronously in the background
+      api.post(`/live-classes/${id}/join`).catch(err => console.error("Attendance recording failed:", err));
+      
+      // Optionally re-fetch classes to update status or attendance
+      // fetchLiveClasses();
+    } catch {
+      alert('Invalid meeting link.');
     }
   };
 
@@ -83,7 +77,7 @@ const LiveClasses: React.FC = () => {
     );
   }
 
-  const upcomingClasses = classes.filter(c => c.status === 'scheduled');
+  const upcomingClasses = classes.filter(c => c.status === 'scheduled' || c.status === 'live');
 
   return (
     <div className="space-y-8 font-poppins">
@@ -107,9 +101,16 @@ const LiveClasses: React.FC = () => {
               <div key={cls._id} className="glass-card p-6 border-l-4 border-l-accent flex flex-col justify-between gap-6">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] bg-accent/10 text-accent font-bold px-2 py-0.5 rounded-full uppercase">
-                      {cls.meetingPlatform}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {cls.status === 'live' && (
+                        <span className="text-[10px] bg-red-500 text-white font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">
+                          LIVE NOW
+                        </span>
+                      )}
+                      <span className="text-[10px] bg-accent/10 text-accent font-bold px-2 py-0.5 rounded-full uppercase">
+                        {cls.meetingPlatform}
+                      </span>
+                    </div>
                     <span className="text-xs font-bold text-slate-500">
                       {new Date(cls.scheduledTime).toLocaleDateString()}
                     </span>

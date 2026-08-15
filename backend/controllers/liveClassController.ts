@@ -352,3 +352,71 @@ export const joinLiveClass = async (req: any, res: Response): Promise<void> => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+export const startLiveClass = async (req: any, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const liveClass = await LiveClass.findById(id);
+    if (!liveClass) {
+      res.status(404).json({ success: false, message: 'Class not found' });
+      return;
+    }
+
+    if (liveClass.status === 'cancelled') {
+      res.status(400).json({ success: false, message: 'Cannot start a cancelled class' });
+      return;
+    }
+
+    if (!liveClass.meetingLink) {
+      res.status(400).json({ success: false, message: 'Meeting link is not available' });
+      return;
+    }
+
+    try {
+      const parsedUrl = new URL(liveClass.meetingLink.trim());
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        res.status(400).json({ success: false, message: 'Invalid meeting link' });
+        return;
+      }
+    } catch {
+      res.status(400).json({ success: false, message: 'Invalid meeting link' });
+      return;
+    }
+
+    liveClass.status = 'live';
+    await liveClass.save();
+
+    let studentIdsToNotify: string[] = [];
+    if (liveClass.studentIds && liveClass.studentIds.length > 0) {
+      studentIdsToNotify = liveClass.studentIds.map(id => id.toString());
+    } else {
+      const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
+      studentIdsToNotify = enrollments.map(e => e.studentId.toString());
+    }
+
+    if (studentIdsToNotify.length > 0) {
+      const notifications = studentIdsToNotify.map(studentId => ({
+        title: 'Live Class Started',
+        message: `The live class "${liveClass.title}" is now live.`,
+        type: 'LIVE_CLASS_STARTED',
+        recipientRole: ['Student'],
+        recipientId: studentId,
+        metadata: { liveClassId: liveClass._id, courseId: liveClass.courseId }
+      }));
+      await Notification.insertMany(notifications);
+
+      const io = getIO();
+      studentIdsToNotify.forEach(studentId => {
+        io.to(`user:${studentId}`).emit('notification:new', {
+          title: 'Live Class Started',
+          message: `The live class "${liveClass.title}" is now live.`,
+          type: 'LIVE_CLASS_STARTED'
+        });
+      });
+    }
+
+    res.status(200).json({ success: true, data: liveClass, message: 'Live class started successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};

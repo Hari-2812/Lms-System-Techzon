@@ -9,7 +9,7 @@ export interface ILiveClass extends Document {
   meetingPlatform: 'zoom' | 'google-meet' | 'other';
   scheduledTime: Date;
   durationMinutes: number;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'live' | 'completed' | 'cancelled';
   attendance: Array<{
     studentId: mongoose.Types.ObjectId;
     joinedAt: Date;
@@ -36,7 +36,7 @@ const LiveClassSchema: Schema<ILiveClass> = new Schema(
     durationMinutes: { type: Number, required: true, default: 60 },
     status: {
       type: String,
-      enum: ['scheduled', 'completed', 'cancelled'],
+      enum: ['scheduled', 'live', 'completed', 'cancelled'],
       default: 'scheduled',
     },
     attendance: [
