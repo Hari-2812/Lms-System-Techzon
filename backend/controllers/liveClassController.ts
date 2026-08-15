@@ -130,8 +130,8 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
     
     let studentIdsToNotify: string[] = [];
     if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
-      const requestedStudentIds = req.body.studentIds
-        .filter((id: unknown): id is string => typeof id === 'string')
+      const requestedStudentIds: string[] = (req.body.studentIds as unknown[])
+        .filter((id): id is string => typeof id === 'string')
         .map((id: string) => id.trim())
         .filter(Boolean);
 
@@ -197,8 +197,8 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
       const enrollments = await Enrollment.find({ courseId: liveClassToUpdate.courseId, status: 'active' });
       const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
       
-      const requestedStudentIds = req.body.studentIds
-        .filter((id: unknown): id is string => typeof id === 'string')
+      const requestedStudentIds: string[] = (req.body.studentIds as unknown[])
+        .filter((id): id is string => typeof id === 'string')
         .map((id: string) => id.trim())
         .filter(Boolean);
 
