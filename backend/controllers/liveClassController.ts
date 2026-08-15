@@ -18,23 +18,50 @@ export const getLiveClasses = async (req: any, res: Response): Promise<void> => 
 
       // Add registered students count to each class
       const classesWithCount = await Promise.all(classes.map(async (cls) => {
-        const studentCount = await Enrollment.countDocuments({ courseId: cls.courseId, status: 'active' });
+        let studentCount = 0;
+        if (cls.studentIds && cls.studentIds.length > 0) {
+          studentCount = cls.studentIds.length;
+        } else {
+          studentCount = await Enrollment.countDocuments({ courseId: cls.courseId, status: 'active' });
+        }
         return { ...cls.toObject(), registeredStudents: studentCount };
       }));
       res.status(200).json({ success: true, data: classesWithCount });
       return;
     } else {
       // Students only see live classes scheduled for their actively enrolled courses
+      // AND where they are explicitly in studentIds (or studentIds is empty for legacy)
       const enrollments = await Enrollment.find({ studentId: req.user._id, status: 'active' }).select('courseId');
       const courseIds = enrollments.map(e => e.courseId);
 
-      classes = await LiveClass.find({ courseId: { $in: courseIds } })
+      classes = await LiveClass.find({ 
+        courseId: { $in: courseIds },
+        $or: [
+          { studentIds: { $exists: false } },
+          { studentIds: { $size: 0 } },
+          { studentIds: req.user._id }
+        ]
+      })
         .populate('courseId', 'title')
         .populate('mentorId', 'name email')
         .sort({ scheduledTime: 1 });
       res.status(200).json({ success: true, data: classes });
       return;
     }
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const getCourseStudents = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { courseId } = req.params;
+    const enrollments = await Enrollment.find({ courseId, status: 'active' })
+      .populate('studentId', 'name email status');
+      
+    const students = enrollments.map(e => e.studentId).filter(s => s != null);
+    
+    res.status(200).json({ success: true, data: students });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -65,6 +92,16 @@ export const getLiveClassDetails = async (req: any, res: Response): Promise<void
         res.status(403).json({ success: false, message: 'Not authorized to view this class' });
         return;
       }
+      
+      const hasStudentIds = liveClass.studentIds && liveClass.studentIds.length > 0;
+      if (hasStudentIds) {
+        const isSelected = liveClass.studentIds.some(id => id.toString() === req.user._id.toString());
+        if (!isSelected) {
+          res.status(403).json({ success: false, message: 'Not authorized to view this class. You were not selected by the Admin.' });
+          return;
+        }
+      }
+
       res.status(200).json({ success: true, data: liveClass });
     }
   } catch (error: any) {
@@ -86,9 +123,20 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
       details: `Scheduled live class: ${liveClass.title} under course ${liveClass.courseId}`,
     });
 
-    // Notify registered students
+    // Filter req.body.studentIds against active enrollments
     const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
-    const studentIds = enrollments.map(e => e.studentId);
+    const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
+    
+    let studentIds: string[] = [];
+    if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
+      const uniqueIds = [...new Set(req.body.studentIds)];
+      studentIds = uniqueIds.filter((id: any) => enrolledStudentIds.includes(id.toString()));
+      liveClass.studentIds = studentIds as any;
+      await liveClass.save();
+    } else {
+      // Legacy behavior if not provided
+      studentIds = enrolledStudentIds;
+    }
     
     let notificationsFailed = false;
     try {
@@ -130,6 +178,22 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
 export const updateLiveClass = async (req: any, res: Response): Promise<void> => {
   const { id } = req.params;
   try {
+    const liveClassToUpdate = await LiveClass.findById(id);
+    if (!liveClassToUpdate) {
+      res.status(404).json({ success: false, message: 'Class not found' });
+      return;
+    }
+
+    // Filter studentIds if provided
+    let newStudentIds: any[] | undefined;
+    if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
+      const enrollments = await Enrollment.find({ courseId: liveClassToUpdate.courseId, status: 'active' });
+      const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
+      const uniqueIds = [...new Set(req.body.studentIds)];
+      newStudentIds = uniqueIds.filter((sid: any) => enrolledStudentIds.includes(sid.toString()));
+      req.body.studentIds = newStudentIds;
+    }
+
     const liveClass = await LiveClass.findByIdAndUpdate(id, req.body, { new: true });
     if (!liveClass) {
       res.status(404).json({ success: false, message: 'Class not found' });
@@ -138,11 +202,19 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
 
     // Notify students of update
     const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
-    const studentIds = enrollments.map(e => e.studentId);
+    let studentIdsToNotify: string[] = [];
+    
+    if (newStudentIds !== undefined) {
+      studentIdsToNotify = newStudentIds;
+    } else if (liveClass.studentIds && liveClass.studentIds.length > 0) {
+      studentIdsToNotify = liveClass.studentIds.map(s => s.toString());
+    } else {
+      studentIdsToNotify = enrollments.map(e => e.studentId.toString());
+    }
     
     try {
-      if (studentIds.length > 0) {
-        const notifications = studentIds.map(studentId => ({
+      if (studentIdsToNotify.length > 0) {
+        const notifications = studentIdsToNotify.map(studentId => ({
           title: 'Live Class Updated',
           message: `Your live class "${liveClass.title}" has been updated.`,
           type: 'LIVE_CLASS_UPDATED',
@@ -153,7 +225,7 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
         await Notification.insertMany(notifications);
 
         const io = getIO();
-        studentIds.forEach(studentId => {
+        studentIdsToNotify.forEach(studentId => {
           io.to(`user:${studentId}`).emit('notification:new', {
             title: 'Live Class Updated',
             message: `Your live class "${liveClass.title}" has been updated.`,
@@ -182,11 +254,16 @@ export const cancelLiveClass = async (req: any, res: Response): Promise<void> =>
 
     // Notify students of cancellation
     const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
-    const studentIds = enrollments.map(e => e.studentId);
+    let studentIdsToNotify: string[] = [];
+    if (liveClass.studentIds && liveClass.studentIds.length > 0) {
+      studentIdsToNotify = liveClass.studentIds.map(s => s.toString());
+    } else {
+      studentIdsToNotify = enrollments.map(e => e.studentId.toString());
+    }
     
     try {
-      if (studentIds.length > 0) {
-        const notifications = studentIds.map(studentId => ({
+      if (studentIdsToNotify.length > 0) {
+        const notifications = studentIdsToNotify.map(studentId => ({
           title: 'Live Class Cancelled',
           message: `The live class "${liveClass.title}" has been cancelled.`,
           type: 'LIVE_CLASS_CANCELLED',
@@ -197,7 +274,7 @@ export const cancelLiveClass = async (req: any, res: Response): Promise<void> =>
         await Notification.insertMany(notifications);
 
         const io = getIO();
-        studentIds.forEach(studentId => {
+        studentIdsToNotify.forEach(studentId => {
           io.to(`user:${studentId}`).emit('notification:new', {
             title: 'Live Class Cancelled',
             message: `The live class "${liveClass.title}" has been cancelled.`,
@@ -229,6 +306,15 @@ export const joinLiveClass = async (req: any, res: Response): Promise<void> => {
       if (!enrollment) {
         res.status(403).json({ success: false, message: 'You are not actively enrolled in this course.' });
         return;
+      }
+
+      const hasStudentIds = liveClass.studentIds && liveClass.studentIds.length > 0;
+      if (hasStudentIds) {
+        const isSelected = liveClass.studentIds.some(id => id.toString() === req.user._id.toString());
+        if (!isSelected) {
+          res.status(403).json({ success: false, message: 'You are not selected for this live class.' });
+          return;
+        }
       }
 
       const alreadyAttended = liveClass.attendance.some(

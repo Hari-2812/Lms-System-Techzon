@@ -63,6 +63,11 @@ const AdminLiveClasses: React.FC = () => {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [currentClassTitle, setCurrentClassTitle] = useState('');
 
+  // Course Students Selection
+  const [courseStudents, setCourseStudents] = useState<any[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
+
   useEffect(() => {
     fetchCourses();
   }, []);
@@ -123,6 +128,13 @@ const AdminLiveClasses: React.FC = () => {
         return;
       }
 
+      if (selectedStudentIds.length === 0) {
+        if (!editMode || (editMode && !window.confirm('No students are currently selected for this live class. Students will not receive access or notifications. Do you want to continue?'))) {
+          alert('Please select at least one student for this live class.');
+          return;
+        }
+      }
+
       const payload = {
         title,
         description,
@@ -131,6 +143,7 @@ const AdminLiveClasses: React.FC = () => {
         meetingLink: link,
         scheduledTime,
         durationMinutes,
+        studentIds: selectedStudentIds,
       };
 
       if (editMode) {
@@ -148,6 +161,15 @@ const AdminLiveClasses: React.FC = () => {
     }
   };
 
+  const fetchCourseStudents = async (courseId: string) => {
+    try {
+      const res = await api.get(`/live-classes/course-students/${courseId}`);
+      setCourseStudents(res.data.data || []);
+    } catch (error) {
+      console.error('Error fetching course students', error);
+    }
+  };
+
   const resetForm = () => {
     setTitle('');
     setDescription('');
@@ -155,17 +177,22 @@ const AdminLiveClasses: React.FC = () => {
     setDate('');
     setStartTime('');
     setEndTime('');
+    setSelectedStudentIds([]);
+    setStudentSearch('');
     setShowForm(false);
     setEditMode(false);
     setEditClassId('');
   };
 
-  const openCreateForm = () => {
+  const openCreateForm = async () => {
     resetForm();
+    if (selectedCourse) {
+      await fetchCourseStudents(selectedCourse._id);
+    }
     setShowForm(true);
   };
 
-  const openEditForm = (cls: LiveClassItem) => {
+  const openEditForm = async (cls: LiveClassItem) => {
     setTitle(cls.title);
     setDescription(cls.description || '');
     setPlatform(cls.meetingPlatform);
@@ -186,6 +213,24 @@ const AdminLiveClasses: React.FC = () => {
     setEndTime(`${endHours}:${endMinutes}`);
     
     setEditClassId(cls._id);
+    
+    if (selectedCourse) {
+      await fetchCourseStudents(selectedCourse._id);
+    }
+    
+    try {
+      const res = await api.get(`/live-classes/${cls._id}`);
+      const fetchedCls = res.data.data;
+      if (fetchedCls.studentIds && fetchedCls.studentIds.length > 0) {
+        setSelectedStudentIds(fetchedCls.studentIds);
+      } else {
+        // Legacy: if no studentIds exist, default to selecting all enrolled
+        setSelectedStudentIds(res.data.data.students?.map((s: any) => s.studentId?._id) || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    
     setEditMode(true);
     setShowForm(true);
   };
@@ -370,6 +415,68 @@ const AdminLiveClasses: React.FC = () => {
                     value={selectedCourse.title}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-slate-50 dark:bg-slate-800 text-slate-500 cursor-not-allowed"
                   />
+                </div>
+
+                <div className="space-y-2 border border-slate-200 dark:border-border-dark rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="text-slate-700 dark:text-slate-200 font-bold">
+                      Enrolled Students <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button" 
+                        onClick={() => setSelectedStudentIds(courseStudents.map(s => s._id))}
+                        className="text-[10px] font-bold bg-accent/10 text-accent px-2 py-1 rounded hover:bg-accent hover:text-white transition-colors"
+                      >
+                        Select All
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setSelectedStudentIds([])}
+                        className="text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <input
+                    type="text"
+                    placeholder="Search students..."
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    className="glass-input py-1.5 text-xs w-full mb-2"
+                  />
+                  
+                  <div className="max-h-40 overflow-y-auto space-y-1 border border-slate-200 dark:border-border-dark rounded-lg p-2 bg-white dark:bg-bg-dark">
+                    {courseStudents.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-2">No active students found.</p>
+                    ) : courseStudents
+                      .filter(s => (s.name + s.email).toLowerCase().includes(studentSearch.toLowerCase()))
+                      .map(student => (
+                      <label key={student._id} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedStudentIds.includes(student._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedStudentIds(prev => [...prev, student._id]);
+                            } else {
+                              setSelectedStudentIds(prev => prev.filter(id => id !== student._id));
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-slate-300 text-accent focus:ring-accent"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{student.name}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{student.email}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 font-semibold text-right">
+                    Selected: <span className="text-accent">{selectedStudentIds.length}</span> / {courseStudents.length}
+                  </p>
                 </div>
 
                 <div className="space-y-1">

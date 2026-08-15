@@ -14,6 +14,7 @@ export interface ILiveClass extends Document {
     studentId: mongoose.Types.ObjectId;
     joinedAt: Date;
   }>;
+  studentIds?: mongoose.Types.ObjectId[];
   recordingUrl?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +45,7 @@ const LiveClassSchema: Schema<ILiveClass> = new Schema(
         joinedAt: { type: Date, default: Date.now },
       },
     ],
+    studentIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     recordingUrl: { type: String },
   },
   { timestamps: true }

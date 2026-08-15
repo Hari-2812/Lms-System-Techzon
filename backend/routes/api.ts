@@ -61,6 +61,7 @@ import {
   joinLiveClass,
   updateLiveClass,
   cancelLiveClass,
+  getCourseStudents,
 } from '../controllers/liveClassController';
 import {
   createAssignment,
@@ -212,7 +213,20 @@ router.post('/live-classes/:id/join', authorize('Student'), checkPlanFeature('li
 // ==========================================
 // 3. MENTOR & INSTRUCTOR ROUTES
 // ==========================================
-router.post('/live-classes', authorize('Mentor', 'Admin', 'SuperAdmin'), createLiveClass);
+// ----------------------------------------------------
+// LIVE CLASSES & WEBINARS
+// ----------------------------------------------------
+router.get(
+  '/live-classes/course-students/:courseId',
+  authorize('SuperAdmin', 'Admin', 'Mentor'),
+  getCourseStudents
+);
+
+router.post(
+  '/live-classes',
+  authorize('SuperAdmin', 'Admin', 'Mentor'),
+  createLiveClass
+);
 router.put('/live-classes/:id', authorize('Mentor', 'Admin', 'SuperAdmin'), updateLiveClass);
 router.patch('/live-classes/:id/cancel', authorize('Mentor', 'Admin', 'SuperAdmin'), cancelLiveClass);
 router.get('/assignments/submissions', authorize('Mentor', 'Admin', 'SuperAdmin'), getSubmissionsForGrading);
