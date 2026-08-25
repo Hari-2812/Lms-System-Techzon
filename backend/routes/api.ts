@@ -300,6 +300,8 @@ router.delete('/lessons/:id', deleteLesson);
 // Quiz Scheduling
 router.post('/quizzes', createQuiz);
 
+import { testDailyReminder, testDailyUnlock } from '../controllers/schedulerTestController';
+
 import {
   updateStudentDetails,
   resendStudentCredentials,
@@ -327,6 +329,9 @@ router.post('/analytics/students/:id/course/:courseId/reset', authorize('SuperAd
 router.post('/analytics/students/:id/course/:courseId/complete', authorize('SuperAdmin', 'Admin'), adminMarkComplete);
 router.post('/analytics/students/:id/course/:courseId/unlock-all', authorize('SuperAdmin', 'Admin'), adminUnlockAll);
 router.post('/analytics/students/:id/course/:courseId/certificate', authorize('SuperAdmin', 'Admin'), adminRegenerateCertificate);
+
+router.get('/admin/test-scheduler/reminder', authorize('SuperAdmin'), testDailyReminder);
+router.get('/admin/test-scheduler/unlock', authorize('SuperAdmin'), testDailyUnlock);
 
 router.get('/users/mentors', async (req, res) => {
   try {
