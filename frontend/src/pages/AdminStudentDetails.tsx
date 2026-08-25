@@ -178,7 +178,7 @@ const AdminStudentDetails: React.FC = () => {
           onClick={() => setActiveTab('audit')}
           className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === 'audit' ? 'border-accent text-accent' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
         >
-          Course Access Audit
+          Enrollment Validation
           {auditData?.summary?.incorrectAccess > 0 && (
             <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">{auditData.summary.incorrectAccess}</span>
           )}
@@ -445,7 +445,7 @@ const AdminStudentDetails: React.FC = () => {
 
               <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 dark:text-white">Course Access Audit</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-white">Enrollment Validation</h3>
                   <button 
                     onClick={() => setShowAssignModal(true)}
                     className="btn-accent py-1.5 px-3 text-[10px]"

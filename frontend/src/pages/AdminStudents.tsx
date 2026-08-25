@@ -294,7 +294,7 @@ const AdminStudents: React.FC = () => {
                       <th className="px-6 py-4">Batch</th>
                       <th className="px-6 py-4 text-center">Paid</th>
                       <th className="px-6 py-4 text-center">Active Enrolled</th>
-                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Course Progress</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                   </>
                 ) : (
@@ -328,14 +328,32 @@ const AdminStudents: React.FC = () => {
                       <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-white">{item.paidCourseCount || 0}</td>
                       <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-white">{item.activeEnrollmentCount || 0}</td>
                       <td className="px-6 py-4">
-                        {item.incorrectAccess > 0 ? (
-                          <span className="px-2 py-1 bg-red-100 text-red-600 rounded text-[10px] font-bold">
-                            ⚠ {item.incorrectAccess} MISMATCH
-                          </span>
+                        {item.activeEnrollmentCount === 0 ? (
+                          <span className="text-slate-400 text-[11px] font-semibold">No active courses</span>
                         ) : (
-                          <span className="px-2 py-1 bg-green-100 text-green-600 rounded text-[10px] font-bold">
-                            OK
-                          </span>
+                          <div className="flex flex-col gap-1 w-32">
+                            <div className="flex justify-between items-center text-[10px] font-bold">
+                              <span className="text-slate-600 dark:text-slate-300">
+                                {Math.min(Math.max(item.overallProgress || 0, 0), 100)}% 
+                                <span className="font-normal text-slate-400 ml-1">
+                                  {item.activeEnrollmentCount === 1 ? '(1 Course)' : `(${item.activeEnrollmentCount} Courses)`}
+                                </span>
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-accent transition-all rounded-full" 
+                                style={{ width: `${Math.min(Math.max(item.overallProgress || 0, 0), 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">
+                              {(item.overallProgress || 0) === 0 ? 'Not Started' :
+                               (item.overallProgress || 0) < 25 ? 'Just Started' :
+                               (item.overallProgress || 0) < 50 ? 'In Progress' :
+                               (item.overallProgress || 0) < 75 ? 'Good Progress' :
+                               (item.overallProgress || 0) < 100 ? 'Almost Complete' : 'Completed'}
+                            </span>
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
