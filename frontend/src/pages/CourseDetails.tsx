@@ -35,6 +35,9 @@ interface Lesson {
   notesUrl?: string;
   downloads?: Array<{ title: string; url: string }>;
   order: number;
+  locked?: boolean;
+  lockReason?: string;
+  unlockAt?: string;
 }
 
 interface Module {
@@ -343,6 +346,26 @@ const CourseDetails: React.FC = () => {
           <>
             <div className="glass-card overflow-hidden bg-black border-none relative w-full shadow-2xl rounded-none sm:rounded-xl">
               {(() => {
+                if (selectedLesson?.locked) {
+                  return (
+                    <div className="w-full aspect-video flex flex-col items-center justify-center text-center text-slate-400 space-y-3 p-6 bg-slate-900/50">
+                      {selectedLesson.lockReason === 'DAILY_UNLOCK' ? (
+                        <Clock className="w-12 h-12 mx-auto text-orange-400" />
+                      ) : (
+                        <Lock className="w-12 h-12 mx-auto text-slate-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-white">This lesson is locked</p>
+                        <p className="text-xs mt-1">
+                          {selectedLesson.lockReason === 'DAILY_UNLOCK' && selectedLesson.unlockAt
+                            ? `Unlocks at ${new Date(selectedLesson.unlockAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+                            : 'Complete the previous lesson to unlock.'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                
                 if (selectedLesson?.playbackUrl) {
                   return (
                   <CustomVideoPlayer 
@@ -769,9 +792,28 @@ const CourseDetails: React.FC = () => {
                                 ? 'opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-800/50 text-slate-400'
                                 : 'hover:bg-slate-100 dark:hover:bg-border-dark text-slate-700 dark:text-slate-300'
                             }`}
-                            title={locked ? "Complete previous lesson to unlock" : ""}
+                            title={
+                              locked 
+                                ? les.lockReason === 'DAILY_UNLOCK' && les.unlockAt
+                                  ? `Unlocks at ${new Date(les.unlockAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` 
+                                  : "Complete previous lesson to unlock" 
+                                : ""
+                            }
                           >
-                            <span className="truncate pr-2 flex-1">{les.title}</span>
+                            <div className="flex flex-col text-left pr-2 flex-1 overflow-hidden">
+                              <span className="truncate">{les.title}</span>
+                              {locked && les.lockReason === 'DAILY_UNLOCK' && les.unlockAt && (
+                                <span className="text-[9px] text-orange-500 mt-0.5 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  Unlocks at {new Date(les.unlockAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                              )}
+                              {locked && les.lockReason === 'PREVIOUS_VIDEO_NOT_COMPLETED' && (
+                                <span className="text-[9px] text-slate-500 mt-0.5">
+                                  Complete previous lesson
+                                </span>
+                              )}
+                            </div>
                             
                             <div className="flex items-center gap-2 flex-shrink-0">
                               {isActive && (
@@ -787,7 +829,11 @@ const CourseDetails: React.FC = () => {
                               ) : null}
                               
                               {locked ? (
-                                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                                les.lockReason === 'DAILY_UNLOCK' ? (
+                                  <Clock className="w-3.5 h-3.5 text-orange-400" />
+                                ) : (
+                                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                                )
                               ) : isDone ? (
                                 <CheckCircle2 className={`w-4 h-4 ${isActive ? 'text-white' : 'text-green-500'}`} />
                               ) : (

@@ -2,8 +2,10 @@ import { Request, Response } from 'express';
 import Progress from '../models/Progress';
 import Enrollment from '../models/Enrollment';
 import Lesson from '../models/Lesson';
+import Course from '../models/Course';
 import logger from '../config/logger';
 import mongoose from 'mongoose';
+import { getVideoAccessStatuses } from '../utils/unlockHelper';
 
 export const updateProgress = async (req: any, res: Response): Promise<void> => {
   const { courseId, lessonId, currentTime, duration, watchedPercentage } = req.body;
@@ -21,6 +23,30 @@ export const updateProgress = async (req: any, res: Response): Promise<void> => 
     const currentProgress = await Progress.findOne({ userId: req.user._id, lessonId: objLessonId });
     if (currentProgress && currentProgress.completed) {
       res.status(200).json({ success: true, data: currentProgress });
+      return;
+    }
+
+    // VERIFY ACCESS STATUS
+    const lessons = await Lesson.find({ courseId: objCourseId, legacy: { $ne: true } }).sort('order').lean();
+    const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId: objCourseId });
+    const completedLessons = enrollment ? enrollment.progress.completedLessons.map((l: any) => l.toString()) : [];
+    
+    const allProgress = await Progress.find({ userId: req.user._id, courseId: objCourseId }).lean();
+    const progressMap: Record<string, any> = {};
+    allProgress.forEach((p: any) => {
+      progressMap[p.lessonId.toString()] = { completedAt: p.completedAt };
+    });
+
+    const accessStatuses = getVideoAccessStatuses(lessons, completedLessons, progressMap);
+    const lessonStatus = accessStatuses[lessonId];
+
+    if (lessonStatus?.status === 'LOCKED') {
+      res.status(403).json({
+        success: false,
+        message: lessonStatus.reason === 'DAILY_UNLOCK' 
+          ? 'This lesson is locked until 7:30 PM.' 
+          : 'Complete the previous video to unlock this lesson.'
+      });
       return;
     }
 

@@ -11,6 +11,7 @@ import { generateCertificateOffline } from './certificateController';
 import mongoose from 'mongoose';
 import { BunnyService } from '../services/bunnyService';
 import logger from '../config/logger';
+import { getVideoAccessStatuses } from '../utils/unlockHelper';
 
 export const getCourses = async (req: any, res: Response): Promise<void> => {
   try {
@@ -97,17 +98,35 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       });
     }
 
+    let accessStatuses: Record<string, any> = {};
+    if (req.user?.role === 'Student') {
+      accessStatuses = getVideoAccessStatuses(lessons, completedLessons, progressMap);
+    }
+
     const enhancedLessons = lessons.map((les: any, index: number) => {
-      const isCompleted = completedLessons.includes(les._id.toString());
-      const isLocked = index > 0 && !completedLessons.includes(lessons[index - 1]._id.toString());
       const pData = progressMap[les._id.toString()] || {};
+      const statusObj = req.user?.role === 'Student' 
+        ? accessStatuses[les._id.toString()] 
+        : { status: 'AVAILABLE' };
+
+      const isCompleted = statusObj.status === 'COMPLETED';
+      const isLocked = statusObj.status === 'LOCKED';
       
+      const lessonObj = { ...les };
+      if (isLocked) {
+        delete lessonObj.playbackUrl;
+        delete lessonObj.bunnyVideoId;
+        delete lessonObj.videoId;
+      }
+
       return {
-        ...les,
+        ...lessonObj,
         completed: isCompleted,
-        locked: req.user?.role === 'Student' ? isLocked : false,
+        locked: isLocked,
+        lockReason: statusObj.reason,
+        unlockAt: statusObj.unlockAt,
         isCompleted, // Keep for legacy frontend logic temporarily
-        isLocked: req.user?.role === 'Student' ? isLocked : false,
+        isLocked,
         lastPlaybackPosition: pData.lastPlaybackPosition || 0,
         watchedPercentage: pData.watchedPercentage || 0,
         completedAt: pData.completedAt || null
