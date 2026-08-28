@@ -3,6 +3,8 @@ import User from '../models/User';
 import Enrollment from '../models/Enrollment';
 import mongoose from 'mongoose';
 import Course from '../models/Course';
+import Module from '../models/Module';
+import Lesson from '../models/Lesson';
 import DailyReminderLog from '../models/DailyReminderLog';
 import { sendDailyReminderEmail } from '../services/email';
 import { getVideoAccessStatuses } from '../utils/unlockHelper';
@@ -29,13 +31,15 @@ export const runDailyReminderJob = async (dryRun = false) => {
       for (const enrollment of enrollments) {
         if (eligibleForReminder) break; // one per student is enough
 
-        const course = (await Course.findById(enrollment.courseId).populate('modules.lessons').lean()) as any;
+        const course = (await Course.findById(enrollment.courseId).lean()) as any;
         if (!course) continue;
 
         let allLessons: any[] = [];
-        course.modules.forEach((mod: any) => {
-          allLessons = allLessons.concat(mod.lessons);
-        });
+        const modules = await Module.find({ courseId: course._id }).sort('order').lean() as any[];
+        for (const mod of modules) {
+          const lessons = await Lesson.find({ moduleId: mod._id }).sort('order').lean();
+          allLessons = allLessons.concat(lessons);
+        }
 
         const progress = await progressModel.findOne({ userId: student._id, courseId: course._id }).lean() as any;
         const completedLessons: string[] = progress?.completedLessons || [];
@@ -119,13 +123,15 @@ export const runDailyUnlockStatsJob = async (dryRun = false) => {
       const progressModel = mongoose.model('Progress');
 
       for (const enrollment of enrollments) {
-        const course = (await Course.findById(enrollment.courseId).populate('modules.lessons').lean()) as any;
+        const course = (await Course.findById(enrollment.courseId).lean()) as any;
         if (!course) continue;
 
         let allLessons: any[] = [];
-        course.modules.forEach((mod: any) => {
-          allLessons = allLessons.concat(mod.lessons);
-        });
+        const modules = await Module.find({ courseId: course._id }).sort('order').lean() as any[];
+        for (const mod of modules) {
+          const lessons = await Lesson.find({ moduleId: mod._id }).sort('order').lean();
+          allLessons = allLessons.concat(lessons);
+        }
 
         const progress = (await progressModel.findOne({ userId: student._id, courseId: course._id }).lean()) as any;
         const completedLessons: string[] = progress?.completedLessons || [];
