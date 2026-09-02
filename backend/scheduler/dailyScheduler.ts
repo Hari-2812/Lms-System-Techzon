@@ -23,9 +23,15 @@ export const runDailyReminderJob = async (dryRun = false) => {
     const students = await User.find({ role: 'Student', status: 'active' }).lean();
 
     for (const student of students) {
+      if (!student.email) {
+        logger.info(`[DAILY REMINDER] Student check: name="${student.name}" email=null active=${student.status==='active'} enrollment=inactive eligible=false reason=no_email`);
+        continue;
+      }
+      
       const enrollments = await Enrollment.find({ studentId: student._id, status: 'active' }).lean();
       
       let eligibleForReminder = false;
+      let reason = 'no_active_enrollment';
       const progressModel = mongoose.model('Progress');
 
       for (const enrollment of enrollments) {
@@ -41,23 +47,30 @@ export const runDailyReminderJob = async (dryRun = false) => {
           allLessons = allLessons.concat(lessons);
         }
 
+        if (allLessons.length === 0) {
+          reason = 'course_has_no_lessons';
+          continue;
+        }
+
         const progress = await progressModel.findOne({ userId: student._id, courseId: course._id }).lean() as any;
         const completedLessons: string[] = progress?.completedLessons || [];
-        const progressMap = progress?.progressMap || {};
-
-        const accessStatuses = getVideoAccessStatuses(allLessons, completedLessons, progressMap);
-
-        for (const lessonId of Object.keys(accessStatuses)) {
-          const statusObj = accessStatuses[lessonId];
-          if (statusObj.status === 'LOCKED' && statusObj.reason === 'DAILY_UNLOCK' && statusObj.unlockAt) {
-            const unlockDate = new Date(statusObj.unlockAt).toISOString().split('T')[0];
-            if (unlockDate === todayDateStr) {
-              eligibleForReminder = true;
-              break;
-            }
-          }
+        
+        if (completedLessons.length < allLessons.length) {
+          eligibleForReminder = true;
+          reason = 'eligible';
+          break;
+        } else {
+          reason = 'course_completed';
         }
       }
+
+      let maskedEmail = student.email;
+      const atIndex = maskedEmail.indexOf('@');
+      if (atIndex > 2) {
+        maskedEmail = maskedEmail.substring(0, 2) + '*'.repeat(atIndex - 2) + maskedEmail.substring(atIndex);
+      }
+      
+      logger.info(`[DAILY REMINDER] Student check: name="${student.name}" email=${maskedEmail} active=${student.status==='active'} enrollment=${enrollments.length > 0 ? 'active' : 'inactive'} eligible=${eligibleForReminder} reason=${reason}`);
 
       if (eligibleForReminder) {
         eligibleCount++;
@@ -79,9 +92,11 @@ export const runDailyReminderJob = async (dryRun = false) => {
 
             try {
               await sendDailyReminderEmail(student.email, student.name);
+              logger.info(`[DAILY REMINDER] Email sent successfully: ${maskedEmail}`);
               sentCount++;
-            } catch (emailErr) {
+            } catch (emailErr: any) {
               await reminderModel.deleteOne({ studentId: student._id, date: todayDateStr, type: 'EMAIL_REMINDER' });
+              logger.info(`[DAILY REMINDER] Email failed: ${maskedEmail} - ${emailErr.message}`);
               throw emailErr;
             }
           } catch (err: any) {
@@ -97,15 +112,14 @@ export const runDailyReminderJob = async (dryRun = false) => {
       }
     }
 
-    logger.info(`[DAILY REMINDER] Eligible students: ${eligibleCount}`);
-    if (!dryRun) {
-      logger.info(`[DAILY REMINDER] Sent: ${sentCount}`);
-      logger.info(`[DAILY REMINDER] Already sent/Skipped: ${skippedCount}`);
-      logger.info(`[DAILY REMINDER] Failed: ${failedCount}`);
-      logger.info(`[DAILY REMINDER] Completed successfully`);
-    }
+    logger.info(`[DAILY REMINDER] Completed. Sent: ${sentCount} Failed: ${failedCount} Skipped: ${skippedCount}`);
 
-    return { eligibleCount, sentCount, skippedCount, failedCount };
+    return { 
+      eligibleStudents: eligibleCount, 
+      sent: sentCount, 
+      skipped: skippedCount, 
+      failed: failedCount 
+    };
   } catch (err) {
     logger.error('[DAILY REMINDER] Fatal error during reminder job:', err);
     throw err;

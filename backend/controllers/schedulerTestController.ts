@@ -6,7 +6,7 @@ export const testDailyReminder = async (req: Request, res: Response): Promise<vo
   try {
     const isDryRun = dryRun === 'true';
     const stats = await runDailyReminderJob(isDryRun);
-    res.status(200).json({ success: true, mode: isDryRun ? 'DRY_RUN' : 'LIVE', stats });
+    res.status(200).json({ success: true, mode: isDryRun ? 'DRY_RUN' : 'LIVE', ...stats });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
