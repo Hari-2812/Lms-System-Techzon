@@ -12,7 +12,7 @@ import logger from '../config/logger';
 
 export const runDailyReminderJob = async (dryRun = false) => {
   logger.info('[DAILY REMINDER] Starting 7:00 PM IST reminder job');
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
   let eligibleCount = 0;
   let sentCount = 0;
@@ -77,8 +77,13 @@ export const runDailyReminderJob = async (dryRun = false) => {
               type: 'EMAIL_REMINDER'
             });
 
-            await sendDailyReminderEmail(student.email, student.name);
-            sentCount++;
+            try {
+              await sendDailyReminderEmail(student.email, student.name);
+              sentCount++;
+            } catch (emailErr) {
+              await reminderModel.deleteOne({ studentId: student._id, date: todayDateStr, type: 'EMAIL_REMINDER' });
+              throw emailErr;
+            }
           } catch (err: any) {
             // E11000 duplicate key error means another process beat us to it.
             if (err.code === 11000) {
@@ -109,7 +114,7 @@ export const runDailyReminderJob = async (dryRun = false) => {
 
 export const runDailyUnlockStatsJob = async (dryRun = false) => {
   logger.info('[VIDEO UNLOCK] Starting 7:30 PM IST unlock job');
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   
   let eligibleEnrollmentsCount = 0;
   let unlockedCount = 0;

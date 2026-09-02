@@ -245,15 +245,15 @@ export const sendDailyReminderEmail = async (
   const html = `
 <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">
   <p style="color: #333333; font-size: 16px;">Hello <strong>${name}</strong>,</p>
-  <p style="color: #555555; font-size: 15px; line-height: 1.5;">This is a reminder that today's LMS class/video session will be available from 7:30 PM.</p>
-  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your next learning video will be unlocked at 7:30 PM.</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">This is a reminder that today's LMS class/video session will start at 7:30 PM.</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your learning video/class will be available from 7:30 PM.</p>
   <p style="color: #555555; font-size: 15px; line-height: 1.5;">Please log in to the Techzon LMS and continue your course.</p>
   <div style="text-align: center; margin: 35px 0;">
     <a href="${loginUrl}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
       Login to LMS
     </a>
   </div>
-  <p style="color: #888888; font-size: 14px; margin-bottom: 5px;">Or copy and paste this URL into your browser:</p>
+  <p style="color: #888888; font-size: 14px; margin-bottom: 5px;">Login to LMS:</p>
   <p style="color: #555555; font-size: 12px; word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 4px;">${loginUrl}</p>
   <br/>
   <p style="color: #888; font-size: 14px;">Regards,<br/>Techzon Wide<br/>LMS Team</p>
