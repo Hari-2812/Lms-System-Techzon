@@ -396,9 +396,11 @@ export const exportReport = async (req: Request, res: Response): Promise<void> =
 
 import mongoose from 'mongoose';
 
+import { getRegisteredStudentsForDirectory } from '../services/studentService';
+
 export const getAdminStudentsList = async (req: Request, res: Response): Promise<void> => {
   try {
-    const students = await User.find({ role: 'Student' }).select('-password -__v').lean();
+    const students = await getRegisteredStudentsForDirectory();
 
     const studentsWithAnalytics = await Promise.all(
       students.map(async (student) => {

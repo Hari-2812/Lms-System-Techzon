@@ -7,6 +7,7 @@ import Module from '../models/Module';
 import Lesson from '../models/Lesson';
 import DailyReminderLog from '../models/DailyReminderLog';
 import { sendDailyReminderEmail } from '../services/email';
+import { getRegisteredStudentsForDirectory } from '../services/studentService';
 import { getVideoAccessStatuses } from '../utils/unlockHelper';
 import logger from '../config/logger';
 
@@ -20,57 +21,22 @@ export const runDailyReminderJob = async (dryRun = false) => {
   let failedCount = 0;
 
   try {
-    const students = await User.find({ role: 'Student', status: 'active' }).lean();
+    const students = await getRegisteredStudentsForDirectory();
 
     for (const student of students) {
-      if (!student.email) {
-        logger.info(`[DAILY REMINDER] Student check: name="${student.name}" email=null active=${student.status==='active'} enrollment=inactive eligible=false reason=no_email`);
-        continue;
-      }
-      
-      const enrollments = await Enrollment.find({ studentId: student._id, status: 'active' }).lean();
-      
-      let eligibleForReminder = false;
-      let reason = 'no_active_enrollment';
-      const progressModel = mongoose.model('Progress');
-
-      for (const enrollment of enrollments) {
-        if (eligibleForReminder) break; // one per student is enough
-
-        const course = (await Course.findById(enrollment.courseId).lean()) as any;
-        if (!course) continue;
-
-        let allLessons: any[] = [];
-        const modules = await Module.find({ courseId: course._id }).sort('order').lean() as any[];
-        for (const mod of modules) {
-          const lessons = await Lesson.find({ moduleId: mod._id }).sort('order').lean();
-          allLessons = allLessons.concat(lessons);
-        }
-
-        if (allLessons.length === 0) {
-          reason = 'course_has_no_lessons';
-          continue;
-        }
-
-        const progress = await progressModel.findOne({ userId: student._id, courseId: course._id }).lean() as any;
-        const completedLessons: string[] = progress?.completedLessons || [];
-        
-        if (completedLessons.length < allLessons.length) {
-          eligibleForReminder = true;
-          reason = 'eligible';
-          break;
-        } else {
-          reason = 'course_completed';
-        }
-      }
-
-      let maskedEmail = student.email;
+      let maskedEmail = student.email || '';
       const atIndex = maskedEmail.indexOf('@');
       if (atIndex > 2) {
         maskedEmail = maskedEmail.substring(0, 2) + '*'.repeat(atIndex - 2) + maskedEmail.substring(atIndex);
       }
+
+      if (!student.email) {
+        logger.info(`[DAILY REMINDER] Student Directory recipient: name="${student.name}" email=null source="student-directory" included=false reason="missing/invalid email"`);
+        continue;
+      }
       
-      logger.info(`[DAILY REMINDER] Student check: name="${student.name}" email=${maskedEmail} active=${student.status==='active'} enrollment=${enrollments.length > 0 ? 'active' : 'inactive'} eligible=${eligibleForReminder} reason=${reason}`);
+      const eligibleForReminder = true;
+      logger.info(`[DAILY REMINDER] Student Directory recipient: name="${student.name}" email="${maskedEmail}" source="student-directory" included=true`);
 
       if (eligibleForReminder) {
         eligibleCount++;
