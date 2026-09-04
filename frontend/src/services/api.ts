@@ -1,6 +1,7 @@
 import axios from "axios";
 import { store } from "../redux/store";
 import { logoutUser, setCredentials } from "../redux/authSlice";
+import { disconnectSocket } from "./socket";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -50,10 +51,12 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         store.dispatch(logoutUser());
+        disconnectSocket();
         return Promise.reject(refreshError);
       }
     } else if (error.response?.status === 401 && !localStorage.getItem("token")) {
         store.dispatch(logoutUser());
+        disconnectSocket();
     }
     return Promise.reject(error);
   }

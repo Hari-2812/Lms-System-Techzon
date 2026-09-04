@@ -40,6 +40,9 @@ export const initSocket = (server: http.Server): Server => {
       socket.data.user = user;
       next();
     } catch (err: any) {
+      if (err.name === 'TokenExpiredError') {
+        return next(new Error('TOKEN_EXPIRED'));
+      }
       logger.error('Socket authentication error:', err);
       return next(new Error('Authentication error: Invalid token'));
     }

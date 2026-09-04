@@ -63,9 +63,13 @@ export const protect = async (
 
     req.user = user as any;
     next();
-  } catch (error) {
-    logger.error('JWT Verification error:', error);
-    res.status(401).json({ success: false, message: 'Not authorized to access this route' });
+  } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      res.status(401).json({ success: false, message: 'Token expired', errorCode: 'TOKEN_EXPIRED' });
+    } else {
+      logger.error('JWT Verification error:', error);
+      res.status(401).json({ success: false, message: 'Not authorized to access this route' });
+    }
   }
 };
 

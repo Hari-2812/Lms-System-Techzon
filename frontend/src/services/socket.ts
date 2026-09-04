@@ -34,8 +34,50 @@ export const getSocket = (): Socket => {
     }
   });
 
-  socket.on('connect_error', (error) => {
-    if (!connectErrorLogged) {
+  socket.on('connect_error', async (error) => {
+    if (error.message === 'TOKEN_EXPIRED') {
+      if (socket) socket.disconnect(); // stop infinite retry immediately
+      
+      try {
+        // we can dynamically import axios and store to avoid circular deps if they exist,
+        // but importing at the top level is usually fine.
+        const { default: axios } = await import('axios');
+        const { store } = await import('../redux/store');
+        const { logoutUser, setCredentials } = await import('../redux/authSlice');
+
+        const res = await axios.get(`${API_URL}/auth/refresh`, {
+          withCredentials: true,
+        });
+
+        const newToken = res.data.token;
+        const currentAuth = store.getState().auth;
+
+        if (currentAuth.user && currentAuth.deviceId) {
+          store.dispatch(
+            setCredentials({
+              user: currentAuth.user,
+              token: newToken,
+              deviceId: currentAuth.deviceId,
+            })
+          );
+        } else {
+          // just set token in localStorage if redux state is incomplete
+          localStorage.setItem('token', newToken);
+        }
+
+        // Reconnect with new token
+        if (socket) {
+          (socket.auth as any).token = newToken;
+          socket.connect();
+        }
+      } catch (refreshErr) {
+        console.warn('[Socket.IO] Token refresh failed. Disconnecting.');
+        const { store } = await import('../redux/store');
+        const { logoutUser } = await import('../redux/authSlice');
+        store.dispatch(logoutUser());
+        disconnectSocket();
+      }
+    } else if (!connectErrorLogged) {
       console.warn('[Socket.IO] Connection failed:', error.message, '— will retry silently.');
       connectErrorLogged = true;
     }
