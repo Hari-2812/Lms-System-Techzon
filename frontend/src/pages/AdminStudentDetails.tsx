@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Book, Clock, Trophy, FileText, CheckCircle2, Lock, PlayCircle, Loader2, ArrowLeft, MoreVertical, GraduationCap, BarChart } from 'lucide-react';
+import { Book, Clock, Trophy, FileText, CheckCircle2, Lock, PlayCircle, Loader2, ArrowLeft, MoreVertical, GraduationCap, BarChart, X, UploadCloud } from 'lucide-react';
 
 const AdminStudentDetails: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
