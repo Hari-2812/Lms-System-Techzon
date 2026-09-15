@@ -248,8 +248,23 @@ const StudentDashboard: React.FC = () => {
 
         {/* Sidebar Info Area */}
         <div className="space-y-6">
-          <h3 className="text-xl font-bold text-slate-800 dark:text-white font-poppins">Upcoming Lectures</h3>
+          {/* Project & Certification */}
+          <h3 className="text-xl font-bold text-slate-800 dark:text-white font-poppins">Project & Certification</h3>
+          <div className="glass-card p-6 border-l-4 border-l-green-500 space-y-4">
+            <h4 className="font-bold text-slate-800 dark:text-white text-sm">Your Final Project</h4>
+            {enrollments.some((e: any) => e.progress?.percentComplete === 100) ? (
+              <div className="space-y-3">
+                 <p className="text-xs text-slate-500">Course completed! Navigate to your project page to submit your final requirement.</p>
+                 <Link to={`/student/projects/${enrollments.find((e: any) => e.progress?.percentComplete === 100)?.courseId?._id}`} className="inline-block bg-accent text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-600 transition">
+                   View Project
+                 </Link>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">Complete 100% of your course to unlock the final project and certification.</p>
+            )}
+          </div>
 
+          <h3 className="text-xl font-bold text-slate-800 dark:text-white font-poppins mt-6">Upcoming Lectures</h3>
           {liveClasses.length === 0 ? (
             <div className="glass-card p-6 text-center space-y-2">
               <Calendar className="w-8 h-8 mx-auto text-slate-400" />

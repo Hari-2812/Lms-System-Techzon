@@ -400,6 +400,33 @@ const AdminStudentDetails: React.FC = () => {
             </div>
           </div>
 
+          {/* Final Project & Certification */}
+          <div className="mt-6 glass-card p-5 border border-white/5 space-y-4">
+            <h3 className="text-base font-bold flex items-center gap-2"><Trophy className="w-4 h-4 text-accent"/> Final Project & Certification</h3>
+            
+            {courses.length > 0 && courses[0]?.progress === 100 ? (
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-white/5 space-y-3">
+                <div className="flex justify-between items-center text-sm font-semibold">
+                  <span className="text-slate-500">Course Progress</span>
+                  <span className="text-green-500">100% Completed</span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-semibold">
+                  <span className="text-slate-500">Project Status</span>
+                  <span className="text-accent">Pending Assignment</span>
+                </div>
+                <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3">
+                  <button onClick={() => navigate('/admin/projects')} className="bg-accent text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-600 transition">
+                    Assign Project
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-white/5 text-center text-slate-500 text-xs font-semibold">
+                Student has not reached 100% course completion yet. Project assignment locked.
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
       ) : (
