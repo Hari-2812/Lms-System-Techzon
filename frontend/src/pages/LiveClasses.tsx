@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { Calendar, Video, Loader2, ExternalLink } from 'lucide-react';
+import { getClassStatus, formatTimeIST, formatDateIST, ClassStatus } from '../utils/classStatus';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
 
@@ -13,6 +14,7 @@ interface LiveClassItem {
   scheduledTime: string;
   durationMinutes: number;
   status: string;
+  dynamicStatus?: ClassStatus;
   courseId?: {
     title: string;
   };
@@ -34,13 +36,35 @@ const LiveClasses: React.FC = () => {
   const fetchLiveClasses = async () => {
     try {
       const res = await api.get('/live-classes');
-      setClasses(res.data.data || []);
+      let data = res.data.data || [];
+      
+      data = data.map((c: any) => ({
+        ...c,
+        dynamicStatus: getClassStatus(c.scheduledTime, c.durationMinutes, c.status)
+      }));
+      setClasses(data);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (classes.length === 0) return;
+    const interval = setInterval(() => {
+      setClasses(prevClasses => {
+        let changed = false;
+        const newClasses = prevClasses.map(c => {
+          const newStatus = getClassStatus(c.scheduledTime, c.durationMinutes, c.status);
+          if (newStatus !== c.dynamicStatus) changed = true;
+          return { ...c, dynamicStatus: newStatus };
+        });
+        return changed ? newClasses : prevClasses;
+      });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [classes]);
 
   const handleJoinClass = (id: string, meetingLink: string) => {
     if (!meetingLink || meetingLink.trim() === '') {
@@ -77,7 +101,7 @@ const LiveClasses: React.FC = () => {
     );
   }
 
-  const upcomingClasses = classes.filter(c => c.status === 'scheduled' || c.status === 'live');
+  const upcomingClasses = classes.filter(c => c.dynamicStatus === 'UPCOMING' || c.dynamicStatus === 'LIVE NOW');
 
   return (
     <div className="space-y-8 font-poppins">
@@ -98,54 +122,59 @@ const LiveClasses: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {upcomingClasses.map((cls) => (
-              <div key={cls._id} className="glass-card p-6 border-l-4 border-l-accent flex flex-col justify-between gap-6">
-                <div className="space-y-3">
+              <div key={cls._id} className={`glass-card p-6 border-l-4 ${cls.dynamicStatus === 'LIVE NOW' ? 'border-l-accent' : 'border-l-blue-500'} flex flex-col justify-between h-full`}>
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {cls.status === 'live' && (
-                        <span className="text-[10px] bg-red-500 text-white font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">
-                          LIVE NOW
-                        </span>
-                      )}
-                      <span className="text-[10px] bg-accent/10 text-accent font-bold px-2 py-0.5 rounded-full uppercase">
-                        {cls.meetingPlatform}
-                      </span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-500">
-                      {new Date(cls.scheduledTime).toLocaleDateString()}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${cls.dynamicStatus === 'LIVE NOW' ? 'bg-accent/10 text-accent animate-pulse' : 'bg-blue-500/10 text-blue-500'}`}>
+                      {cls.dynamicStatus}
+                    </span>
+                    <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold px-2 py-0.5 rounded-full uppercase">
+                      {cls.meetingPlatform}
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-white line-clamp-1">{cls.title}</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 font-medium truncate">{cls.courseId?.title}</p>
                   
-                  {cls.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2">{cls.description}</p>
-                  )}
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white line-clamp-1">{cls.title}</h3>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{cls.courseId?.title}</p>
+                  </div>
 
-                  <div className="flex flex-wrap gap-4 text-[11px] text-slate-500 font-semibold pt-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-border-dark">
-                    <span>
-                      Time: {new Date(cls.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(new Date(cls.scheduledTime).getTime() + cls.durationMinutes * 60000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </span>
-                    <span>•</span>
-                    <span>Mentor: {cls.mentorId?.name || 'Assigned Mentor'}</span>
+                  <div className="space-y-2 text-xs text-slate-500 font-medium bg-slate-50 dark:bg-[#0f172a] p-3 rounded-lg border border-slate-100 dark:border-white/5">
+                    <div className="flex justify-between items-center">
+                      <span>Date:</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-semibold">{formatDateIST(cls.scheduledTime)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Time:</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-semibold">
+                        {formatTimeIST(cls.scheduledTime)} 
+                        {' - '} 
+                        {formatTimeIST(new Date(new Date(cls.scheduledTime).getTime() + cls.durationMinutes * 60000).toISOString())}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-white/5">
+                      <span>Mentor:</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-semibold">{cls.mentorId?.name}</span>
+                    </div>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleJoinClass(cls._id, cls.meetingLink)}
-                  disabled={!cls.meetingLink}
-                  className={`w-full py-3 text-sm flex items-center justify-center gap-2 ${
-                    !cls.meetingLink 
-                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500 rounded-xl' 
-                      : 'btn-primary'
-                  }`}
-                >
-                  {!cls.meetingLink ? (
-                    'Meeting Link Unavailable'
+                <div className="pt-6 mt-auto">
+                  {cls.dynamicStatus === 'LIVE NOW' ? (
+                    <button 
+                      onClick={() => handleJoinClass(cls._id, cls.meetingLink)}
+                      className="w-full btn-accent py-2 text-xs font-bold flex items-center justify-center gap-2 group"
+                    >
+                      <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform" /> Join Class Now
+                    </button>
                   ) : (
-                    <>Join Class <ExternalLink className="w-4 h-4" /></>
+                    <button 
+                      disabled
+                      className="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 py-2 rounded-xl text-xs font-bold cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Video className="w-4 h-4" /> Link Available when Class Starts
+                    </button>
                   )}
-                </button>
+                </div>
               </div>
             ))}
           </div>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
-import { BookOpen, Award, CheckCircle, Clock, Video, Loader2, ArrowRight, Calendar, AlertCircle } from 'lucide-react';
+import { BookOpen, Award, CheckCircle, Clock, Video, Loader2, ArrowRight, Calendar, AlertCircle, Search, PlayCircle, FileText, Download } from 'lucide-react';
+import { getClassStatus, formatTimeIST, formatDateIST } from '../utils/classStatus';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
 
@@ -90,7 +91,10 @@ const StudentDashboard: React.FC = () => {
   }
 
   const enrollments: Enrollment[] = stats?.enrollments || [];
-  const liveClasses = stats?.liveClasses || [];
+  const liveClassesRaw = stats?.liveClasses || [];
+  const liveClasses = liveClassesRaw
+    .map((c: any) => ({ ...c, dynamicStatus: getClassStatus(c.scheduledTime, c.durationMinutes, c.status) }))
+    .filter((c: any) => c.dynamicStatus === 'UPCOMING' || c.dynamicStatus === 'LIVE NOW');
 
   return (
     <div className="space-y-8 font-poppins">
@@ -282,7 +286,7 @@ const StudentDashboard: React.FC = () => {
                     <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{item.title}</h4>
                     <p className="text-xs text-slate-500 font-medium truncate">{item.courseId?.title}</p>
                     <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold mt-1">
-                      <span>{new Date(item.scheduledTime).toLocaleString()}</span>
+                      <span>{formatDateIST(item.scheduledTime)} {formatTimeIST(item.scheduledTime)}</span>
                       <span>•</span>
                       <span>{item.durationMinutes} Mins</span>
                     </div>

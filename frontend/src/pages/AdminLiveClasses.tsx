@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
-import { Calendar, Video, Loader2, Link2, ExternalLink, Edit, Trash2, Users, X, Check, Eye } from 'lucide-react';
+import { Users, Video, Calendar, Edit, X, ExternalLink, Loader2 } from 'lucide-react';
+import { getClassStatus, formatTimeIST, formatDateIST, ClassStatus } from '../utils/classStatus';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
 
@@ -18,6 +19,7 @@ interface LiveClassItem {
   scheduledTime: string;
   durationMinutes: number;
   status: string;
+  dynamicStatus?: ClassStatus;
   courseId: {
     _id: string;
     title: string;
@@ -87,13 +89,19 @@ const AdminLiveClasses: React.FC = () => {
     setLoadingClasses(true);
     try {
       const res = await api.get(`/live-classes?courseId=${courseId}`);
-      const data = res.data.data || [];
+      let data = res.data.data || [];
+      
+      // Calculate dynamic status for each class
+      data = data.map((c: any) => ({
+        ...c,
+        dynamicStatus: getClassStatus(c.scheduledTime, c.durationMinutes, c.status)
+      }));
       setClasses(data);
       
-      // Calculate stats
-      const upcoming = data.filter((c: any) => c.status === 'scheduled').length;
-      const completed = data.filter((c: any) => c.status === 'completed').length;
-      const cancelled = data.filter((c: any) => c.status === 'cancelled').length;
+      // Calculate stats based on dynamic status
+      const upcoming = data.filter((c: any) => c.dynamicStatus === 'UPCOMING').length;
+      const completed = data.filter((c: any) => c.dynamicStatus === 'COMPLETED').length;
+      const cancelled = data.filter((c: any) => c.dynamicStatus === 'CANCELLED').length;
       setStats({ total: data.length, upcoming, completed, cancelled });
       
     } catch (error) {
@@ -108,6 +116,31 @@ const AdminLiveClasses: React.FC = () => {
     fetchClassesForCourse(course._id);
     setShowForm(false);
   };
+
+  // Auto refresh statuses every 30 seconds
+  useEffect(() => {
+    if (!selectedCourse || classes.length === 0) return;
+    const interval = setInterval(() => {
+      setClasses(prevClasses => {
+        let changed = false;
+        const newClasses = prevClasses.map(c => {
+          const newStatus = getClassStatus(c.scheduledTime, c.durationMinutes, c.status);
+          if (newStatus !== c.dynamicStatus) changed = true;
+          return { ...c, dynamicStatus: newStatus };
+        });
+        
+        if (changed) {
+          const upcoming = newClasses.filter((c: any) => c.dynamicStatus === 'UPCOMING').length;
+          const completed = newClasses.filter((c: any) => c.dynamicStatus === 'COMPLETED').length;
+          const cancelled = newClasses.filter((c: any) => c.dynamicStatus === 'CANCELLED').length;
+          setStats({ total: newClasses.length, upcoming, completed, cancelled });
+          return newClasses;
+        }
+        return prevClasses;
+      });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [selectedCourse, classes]);
 
   const calculateDurationAndScheduledTime = (dateStr: string, start: string, end: string) => {
     const startDateTime = new Date(`${dateStr}T${start}`);
@@ -394,11 +427,11 @@ const AdminLiveClasses: React.FC = () => {
                 <div className="space-y-4">
                   <h4 className="font-bold text-slate-700 dark:text-slate-200">Class Schedule</h4>
                   {classes.map(cls => (
-                    <div key={cls._id} className={`glass-card p-6 border-l-4 ${cls.status === 'cancelled' ? 'border-l-red-500 opacity-70' : cls.status === 'completed' ? 'border-l-green-500' : 'border-l-blue-500'} flex flex-col md:flex-row md:items-center justify-between gap-6`}>
+                    <div key={cls._id} className={`glass-card p-6 border-l-4 ${cls.dynamicStatus === 'CANCELLED' ? 'border-l-red-500 opacity-70' : cls.dynamicStatus === 'COMPLETED' ? 'border-l-green-500' : 'border-l-blue-500'} flex flex-col md:flex-row md:items-center justify-between gap-6`}>
                       <div className="space-y-2 min-w-0 flex-1">
                         <div className="flex items-center gap-3">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${cls.status === 'cancelled' ? 'bg-red-500/10 text-red-500' : cls.status === 'completed' ? 'bg-green-500/10 text-green-500' : cls.status === 'live' ? 'bg-accent/10 text-accent animate-pulse' : 'bg-blue-500/10 text-blue-500'}`}>
-                            {cls.status === 'scheduled' ? 'UPCOMING' : cls.status === 'live' ? 'LIVE NOW' : cls.status.toUpperCase()}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${cls.dynamicStatus === 'CANCELLED' ? 'bg-red-500/10 text-red-500' : cls.dynamicStatus === 'COMPLETED' ? 'bg-green-500/10 text-green-500' : cls.dynamicStatus === 'LIVE NOW' ? 'bg-accent/10 text-accent animate-pulse' : 'bg-blue-500/10 text-blue-500'}`}>
+                            {cls.dynamicStatus}
                           </span>
                           <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold px-2 py-0.5 rounded-full uppercase">
                             {cls.meetingPlatform}
@@ -407,11 +440,11 @@ const AdminLiveClasses: React.FC = () => {
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white truncate">{cls.title}</h3>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-500 font-medium">
-                          <p>Date: <span className="text-slate-700 dark:text-slate-300">{new Date(cls.scheduledTime).toLocaleDateString()}</span></p>
+                          <p>Date: <span className="text-slate-700 dark:text-slate-300">{formatDateIST(cls.scheduledTime)}</span></p>
                           <p>Time: <span className="text-slate-700 dark:text-slate-300">
-                            {new Date(cls.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                            {formatTimeIST(cls.scheduledTime)} 
                             {' - '} 
-                            {new Date(new Date(cls.scheduledTime).getTime() + cls.durationMinutes * 60000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            {formatTimeIST(new Date(new Date(cls.scheduledTime).getTime() + cls.durationMinutes * 60000).toISOString())}
                           </span></p>
                           <p>Mentor: <span className="text-slate-700 dark:text-slate-300">{cls.mentorId?.name || 'Assigned Mentor'}</span></p>
                           <p>Students Registered: <span className="text-slate-700 dark:text-slate-300 font-bold">{cls.registeredStudents || 0}</span></p>
@@ -422,11 +455,8 @@ const AdminLiveClasses: React.FC = () => {
                         <button onClick={() => handleViewStudents(cls)} className="btn-secondary py-1.5 px-3 text-[10px] flex items-center justify-center gap-1.5">
                           <Users className="w-3 h-3" /> View Students
                         </button>
-                        {cls.status === 'scheduled' && (
+                        {cls.dynamicStatus === 'UPCOMING' && (
                           <>
-                            <button onClick={() => handleStartClass(cls)} className="btn-primary py-1.5 px-3 text-[10px] flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 border-none">
-                              <Video className="w-3 h-3" /> Start Class
-                            </button>
                             <button onClick={() => openEditForm(cls)} className="btn-secondary py-1.5 px-3 text-[10px] flex items-center justify-center gap-1.5">
                               <Edit className="w-3 h-3" /> Edit
                             </button>
@@ -435,7 +465,7 @@ const AdminLiveClasses: React.FC = () => {
                             </button>
                           </>
                         )}
-                        {cls.status === 'live' && (
+                        {cls.dynamicStatus === 'LIVE NOW' && (
                           <button onClick={() => handleOpenMeeting(cls)} className="btn-accent py-1.5 px-3 text-[10px] flex items-center justify-center gap-1.5">
                             <ExternalLink className="w-3 h-3" /> Open Meeting
                           </button>
