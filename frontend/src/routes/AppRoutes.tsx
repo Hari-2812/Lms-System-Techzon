@@ -31,6 +31,9 @@ const AdminNotifications = React.lazy(() => import('../pages/AdminNotifications'
 const MentorCourses = React.lazy(() => import('../pages/MentorCourses'));
 const MentorSubmissions = React.lazy(() => import('../pages/MentorSubmissions'));
 
+const AdminProjects = React.lazy(() => import('../pages/AdminProjects'));
+const StudentProject = React.lazy(() => import('../pages/StudentProject'));
+
 const SuspenseFallback = () => (
   <div className="min-h-screen flex items-center justify-center bg-[#070312]">
     <Loader2 className="w-8 h-8 animate-spin text-accent" />
@@ -109,6 +112,14 @@ const AppRoutes: React.FC = () => {
                         </RoleGuard>
                       } 
                     />
+                    <Route
+                      path="/student/projects/:courseId"
+                      element={
+                        <RoleGuard allowedRoles={['Student']}>
+                          <StudentProject />
+                        </RoleGuard>
+                      }
+                    />
 
                     {/* Course Details Details */}
                     <Route path="/courses/:id" element={<CourseDetails />} />
@@ -161,6 +172,14 @@ const AppRoutes: React.FC = () => {
                       element={
                         <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                           <AdminCourses />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/projects"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminProjects />
                         </RoleGuard>
                       }
                     />
