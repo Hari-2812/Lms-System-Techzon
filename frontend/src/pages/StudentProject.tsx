@@ -132,16 +132,36 @@ const StudentProject: React.FC = () => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-white">Project: {project.title}</h1>
+      <h1 className="text-2xl font-bold text-white">FINAL PROJECT: {project.title}</h1>
       
-      <div className="bg-card-dark p-6 rounded-xl border border-white/5 space-y-4 text-white">
+      <div className="bg-card-dark p-6 rounded-xl border border-white/5 space-y-6 text-white">
         <div>
-          <h3 className="font-semibold text-slate-300">Description</h3>
-          <p className="text-sm mt-1">{project.description}</p>
+          <h3 className="font-semibold text-slate-300 border-b border-white/10 pb-2 mb-3">Project Description</h3>
+          <p className="text-sm whitespace-pre-wrap">{project.description}</p>
         </div>
-        <div>
-          <h3 className="font-semibold text-slate-300">Due Date</h3>
-          <p className="text-sm mt-1">{new Date(project.dueDate).toLocaleDateString()}</p>
+        {project.instructions && (
+          <div>
+            <h3 className="font-semibold text-slate-300 border-b border-white/10 pb-2 mb-3">Project Instructions</h3>
+            <p className="text-sm whitespace-pre-wrap">{project.instructions}</p>
+          </div>
+        )}
+        {project.projectPdf && (
+          <div>
+            <h3 className="font-semibold text-slate-300 border-b border-white/10 pb-2 mb-3">Project Document</h3>
+            <a href={project.projectPdf} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-slate-800 text-slate-200 px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition">
+              <FileIcon className="w-4 h-4 text-emerald-400" /> View Project PDF
+            </a>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+          <div>
+            <h3 className="font-semibold text-slate-400 text-xs uppercase tracking-wider">Due Date</h3>
+            <p className="text-sm font-bold text-slate-200 mt-1">{project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'No Due Date'}</p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-slate-400 text-xs uppercase tracking-wider">Status</h3>
+            <p className="text-sm font-bold text-accent mt-1">{project.status}</p>
+          </div>
         </div>
       </div>
 

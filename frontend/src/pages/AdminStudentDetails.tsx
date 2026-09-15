@@ -18,6 +18,26 @@ const AdminStudentDetails: React.FC = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [selectedCourseToAssign, setSelectedCourseToAssign] = useState('');
+
+  const [assignProjectModalOpen, setAssignProjectModalOpen] = useState(false);
+  const [assignForm, setAssignForm] = useState({
+    title: 'Final Project',
+    description: '',
+    instructions: '',
+    domain: 'Web Development',
+    dueDate: '',
+    difficulty: 'Intermediate'
+  });
+  const [assignReqs, setAssignReqs] = useState<any[]>([
+    { name: 'GitHub Repository', type: 'url', isRequired: true },
+    { name: 'Live Project URL', type: 'url', isRequired: true },
+    { name: 'Source Code', type: 'file', isRequired: true },
+    { name: 'Output Screenshots', type: 'file', isRequired: true }
+  ]);
+  const [assignPdf, setAssignPdf] = useState<{name: string, url: string} | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [assignStep, setAssignStep] = useState(1);
   
   useEffect(() => {
     fetchAnalytics();
@@ -114,6 +134,45 @@ const AdminStudentDetails: React.FC = () => {
       alert(e.response?.data?.message || 'Unable to verify course access. Please check payment and enrollment.');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPdf(true);
+    // Mock Cloudinary PDF Upload
+    await new Promise(r => setTimeout(r, 1500));
+    const mockUrl = `https://res.cloudinary.com/demo/image/upload/v1615555555/${file.name.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
+    setAssignPdf({ name: file.name, url: mockUrl });
+    setUploadingPdf(false);
+  };
+
+  const handleAssignProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAssigning(true);
+    try {
+      await api.post(`/admin/projects/assign/${studentId}`, {
+        courseId: courses[0]?.courseId,
+        title: assignForm.title,
+        description: assignForm.description,
+        instructions: assignForm.instructions,
+        projectPdf: assignPdf?.url,
+        domain: assignForm.domain,
+        dueDate: assignForm.dueDate,
+        requirements: assignReqs,
+        batch: courses[0]?.batch || 'General'
+      });
+      alert('Project Assigned Successfully!');
+      setAssignProjectModalOpen(false);
+      setAssignStep(1);
+      // Refresh to update project status
+      await fetchAnalytics();
+      await fetchAudit();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to assign project');
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -415,7 +474,7 @@ const AdminStudentDetails: React.FC = () => {
                   <span className="text-accent">Pending Assignment</span>
                 </div>
                 <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3">
-                  <button onClick={() => navigate('/admin/projects')} className="bg-accent text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-600 transition">
+                  <button onClick={() => setAssignProjectModalOpen(true)} className="bg-accent text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-600 transition">
                     Assign Project
                   </button>
                 </div>
@@ -597,6 +656,146 @@ const AdminStudentDetails: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ASSIGN PROJECT MODAL */}
+      {assignProjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-card-dark border border-white/10 rounded-2xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar text-white shadow-2xl relative my-8">
+            <button onClick={() => { setAssignProjectModalOpen(false); setAssignStep(1); }} className="absolute top-6 right-6 text-slate-400 hover:text-white">
+              <X className="w-6 h-6" />
+            </button>
+            <h2 className="text-2xl font-bold mb-6">Assign Final Project</h2>
+            
+            {assignStep === 1 && (
+              <form onSubmit={(e) => { e.preventDefault(); setAssignStep(2); }} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-300">Project Title *</label>
+                    <input type="text" required value={assignForm.title} onChange={e => setAssignForm({...assignForm, title: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-300">Domain</label>
+                    <select value={assignForm.domain} onChange={e => setAssignForm({...assignForm, domain: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent">
+                      <option>Web Development</option>
+                      <option>Java</option>
+                      <option>Python</option>
+                      <option>AI / Data Analytics</option>
+                      <option>UI/UX</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-300">Project Description *</label>
+                  <textarea required rows={4} value={assignForm.description} onChange={e => setAssignForm({...assignForm, description: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" placeholder="Project Objective..."></textarea>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-300">Project Instructions *</label>
+                  <textarea required rows={4} value={assignForm.instructions} onChange={e => setAssignForm({...assignForm, instructions: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" placeholder="- Complete all required modules..."></textarea>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-300">Due Date</label>
+                    <input type="date" required value={assignForm.dueDate} onChange={e => setAssignForm({...assignForm, dueDate: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-300">Project PDF (Optional)</label>
+                    {assignPdf ? (
+                      <div className="flex items-center justify-between bg-[#0a0514] border border-emerald-500/30 p-2.5 rounded-lg text-emerald-400">
+                        <span className="truncate text-sm font-semibold pr-2">✓ {assignPdf.name}</span>
+                        <div className="flex gap-3">
+                           <a href={assignPdf.url} target="_blank" rel="noreferrer" className="text-xs hover:underline">Preview</a>
+                           <button type="button" onClick={() => setAssignPdf(null)} className="text-xs text-red-400 hover:underline">Remove</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer flex items-center justify-center gap-2 w-full bg-[#0a0514] border border-dashed border-white/20 rounded-lg px-4 py-2.5 hover:border-accent transition text-slate-400 text-sm">
+                         {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                         {uploadingPdf ? 'Uploading...' : 'Upload Project PDF'}
+                         <input type="file" accept=".pdf" className="hidden" onChange={handlePdfUpload} disabled={uploadingPdf} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 flex justify-end">
+                   <button type="submit" className="bg-accent text-white px-6 py-3 rounded-lg font-bold hover:bg-orange-600 transition">Next: Setup Requirements</button>
+                </div>
+              </form>
+            )}
+
+            {assignStep === 2 && (
+               <div className="space-y-6">
+                 <h3 className="text-lg font-semibold text-slate-200 border-b border-white/10 pb-2">Configure Submission Requirements</h3>
+                 <p className="text-sm text-slate-400">Add or modify the files and links the student must submit.</p>
+                 
+                 <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                   {assignReqs.map((r, i) => (
+                      <div key={i} className="flex gap-4 items-center bg-[#0a0514] p-3 rounded-lg border border-white/5">
+                        <input type="text" value={r.name} onChange={e => {
+                          const nr = [...assignReqs]; nr[i].name = e.target.value; setAssignReqs(nr);
+                        }} className="flex-1 bg-transparent border border-white/10 rounded px-2 py-1 text-sm text-white" />
+                        <select value={r.type} onChange={e => {
+                          const nr = [...assignReqs]; nr[i].type = e.target.value; setAssignReqs(nr);
+                        }} className="bg-transparent border border-white/10 rounded px-2 py-1 text-sm text-white">
+                          <option value="url">URL Link</option>
+                          <option value="file">File Upload</option>
+                        </select>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={r.isRequired} onChange={e => {
+                             const nr = [...assignReqs]; nr[i].isRequired = e.target.checked; setAssignReqs(nr);
+                          }} /> Required
+                        </label>
+                        <button onClick={() => {
+                          const nr = [...assignReqs]; nr.splice(i, 1); setAssignReqs(nr);
+                        }} className="text-red-400 hover:text-red-500"><X className="w-4 h-4"/></button>
+                      </div>
+                   ))}
+                 </div>
+                 <button onClick={() => setAssignReqs([...assignReqs, {name:'New Requirement', type:'url', isRequired:false}])} className="text-accent text-sm font-bold hover:underline">+ Add Requirement</button>
+
+                 <div className="pt-6 border-t border-white/10 flex justify-between">
+                   <button onClick={() => setAssignStep(1)} className="bg-slate-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-slate-700 transition">Back</button>
+                   <button onClick={() => setAssignStep(3)} className="bg-accent text-white px-6 py-3 rounded-lg font-bold hover:bg-orange-600 transition">Next: Review</button>
+                 </div>
+               </div>
+            )}
+
+            {assignStep === 3 && (
+               <div className="space-y-6">
+                 <h3 className="text-lg font-semibold text-emerald-400 border-b border-white/10 pb-2">Review Assignment Details</h3>
+                 <div className="bg-[#0a0514] p-5 rounded-lg space-y-3 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">Student:</span> <span className="font-semibold text-white">{profile?.name}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Course:</span> <span className="font-semibold text-white">{courses[0]?.courseName}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Project:</span> <span className="font-semibold text-white">{assignForm.title}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Due Date:</span> <span className="font-semibold text-white">{assignForm.dueDate}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Project PDF:</span> <span className="font-semibold text-emerald-400">{assignPdf ? '✓ Uploaded' : 'None'}</span></div>
+                 </div>
+
+                 <h4 className="text-sm font-semibold text-slate-300">Requirements:</h4>
+                 <div className="bg-[#0a0514] p-5 rounded-lg space-y-2 text-sm">
+                   {assignReqs.map((r, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span className="text-white">✓ {r.name}</span>
+                        <span className={r.isRequired ? 'text-accent' : 'text-slate-500'}>{r.isRequired ? 'Required' : 'Optional'}</span>
+                      </div>
+                   ))}
+                 </div>
+
+                 <div className="pt-6 border-t border-white/10 flex justify-between">
+                   <button onClick={() => setAssignStep(2)} className="bg-slate-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-slate-700 transition" disabled={assigning}>Back</button>
+                   <button onClick={handleAssignProject} disabled={assigning} className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-500 transition disabled:opacity-50 flex items-center gap-2">
+                     {assigning ? <Loader2 className="w-5 h-5 animate-spin"/> : null}
+                     {assigning ? 'Assigning...' : 'Assign Project'}
+                   </button>
+                 </div>
+               </div>
+            )}
           </div>
         </div>
       )}

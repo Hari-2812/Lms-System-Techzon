@@ -72,6 +72,27 @@ const AdminProjects: React.FC = () => {
                     <p>Student: <span className="font-semibold text-slate-200">{proj.studentId?.name}</span> ({proj.studentId?.email})</p>
                     <p>Course Completion: <span className="text-green-500 font-bold">100%</span></p>
                     <p>Status: <span className="text-accent font-semibold px-2 py-0.5 bg-accent/10 rounded">{proj.status}</span></p>
+                    <p>Due Date: <span className="font-semibold text-slate-200">{proj.dueDate ? new Date(proj.dueDate).toLocaleDateString() : 'None'}</span></p>
+                  </div>
+                  
+                  <div className="mt-4 p-4 bg-[#0a0514] rounded-lg border border-white/5 space-y-3">
+                     <div>
+                       <h4 className="text-xs font-bold text-slate-500 uppercase">Description</h4>
+                       <p className="text-sm text-slate-300 mt-1">{proj.description}</p>
+                     </div>
+                     {proj.instructions && (
+                       <div>
+                         <h4 className="text-xs font-bold text-slate-500 uppercase">Instructions</h4>
+                         <p className="text-sm text-slate-300 mt-1">{proj.instructions}</p>
+                       </div>
+                     )}
+                     {proj.projectPdf && (
+                       <div>
+                         <a href={proj.projectPdf} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:underline">
+                           <FileIcon className="w-3 h-3" /> View Project Document PDF
+                         </a>
+                       </div>
+                     )}
                   </div>
                 </div>
                 
