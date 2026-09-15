@@ -324,3 +324,48 @@ export const sendCredentialsResetEmail = async (
     textContent
   });
 };
+
+export const sendProjectAssignedEmail = async (
+  email: string,
+  name: string,
+  projectTitle: string
+): Promise<{ success: boolean; messageId: string }> => {
+  const FRONTEND_URL = process.env.FRONTEND_URL || "https://lms-system-techzon.vercel.app";
+  const projectUrl = `${FRONTEND_URL}/student/project`;
+  
+  const html = `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">
+  <p style="color: #333333; font-size: 16px;">Hello <strong>${name}</strong>,</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your final project has been assigned: <strong>${projectTitle}</strong>.</p>
+  <div style="text-align: center; margin: 35px 0;">
+    <a href="${projectUrl}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+      View Project
+    </a>
+  </div>
+</div>
+`;
+  return await sendEmail({ email, subject: `Final Project Assigned: ${projectTitle}`, html });
+};
+
+export const sendCertificateIssuedEmail = async (
+  email: string,
+  name: string,
+  courseName: string,
+  certificateNumber: string,
+  certificateUrl: string
+): Promise<{ success: boolean; messageId: string }> => {
+  const html = `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">
+  <h2 style="color: #241252; text-align: center;">Congratulations!</h2>
+  <p style="color: #333333; font-size: 16px;">Hello <strong>${name}</strong>,</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your project for <strong>${courseName}</strong> has been approved and your certificate has been issued!</p>
+  <p><strong>Certificate Number:</strong> ${certificateNumber}</p>
+  <div style="text-align: center; margin: 35px 0;">
+    <a href="${certificateUrl}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+      View Certificate
+    </a>
+  </div>
+</div>
+`;
+  return await sendEmail({ email, subject: `Congratulations! Your Techzon LMS Certificate Has Been Issued`, html });
+};

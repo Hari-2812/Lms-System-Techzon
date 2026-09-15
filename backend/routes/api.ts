@@ -98,6 +98,8 @@ import {
 } from '../controllers/analyticsController';
 import { protect, authorize, checkPlanFeature } from '../middleware/auth';
 import notificationRoutes from './notificationRoutes';
+import { assignProject, getProjects, approveProject, requestChanges } from '../controllers/projectAdminController';
+import { getMyProject, submitProject } from '../controllers/projectStudentController';
 
 const router = Router();
 
@@ -203,6 +205,11 @@ router.get('/quizzes/:quizId/leaderboard', getQuizLeaderboard);
 router.get('/assignments', getAssignments);
 router.post('/assignments/submit', authorize('Student'), checkPlanFeature('assignments'), submitAssignment);
 
+// Project Submission (Student)
+router.get('/student/projects/:courseId', authorize('Student'), getMyProject);
+router.post('/student/projects/:id/submit', authorize('Student'), submitProject);
+
+
 // Certifications
 router.get('/certificates/student', authorize('Student'), getStudentCertificates);
 
@@ -238,6 +245,13 @@ router.put('/assignments/submissions/:id/grade', authorize('Mentor', 'Admin', 'S
 // 4. ADMIN & MANAGEMENT ROUTES
 // ==========================================
 router.use(authorize('SuperAdmin', 'Admin'));
+
+// Project Assignment & Review (Admin)
+router.post('/admin/students/:studentId/projects', assignProject);
+router.get('/admin/projects', getProjects);
+router.post('/admin/projects/:id/approve', approveProject);
+router.post('/admin/projects/:id/request-changes', requestChanges);
+
 
 // Onboarding requests API
 router.get('/admin/onboarding/requests', getOnboardingRequests);
