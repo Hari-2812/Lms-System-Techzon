@@ -312,7 +312,7 @@ const GoogleFormSync: React.FC = () => {
           </div>
         ) : filteredRequests.length === 0 ? (
           <EmptyState
-            icon={AlertTriangle}
+            icon={<AlertTriangle className="w-8 h-8" />}
             title={`No ${activeTab.toLowerCase()} requests`}
             description={`No requests found for ${activeTab.toLowerCase()} status.`}
           />

@@ -199,7 +199,7 @@ const Tickets: React.FC = () => {
               
               {tickets.length === 0 ? (
                 <EmptyState
-                  icon={LifeBuoy}
+                  icon={<LifeBuoy className="w-8 h-8" />}
                   title="No active tickets"
                   description="You don't have any open support tickets at the moment."
                 />

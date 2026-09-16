@@ -177,7 +177,7 @@ const AdminNotifications: React.FC = () => {
           <LoadingState message="Loading notifications..." />
         ) : filteredNotifications.length === 0 ? (
           <EmptyState
-            icon={Inbox}
+            icon={<Inbox className="w-8 h-8" />}
             title="No Notifications Found"
             description="We couldn't find any notifications matching your filters or search criteria."
           />

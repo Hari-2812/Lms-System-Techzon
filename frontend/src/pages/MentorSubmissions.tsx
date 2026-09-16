@@ -142,7 +142,7 @@ const MentorSubmissions: React.FC = () => {
 
           {submissions.length === 0 && (
             <EmptyState
-              icon={FileText}
+              icon={<FileText className="w-8 h-8" />}
               title="No submissions"
               description="No project submissions registered yet."
             />

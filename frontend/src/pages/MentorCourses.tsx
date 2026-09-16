@@ -85,7 +85,7 @@ const MentorCourses: React.FC = () => {
         
         {courses.length === 0 ? (
           <EmptyState
-            icon={BookOpen}
+            icon={<BookOpen className="w-8 h-8" />}
             title="No assigned courses"
             description="You have not been assigned to any courses yet."
           />

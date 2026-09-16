@@ -157,7 +157,7 @@ const AdminOverview: React.FC = () => {
             <div className="space-y-3 max-h-[30vh] overflow-y-auto pr-2">
               {stats?.recentAuditLogs?.length === 0 ? (
                 <EmptyState
-                  icon={Activity}
+                  icon={<Activity className="w-8 h-8" />}
                   title="No Audit Logs"
                   description="No audits logged yet."
                 />
