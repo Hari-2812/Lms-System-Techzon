@@ -23,7 +23,10 @@ export const getClassStatus = (
 };
 
 export const formatTimeIST = (dateStr: string) => {
-  return new Date(dateStr).toLocaleTimeString('en-US', {
+  if (!dateStr) return 'TBA';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return 'TBA';
+  return date.toLocaleTimeString('en-US', {
     timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
@@ -31,7 +34,10 @@ export const formatTimeIST = (dateStr: string) => {
 };
 
 export const formatDateIST = (dateStr: string) => {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  if (!dateStr) return 'TBA';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return 'TBA';
+  return date.toLocaleDateString('en-US', {
     timeZone: 'Asia/Kolkata',
     month: '2-digit',
     day: '2-digit',

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { Calendar, Video, Loader2, ExternalLink } from 'lucide-react';
-import { getClassStatus, formatTimeIST, formatDateIST, ClassStatus } from '../utils/classStatus';
+import { getClassStatus, formatTimeIST, formatDateIST } from '../utils/classStatus';
+import type { ClassStatus } from '../utils/classStatus';
 import { PageHeader, EmptyState, Card, Button, Badge, LoadingState } from '../components/ui';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';

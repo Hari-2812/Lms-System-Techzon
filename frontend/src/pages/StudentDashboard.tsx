@@ -234,7 +234,7 @@ const StudentDashboard: React.FC = () => {
 
                     {/* Expiry detail */}
                     <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                      <span>Expires: {new Date(enrollment.expiryDate).toLocaleDateString()}</span>
+                      <span>Expires: {enrollment.expiryDate ? new Date(enrollment.expiryDate).toLocaleDateString() : 'Lifetime Access'}</span>
                     </div>
 
                     {/* Call to action */}
