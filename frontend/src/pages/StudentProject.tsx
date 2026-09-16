@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../utils/api';
 import { Loader2, UploadCloud, X, File as FileIcon, CheckCircle2 } from 'lucide-react';
+import { Card, Button, Input, PageHeader, Badge, EmptyState } from '../components/ui';
 
 const StudentProject: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -131,76 +132,80 @@ const StudentProject: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-white">FINAL PROJECT: {project.title}</h1>
+    <div className="p-6 max-w-4xl mx-auto space-y-6 font-poppins pb-20">
+      <PageHeader
+        title={`FINAL PROJECT: ${project.title}`}
+        subtitle="Complete your final project to receive your certification."
+      />
       
-      <div className="bg-card-dark p-6 rounded-xl border border-white/5 space-y-6 text-white">
+      <Card className="space-y-6">
         <div>
-          <h3 className="font-semibold text-slate-300 border-b border-white/10 pb-2 mb-3">Project Description</h3>
-          <p className="text-sm whitespace-pre-wrap">{project.description}</p>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2 mb-3">Project Description</h3>
+          <p className="text-sm whitespace-pre-wrap text-slate-600 dark:text-slate-400">{project.description}</p>
         </div>
         {project.instructions && (
           <div>
-            <h3 className="font-semibold text-slate-300 border-b border-white/10 pb-2 mb-3">Project Instructions</h3>
-            <p className="text-sm whitespace-pre-wrap">{project.instructions}</p>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2 mb-3">Project Instructions</h3>
+            <p className="text-sm whitespace-pre-wrap text-slate-600 dark:text-slate-400">{project.instructions}</p>
           </div>
         )}
         {project.projectPdf && (
           <div>
-            <h3 className="font-semibold text-slate-300 border-b border-white/10 pb-2 mb-3">Project Document</h3>
-            <a href={project.projectPdf} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-slate-800 text-slate-200 px-4 py-2 rounded-lg text-sm hover:bg-slate-700 transition">
-              <FileIcon className="w-4 h-4 text-emerald-400" /> View Project PDF
+            <h3 className="font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2 mb-3">Project Document</h3>
+            <a href={project.projectPdf} target="_blank" rel="noreferrer">
+              <Button variant="secondary" className="flex items-center gap-2">
+                <FileIcon className="w-4 h-4 text-accent" /> View Project PDF
+              </Button>
             </a>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="font-semibold text-slate-400 text-xs uppercase tracking-wider">Due Date</h3>
-            <p className="text-sm font-bold text-slate-200 mt-1">{project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'No Due Date'}</p>
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 mt-1">{project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'No Due Date'}</p>
           </div>
           <div>
             <h3 className="font-semibold text-slate-400 text-xs uppercase tracking-wider">Status</h3>
-            <p className="text-sm font-bold text-accent mt-1">{project.status}</p>
+            <Badge variant="accent" className="mt-1">{project.status}</Badge>
           </div>
         </div>
-      </div>
+      </Card>
 
       {(project.status === 'ASSIGNED' || project.status === 'CHANGES_REQUESTED') && (
-        <form onSubmit={handleSubmit} className="bg-card-dark p-6 rounded-xl border border-white/5 space-y-6">
-          <h2 className="text-xl font-bold text-white">Submit Project</h2>
+        <Card as="form" onSubmit={handleSubmit} className="space-y-6">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white">Submit Project</h2>
           
           {submission?.adminFeedback && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500">
               <p className="font-bold">⚠ Changes Requested:</p>
               <p className="text-sm mt-1">{submission.adminFeedback}</p>
             </div>
           )}
 
           {errorMsg && (
-             <div className="p-3 bg-red-500/20 border border-red-500 rounded text-red-400 text-sm font-semibold">
+             <div className="p-3 bg-red-500/20 border border-red-500 rounded text-red-500 text-sm font-semibold">
                {errorMsg}
              </div>
           )}
 
           <div className="space-y-5">
             {reqs.map((req: any, idx: number) => (
-              <div key={idx} className="space-y-2 border-b border-white/5 pb-4 last:border-0">
-                <label className="text-sm font-medium text-slate-300">
+              <div key={idx} className="space-y-2 border-b border-slate-100 dark:border-slate-800 pb-4 last:border-0">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-2">
                   {req.name} {req.isRequired ? <span className="text-red-500">*</span> : <span className="text-slate-500">(Optional)</span>}
                 </label>
                 
                 {req.type === 'url' ? (
-                  <input 
+                  <Input 
                     type="url" 
                     value={links[req.name] || ''}
                     onChange={(e) => handleLinkChange(req.name, e.target.value)}
-                    className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-accent"
                     placeholder={`Enter ${req.name} URL...`}
                   />
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center gap-4">
-                      <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-sm text-white font-semibold flex items-center gap-2 transition">
+                      <label className="cursor-pointer bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-2 transition">
                         <UploadCloud className="w-4 h-4" /> Upload File
                         <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, req.name)} />
                       </label>
@@ -214,8 +219,8 @@ const StudentProject: React.FC = () => {
                     {/* Uploaded Files for this req */}
                     <div className="space-y-2">
                       {files.filter(f => f.type === req.name).map((f, i) => (
-                         <div key={i} className="flex items-center justify-between bg-[#0a0514] p-3 rounded-lg border border-white/5">
-                           <div className="flex items-center gap-3 text-sm text-slate-300">
+                         <div key={i} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                           <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
                              <CheckCircle2 className="w-4 h-4 text-green-500" />
                              <span className="truncate max-w-[200px]">{f.name}</span>
                              <span className="text-xs text-slate-500">{(f.size / 1024).toFixed(1)} KB</span>
@@ -232,26 +237,27 @@ const StudentProject: React.FC = () => {
             ))}
           </div>
 
-          <button 
+          <Button 
             type="submit" 
+            variant="accent"
             disabled={submitting || Object.keys(uploadingFiles).length > 0}
-            className="w-full py-3 bg-accent text-white font-bold rounded-lg hover:bg-orange-600 disabled:opacity-50 mt-4"
+            className="w-full mt-4"
           >
             {submitting ? 'Submitting...' : 'Submit Project'}
-          </button>
-        </form>
+          </Button>
+        </Card>
       )}
 
       {submission && (project.status === 'UNDER_REVIEW' || project.status === 'APPROVED') && (
-        <div className="bg-card-dark p-6 rounded-xl border border-white/5 space-y-4 text-white">
-          <h2 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
+        <Card className="space-y-4">
+          <h2 className="text-xl font-bold text-emerald-500 flex items-center gap-2">
             <CheckCircle2 className="w-6 h-6"/> 
             {project.status === 'APPROVED' ? 'Project Approved ✓' : 'Project Under Review'}
           </h2>
-          <p className="text-sm text-slate-400">Your project has been submitted successfully.</p>
+          <p className="text-sm text-slate-500">Your project has been submitted successfully.</p>
           
-          <div className="mt-4 p-4 bg-[#0a0514] rounded-lg space-y-3">
-             <h3 className="font-semibold text-slate-300 border-b border-white/5 pb-2">Submission Snapshot</h3>
+          <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-3">
+             <h3 className="font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-2">Submission Snapshot</h3>
              {Object.entries(submission.links || {}).map(([k, v]: any) => (
                 <div key={k} className="text-sm">
                   <span className="text-slate-500 w-32 inline-block">{k}:</span>
@@ -269,12 +275,12 @@ const StudentProject: React.FC = () => {
           </div>
 
           {project.status === 'APPROVED' && (
-            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 mt-4">
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 mt-4">
               <p className="font-bold">🎓 Certificate Issued</p>
-              <p className="text-sm mt-1 text-emerald-300/80">Your certificate has been sent to your registered email address.</p>
+              <p className="text-sm mt-1 text-emerald-600/80 dark:text-emerald-300/80">Your certificate has been sent to your registered email address.</p>
             </div>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );

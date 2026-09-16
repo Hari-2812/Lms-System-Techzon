@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { Award, Loader2, Download, ExternalLink, Calendar } from 'lucide-react';
+import { PageHeader, EmptyState, Card, Button, LoadingState } from '../components/ui';
 
 interface Certificate {
   _id: string;
@@ -34,34 +35,28 @@ const Certificates: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    );
+    return <LoadingState message="Loading your certificates..." />;
   }
 
   return (
-    <div className="space-y-8 font-poppins">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Graduation Certificates</h2>
-        <p className="text-xs text-slate-500">View and download your earned industry-recognized credentials.</p>
-      </div>
+    <div className="space-y-8 font-poppins pb-20">
+      <PageHeader
+        title="Graduation Certificates"
+        subtitle="View and download your earned industry-recognized credentials."
+      />
 
       {certs.length === 0 ? (
-        <div className="glass-card p-12 text-center space-y-3 max-w-2xl mx-auto">
-          <Award className="w-12 h-12 mx-auto text-slate-400" />
-          <h4 className="text-lg font-bold text-slate-600 dark:text-slate-300 font-poppins">No certificates issued yet</h4>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Certificates are automatically generated when you achieve 100% completion in your enrolled course lectures.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Award className="w-12 h-12" />}
+          title="No certificates issued yet"
+          description="Certificates are automatically generated when you achieve 100% completion in your enrolled course lectures."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {certs.map((cert) => {
             const verificationUrl = `/certificates/verify/${cert.verificationKey}`;
             return (
-              <div key={cert._id} className="glass-card p-6 flex flex-col justify-between hover:shadow-xl hover:shadow-primary/5 transition duration-300">
+              <Card key={cert._id} className="flex flex-col justify-between hover:shadow-xl hover:shadow-primary/5 transition duration-300">
                 <div className="space-y-4">
                   <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
                     <Award className="w-6 h-6 animate-float" />
@@ -84,23 +79,26 @@ const Certificates: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-2 mt-6 pt-4 border-t border-slate-100 dark:border-border-dark">
-                  <button
+                <div className="flex gap-2 mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <Button
+                    variant="primary"
                     onClick={() => window.open(cert.pdfUrl || verificationUrl, '_blank')}
-                    className="flex-1 py-2 px-3 rounded-lg bg-primary text-white text-[11px] font-bold hover:bg-primary-light flex items-center justify-center gap-1 transition"
+                    className="flex-1 flex justify-center items-center gap-1 text-[11px] px-2 py-2 min-h-[36px]"
                   >
                     <Download className="w-3.5 h-3.5" /> PDF Download
-                  </button>
+                  </Button>
                   <a
                     href={verificationUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 py-2 px-3 rounded-lg bg-white border border-slate-200 text-slate-700 dark:bg-card-dark dark:border-border-dark dark:text-slate-300 text-[11px] font-bold hover:bg-slate-50 flex items-center justify-center gap-1 transition"
+                    className="flex-1"
                   >
-                    Verify Link <ExternalLink className="w-3.5 h-3.5" />
+                    <Button variant="secondary" className="w-full flex justify-center items-center gap-1 text-[11px] px-2 py-2 min-h-[36px]">
+                      Verify Link <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
                   </a>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

@@ -5,6 +5,7 @@ import { BookOpen, Award, CheckCircle, Clock, Video, Loader2, ArrowRight, Calend
 import { getClassStatus, formatTimeIST, formatDateIST } from '../utils/classStatus';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
+import { Card, Badge, Button, EmptyState } from '../components/ui';
 
 interface Enrollment {
   _id: string;
@@ -99,7 +100,7 @@ const StudentDashboard: React.FC = () => {
   return (
     <div className="space-y-8 font-poppins">
       {/* Welcome Banner */}
-      <div className="glass-card p-8 bg-gradient-to-r from-primary to-secondary text-white relative overflow-hidden dark:border-none">
+      <div className="bg-gradient-to-r from-primary to-secondary text-white relative overflow-hidden rounded-2xl p-8 shadow-xl">
         <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-10 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-accent to-transparent" />
         <div className="relative z-10 space-y-2">
           <h2 className="text-3xl font-extrabold tracking-tight">Welcome back, {user?.name}!</h2>
@@ -111,7 +112,7 @@ const StudentDashboard: React.FC = () => {
 
       {/* Analytics Counter Row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card p-6 flex items-center gap-4">
+        <Card className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center dark:bg-primary-light/20 dark:text-primary-light">
             <BookOpen className="w-6 h-6" />
           </div>
@@ -119,9 +120,9 @@ const StudentDashboard: React.FC = () => {
             <h5 className="text-2xl font-bold">{stats?.coursesCount || 0}</h5>
             <p className="text-xs text-slate-500 font-medium">Enrolled Courses</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="glass-card p-6 flex items-center gap-4">
+        <Card className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-green-500/10 text-green-500 flex items-center justify-center">
             <CheckCircle className="w-6 h-6" />
           </div>
@@ -129,9 +130,9 @@ const StudentDashboard: React.FC = () => {
             <h5 className="text-2xl font-bold">{stats?.completedCoursesCount || 0}</h5>
             <p className="text-xs text-slate-500 font-medium">Completed Courses</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="glass-card p-6 flex items-center gap-4">
+        <Card className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center">
             <Clock className="w-6 h-6" />
           </div>
@@ -139,9 +140,9 @@ const StudentDashboard: React.FC = () => {
             <h5 className="text-2xl font-bold">{stats?.assignmentSubmissions || 0}</h5>
             <p className="text-xs text-slate-500 font-medium">Assignments Sent</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="glass-card p-6 flex items-center gap-4">
+        <Card className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
             <Award className="w-6 h-6" />
           </div>
@@ -149,7 +150,7 @@ const StudentDashboard: React.FC = () => {
             <h5 className="text-2xl font-bold">{stats?.passedQuizzes || 0}</h5>
             <p className="text-xs text-slate-500 font-medium">Quizzes Passed</p>
           </div>
-        </div>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -160,25 +161,25 @@ const StudentDashboard: React.FC = () => {
           </div>
 
           {enrollments.length === 0 ? (
-            <div className="glass-card p-12 text-center space-y-3">
-              <BookOpen className="w-12 h-12 mx-auto text-slate-400" />
-              <h4 className="text-lg font-bold text-slate-600 dark:text-slate-300">No courses assigned yet.</h4>
-              <p className="text-xs text-slate-500">Please contact the administrator to assign courses to your account.</p>
-            </div>
+            <EmptyState
+              icon={<BookOpen className="w-8 h-8" />}
+              title="No courses assigned yet."
+              description="Please contact the administrator to assign courses to your account."
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {enrollments.map((enrollment) => (
-                <div key={enrollment._id} className="glass-card overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition duration-300 flex flex-col justify-between">
+                <Card key={enrollment._id} noPadding className="flex flex-col justify-between overflow-hidden group">
                   <div>
                     {/* Thumbnail */}
-                    <div className="h-40 w-full overflow-hidden relative bg-slate-900 border-b border-slate-100 dark:border-border-dark">
+                    <div className="h-40 w-full overflow-hidden relative bg-slate-900 border-b border-slate-100 dark:border-slate-800">
                       <img
                         src={enrollment.courseId?.thumbnailUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop'}
                         alt={enrollment.courseId?.title || 'Course'}
                         onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop'; }}
-                        className="w-full h-full object-cover rounded-xl"
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                       />
-                      <span className="absolute top-3 left-3 text-[10px] bg-accent/80 text-white font-bold px-2 py-0.5 rounded-full uppercase">
+                      <span className="absolute top-3 left-3 text-[10px] bg-accent/90 text-white font-bold px-2 py-0.5 rounded-full uppercase shadow-lg">
                         {enrollment.learningPlanId?.name}
                       </span>
                     </div>
@@ -203,7 +204,7 @@ const StudentDashboard: React.FC = () => {
                         <span className="text-slate-500">Progress</span>
                         <span className="text-accent">{enrollment.progress?.percentComplete || 0}%</span>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-border-dark h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                         <div
                           className="bg-accent h-full rounded-full transition-all duration-300"
                           style={{ width: `${enrollment.progress?.percentComplete || 0}%` }}
@@ -213,7 +214,7 @@ const StudentDashboard: React.FC = () => {
 
                     {/* Dynamic Lessons Info */}
                     {(enrollment as any).totalLessons > 0 && (
-                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-medium bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-100 dark:border-border-dark">
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-medium bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
                         <div className="flex flex-col">
                           <span className="text-slate-400">Completed</span>
                           <span className="text-slate-700 dark:text-slate-300 font-bold">{(enrollment as any).lessonsCompleted} / {(enrollment as any).totalLessons}</span>
@@ -237,14 +238,13 @@ const StudentDashboard: React.FC = () => {
                     </div>
 
                     {/* Call to action */}
-                    <Link
-                      to={`/courses/${enrollment.courseId?._id}`}
-                      className="w-full py-2.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-light flex items-center justify-center gap-1.5 transition"
-                    >
-                      Resume Learning <ArrowRight className="w-4 h-4" />
+                    <Link to={`/courses/${enrollment.courseId?._id}`} className="block w-full">
+                      <Button variant="primary" className="w-full flex justify-center items-center gap-2">
+                        Resume Learning <ArrowRight className="w-4 h-4" />
+                      </Button>
                     </Link>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
@@ -254,31 +254,31 @@ const StudentDashboard: React.FC = () => {
         <div className="space-y-6">
           {/* Project & Certification */}
           <h3 className="text-xl font-bold text-slate-800 dark:text-white font-poppins">Project & Certification</h3>
-          <div className="glass-card p-6 border-l-4 border-l-green-500 space-y-4">
+          <Card className="border-l-4 border-l-green-500 space-y-4">
             <h4 className="font-bold text-slate-800 dark:text-white text-sm">Your Final Project</h4>
             {enrollments.some((e: any) => e.progress?.percentComplete === 100) ? (
               <div className="space-y-3">
                  <p className="text-xs text-slate-500">Course completed! Navigate to your project page to submit your final requirement.</p>
-                 <Link to={`/student/projects/${enrollments.find((e: any) => e.progress?.percentComplete === 100)?.courseId?._id}`} className="inline-block bg-accent text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-600 transition">
-                   View Project
+                 <Link to={`/student/projects/${enrollments.find((e: any) => e.progress?.percentComplete === 100)?.courseId?._id}`}>
+                   <Button variant="accent">View Project</Button>
                  </Link>
               </div>
             ) : (
               <p className="text-xs text-slate-500">Complete 100% of your course to unlock the final project and certification.</p>
             )}
-          </div>
+          </Card>
 
           <h3 className="text-xl font-bold text-slate-800 dark:text-white font-poppins mt-6">Upcoming Lectures</h3>
           {liveClasses.length === 0 ? (
-            <div className="glass-card p-6 text-center space-y-2">
+            <Card className="text-center space-y-2">
               <Calendar className="w-8 h-8 mx-auto text-slate-400" />
               <h4 className="text-sm font-bold text-slate-600 dark:text-slate-300">No live classes scheduled</h4>
               <p className="text-[10px] text-slate-500">Live classes require a Mentor-Led or Advanced plan.</p>
-            </div>
+            </Card>
           ) : (
             <div className="space-y-4">
               {liveClasses.map((item: any) => (
-                <div key={item._id} className="glass-card p-5 border-l-4 border-l-accent flex items-start gap-4">
+                <Card key={item._id} className="border-l-4 border-l-accent flex items-start gap-4">
                   <div className="p-2.5 rounded-lg bg-accent/10 text-accent">
                     <Video className="w-5 h-5" />
                   </div>
@@ -292,12 +292,12 @@ const StudentDashboard: React.FC = () => {
                     </div>
                     <Link
                       to="/live-classes"
-                      className="inline-block text-[11px] font-bold text-accent hover:text-accent-hover transition duration-200 mt-2"
+                      className="inline-block text-[11px] font-bold text-accent hover:text-orange-500 transition duration-200 mt-2"
                     >
                       View Link & Attend
                     </Link>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}

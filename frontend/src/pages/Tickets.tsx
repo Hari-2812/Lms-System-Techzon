@@ -3,6 +3,7 @@ import api from '../utils/api';
 import { LifeBuoy, Send, Loader2, MessageSquare, Plus, Clock, User } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
+import { PageHeader, Card, Button, Badge, EmptyState, Input, LoadingState } from '../components/ui';
 
 interface TicketMessage {
   senderId: string;
@@ -106,28 +107,25 @@ const Tickets: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    );
+    return <LoadingState message="Loading support tickets..." />;
   }
 
   return (
-    <div className="space-y-8 font-poppins">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Helpdesk Support Tickets</h2>
-          <p className="text-xs text-slate-500">Ask questions, file billing reports, or query lecture doubt clears.</p>
-        </div>
+    <div className="space-y-8 font-poppins pb-20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <PageHeader
+          title="Helpdesk Support Tickets"
+          subtitle="Ask questions, file billing reports, or query lecture doubt clears."
+        />
         
         {user?.role === 'student' && (
-          <button
+          <Button
+            variant="accent"
             onClick={() => setShowCreate(!showCreate)}
-            className="btn-accent py-2.5 px-5 text-xs flex items-center gap-1.5"
+            className="flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" /> Create Ticket
-          </button>
+          </Button>
         )}
       </div>
 
@@ -135,18 +133,18 @@ const Tickets: React.FC = () => {
         {/* Left Side: Create ticket or Tickets list */}
         <div className="lg:col-span-1 space-y-6">
           {showCreate && user?.role === 'student' ? (
-            <div className="glass-card p-6 space-y-5">
+            <Card className="p-6 space-y-5">
               <h3 className="font-bold text-slate-800 dark:text-white text-base">File New Ticket</h3>
               <form onSubmit={handleCreateTicket} className="space-y-4 text-xs font-semibold">
                 <div className="space-y-1">
                   <label className="text-slate-500">Subject / Topic</label>
-                  <input
+                  <Input
                     type="text"
                     required
                     placeholder="MERN Module 2 doubt clearance"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="glass-input py-2 text-xs"
+                    className="w-full"
                   />
                 </div>
 
@@ -186,21 +184,25 @@ const Tickets: React.FC = () => {
                     placeholder="Provide details about your query..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="glass-input py-2 text-xs h-24"
+                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-xs h-24 outline-none focus:border-accent resize-none transition"
                   />
                 </div>
 
-                <button type="submit" className="btn-accent w-full py-2.5 text-xs">
+                <Button type="submit" variant="accent" className="w-full justify-center">
                   Submit Support Ticket
-                </button>
+                </Button>
               </form>
-            </div>
+            </Card>
           ) : (
             <div className="space-y-4">
               <h3 className="font-bold text-slate-800 dark:text-white text-base">Active Conversations</h3>
               
               {tickets.length === 0 ? (
-                <div className="glass-card p-6 text-center text-slate-500 text-xs">No active tickets found.</div>
+                <EmptyState
+                  icon={LifeBuoy}
+                  title="No active tickets"
+                  description="You don't have any open support tickets at the moment."
+                />
               ) : (
                 tickets.map((t) => {
                   const isSelected = selectedTicket?._id === t._id;
@@ -217,12 +219,12 @@ const Tickets: React.FC = () => {
                       <div className="w-full">
                         <div className="flex justify-between items-start gap-2">
                           <h4 className="font-bold text-xs line-clamp-1 leading-4 text-slate-800 dark:text-white">{t.subject}</h4>
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                            t.status === 'open' ? 'bg-amber-500/10 text-amber-500' :
-                            t.status === 'in-progress' ? 'bg-blue-500/10 text-blue-500' : 'bg-green-500/10 text-green-500'
-                          }`}>
+                          <Badge variant={
+                            t.status === 'open' ? 'warning' :
+                            t.status === 'in-progress' ? 'primary' : 'success'
+                          }>
                             {t.status}
-                          </span>
+                          </Badge>
                         </div>
                         <p className="text-[10px] text-slate-400 font-semibold mt-1">Ref ID: {t._id.slice(-6).toUpperCase()}</p>
                       </div>
@@ -242,7 +244,7 @@ const Tickets: React.FC = () => {
         {/* Right Side: Conversation window thread details */}
         <div className="lg:col-span-2">
           {selectedTicket ? (
-            <div className="glass-card flex flex-col h-[65vh] overflow-hidden">
+            <Card className="flex flex-col h-[65vh] overflow-hidden p-0">
               {/* Top Banner details */}
               <div className="p-5 border-b border-slate-100 dark:border-border-dark flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-card-dark/20">
                 <div>
@@ -251,12 +253,13 @@ const Tickets: React.FC = () => {
                 </div>
                 
                 {['admin', 'super-admin', 'support'].includes(user?.role || '') && selectedTicket.status !== 'closed' && (
-                  <button
+                  <Button
+                    variant="danger"
                     onClick={() => handleUpdateStatus(selectedTicket._id, 'closed')}
-                    className="px-3.5 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-500 text-xs font-semibold font-poppins transition dark:border-red-900/30 dark:hover:bg-red-900/20"
+                    className="text-xs py-1.5 px-3"
                   >
                     Close Ticket
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -290,34 +293,35 @@ const Tickets: React.FC = () => {
               {/* Message inputs bottom */}
               {selectedTicket.status !== 'closed' ? (
                 <form onSubmit={handleSendReply} className="p-4 border-t border-slate-100 dark:border-border-dark flex gap-3 bg-white dark:bg-card-dark">
-                  <input
+                  <Input
                     type="text"
                     required
                     placeholder="Type your response message..."
                     value={replyMessage}
                     onChange={(e) => setReplyMessage(e.target.value)}
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark outline-none text-xs focus:border-accent bg-transparent"
+                    className="flex-1"
                   />
-                  <button
+                  <Button
                     type="submit"
+                    variant="accent"
                     disabled={sendingReply}
-                    className="btn-accent py-2 px-4 rounded-xl flex items-center justify-center gap-1.5"
+                    className="px-4 flex items-center justify-center gap-1.5"
                   >
                     {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </button>
+                  </Button>
                 </form>
               ) : (
                 <div className="p-4 border-t border-slate-100 dark:border-border-dark text-center text-xs font-semibold text-slate-400 bg-slate-50/20">
                   This conversation has been resolved and closed.
                 </div>
               )}
-            </div>
+            </Card>
           ) : (
-            <div className="glass-card h-[65vh] flex flex-col items-center justify-center text-center p-6 space-y-3">
+            <Card className="h-[65vh] flex flex-col items-center justify-center text-center p-6 space-y-3">
               <MessageSquare className="w-12 h-12 text-slate-300 animate-float" />
               <h4 className="text-slate-600 dark:text-slate-400 font-bold">Select a Support Ticket</h4>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">Choose an active message thread from the left list to review feedback from mentors and technicians.</p>
-            </div>
+            </Card>
           )}
         </div>
       </div>

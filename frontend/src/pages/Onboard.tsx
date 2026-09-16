@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { BookOpen, GraduationCap, Phone, MapPin, Send, CheckCircle, Loader2, Sparkles } from 'lucide-react';
+import { Card, Button, Input } from '../components/ui';
 
 interface CourseOption {
   _id: string;
@@ -112,7 +113,7 @@ const Onboard: React.FC = () => {
       <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-primary/10 blur-[130px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-accent/5 blur-[130px]" />
 
-      <div className="w-full max-w-2xl bg-white dark:bg-card-dark p-8 rounded-2xl border border-slate-200 dark:border-border-dark shadow-glass z-10 space-y-6">
+      <Card className="w-full max-w-2xl z-10 space-y-6">
         
         {success ? (
           /* SUCCESS DISPLAY */
@@ -126,11 +127,10 @@ const Onboard: React.FC = () => {
                 Thank you for applying, <strong className="text-slate-800 dark:text-slate-200">{fullName}</strong>. The Techzon Wide administrators will review your application details shortly. Once approved, you will receive your login details via email.
               </p>
             </div>
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-1.5 px-6 py-3 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-light transition shadow-lg shadow-primary/20"
-            >
-              Return to Login Panel <ArrowRight className="w-4.5 h-4.5" />
+            <Link to="/login" className="inline-block mt-4">
+              <Button variant="primary" className="flex items-center gap-1.5 shadow-lg shadow-primary/20">
+                Return to Login Panel <ArrowRight className="w-4.5 h-4.5" />
+              </Button>
             </Link>
           </div>
         ) : (
@@ -161,47 +161,45 @@ const Onboard: React.FC = () => {
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">1. Contact & Identity</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">Full Name</label>
-                    <input
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Full Name</label>
+                    <Input
                       type="text"
                       required
                       placeholder="Jane Doe"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
+                      className="w-full"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">Email Address</label>
-                    <input
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Email Address</label>
+                    <Input
                       type="email"
                       required
                       placeholder="jane@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
+                      className="w-full"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">Phone Number</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 w-4 h-4 text-slate-400 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="tel"
-                        required
-                        placeholder="+91 99887 76655"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
-                      />
-                    </div>
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Phone Number</label>
+                    <Input
+                      type="tel"
+                      required
+                      placeholder="+91 99887 76655"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      icon={<Phone className="w-4 h-4 text-slate-400" />}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">Preferred Batch</label>
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Preferred Batch</label>
                     <select
                       value={preferredBatch}
                       onChange={(e) => setPreferredBatch(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
                     >
                       <option value="Batch A">Batch A (Weekdays morning)</option>
                       <option value="Batch B">Batch B (Weekdays evening)</option>
@@ -216,53 +214,49 @@ const Onboard: React.FC = () => {
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">2. College & Location</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">College / Institute Name</label>
-                    <div className="relative">
-                      <GraduationCap className="absolute left-3 w-4 h-4 text-slate-400 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="PSG College of Technology"
-                        value={college}
-                        onChange={(e) => setCollege(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
-                      />
-                    </div>
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">College / Institute Name</label>
+                    <Input
+                      type="text"
+                      required
+                      placeholder="PSG College of Technology"
+                      value={college}
+                      onChange={(e) => setCollege(e.target.value)}
+                      icon={<GraduationCap className="w-4 h-4 text-slate-400" />}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">Degree / Branch</label>
-                    <input
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Degree / Branch</label>
+                    <Input
                       type="text"
                       required
                       placeholder="B.E. Computer Science"
                       value={degree}
                       onChange={(e) => setDegree(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
+                      className="w-full"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">City</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 w-4 h-4 text-slate-400 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="Coimbatore"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
-                      />
-                    </div>
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">City</label>
+                    <Input
+                      type="text"
+                      required
+                      placeholder="Coimbatore"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      icon={<MapPin className="w-4 h-4 text-slate-400" />}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">State</label>
-                    <input
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">State</label>
+                    <Input
                       type="text"
                       required
                       placeholder="Tamil Nadu"
                       value={state}
                       onChange={(e) => setState(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -300,11 +294,11 @@ const Onboard: React.FC = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-500">Preferred Learning Plan</label>
+                    <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Preferred Learning Plan</label>
                     <select
                       value={selectedPlan}
                       onChange={(e) => setSelectedPlan(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-accent focus:border-accent text-xs transition"
                     >
                       {plans.map((p) => (
                         <option key={p._id} value={p._id}>
@@ -316,17 +310,18 @@ const Onboard: React.FC = () => {
                 </div>
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="primary"
                 disabled={loading}
-                className="w-full btn-primary py-3.5 rounded-xl text-xs font-bold hover:bg-primary-light flex items-center justify-center gap-1.5 transition uppercase tracking-wider"
+                className="w-full flex items-center justify-center gap-1.5 uppercase tracking-wider"
               >
                 {loading ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <>Submit Onboarding Request <Send className="w-4 h-4" /></>}
-              </button>
+              </Button>
             </form>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

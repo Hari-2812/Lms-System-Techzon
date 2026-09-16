@@ -5,6 +5,7 @@ import {
   RefreshCw, Check, X, Search, Loader2, Sparkles, 
   ArrowRight, ArrowLeft, Send, Mail, User, ShieldCheck, BookOpen, Clock, AlertTriangle, Layers, Calendar, Eye, Ban
 } from 'lucide-react';
+import { PageHeader, Card, Button, Modal, Badge, EmptyState, Input, LoadingState } from '../components/ui';
 
 interface OnboardingRequest {
   _id: string;
@@ -223,50 +224,52 @@ const GoogleFormSync: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6 font-poppins">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Google Form Responses Sync</h2>
-          <p className="text-slate-500 text-xs mt-1">Import student records from your restricted Google spreadsheet and provision accounts</p>
-        </div>
+    <div className="space-y-6 font-poppins pb-20">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <PageHeader
+          title="Google Form Responses Sync"
+          subtitle="Import student records from your restricted Google spreadsheet and provision accounts"
+        />
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="secondary"
             onClick={handleTestConnection}
             disabled={testingConnection || syncing}
-            className="btn-outline py-2.5 px-4 flex items-center gap-1.5 text-xs font-bold rounded-xl border border-slate-200"
+            className="flex items-center gap-1.5"
           >
             {testingConnection ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             Test Connection
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="accent"
             onClick={handleSyncSheets}
             disabled={syncing || testingConnection}
-            className="btn-accent py-2.5 px-4 flex items-center gap-1.5"
+            className="flex items-center gap-1.5"
           >
             {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             Sync Google Sheet Now
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Sync statistics row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-card p-4 text-center">
+        <Card className="p-4 text-center">
           <p className="text-[10px] uppercase font-bold text-slate-400">Last Sync Time</p>
           <p className="text-sm font-extrabold text-slate-700 dark:text-white mt-1">{lastSyncTime}</p>
-        </div>
-        <div className="glass-card p-4 text-center">
+        </Card>
+        <Card className="p-4 text-center">
           <p className="text-[10px] uppercase font-bold text-slate-400">New Requests</p>
           <p className="text-sm font-extrabold text-emerald-500 mt-1">+{syncedCount}</p>
-        </div>
-        <div className="glass-card p-4 text-center">
+        </Card>
+        <Card className="p-4 text-center">
           <p className="text-[10px] uppercase font-bold text-slate-400">Already Pending/Updated</p>
           <p className="text-sm font-extrabold text-amber-500 mt-1">{duplicateCount}</p>
-        </div>
-        <div className="glass-card p-4 text-center">
+        </Card>
+        <Card className="p-4 text-center">
           <p className="text-[10px] uppercase font-bold text-slate-400">Failed / Skipped</p>
           <p className="text-sm font-extrabold text-red-500 mt-1">{failedCount}</p>
-        </div>
+        </Card>
       </div>
 
       {/* Tabs */}
@@ -287,31 +290,32 @@ const GoogleFormSync: React.FC = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <h3 className="text-sm font-bold text-slate-800 dark:text-white">{activeTab} Requests</h3>
-        <div className="relative w-72">
-          <Search className="absolute left-3.5 w-4 h-4 text-slate-400 top-1/2 -translate-y-1/2" />
-          <input
+        <div className="relative w-full sm:w-72">
+          <Input
             type="text"
             placeholder="Search by name, email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark outline-none focus:border-accent text-xs transition"
+            icon={<Search className="w-4 h-4 text-slate-400" />}
+            className="w-full"
           />
         </div>
       </div>
 
       {/* Synchronized Table list */}
-      <div className="glass-card overflow-hidden">
+      <Card className="overflow-hidden p-0">
         {loading ? (
           <div className="py-20 flex justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
           </div>
         ) : filteredRequests.length === 0 ? (
-          <div className="py-20 text-center space-y-3">
-            <AlertTriangle className="w-12 h-12 mx-auto text-slate-400" />
-            <h4 className="font-bold text-slate-600 dark:text-slate-300">No {activeTab.toLowerCase()} requests found</h4>
-          </div>
+          <EmptyState
+            icon={AlertTriangle}
+            title={`No ${activeTab.toLowerCase()} requests`}
+            description={`No requests found for ${activeTab.toLowerCase()} status.`}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs text-slate-600 dark:text-slate-300">
@@ -343,15 +347,13 @@ const GoogleFormSync: React.FC = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className={`inline-block font-extrabold uppercase text-[9px] px-2 py-0.5 rounded ${
-                        req.status === 'APPROVED' 
-                          ? 'bg-emerald-500/10 text-emerald-500' 
-                          : req.status === 'REJECTED'
-                          ? 'bg-red-500/10 text-red-500'
-                          : req.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-500/10 text-slate-500'
-                      }`}>
+                      <Badge variant={
+                        req.status === 'APPROVED' ? 'success' :
+                        req.status === 'REJECTED' ? 'danger' :
+                        req.status === 'PENDING' ? 'warning' : 'neutral'
+                      }>
                         {req.status}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="p-4 text-right">
                       <button
@@ -367,102 +369,101 @@ const GoogleFormSync: React.FC = () => {
             </table>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* DETAILS MODAL */}
-      {showDetailsModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between border-b pb-3 dark:border-border-dark">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Student Details</h3>
-              <button onClick={() => setShowDetailsModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
+      {selectedRequest && (
+        <Modal
+          isOpen={showDetailsModal}
+          onClose={() => setShowDetailsModal(false)}
+          title="Student Details"
+          description={`Review application details for ${selectedRequest.fullName}.`}
+        >
+          <div className="overflow-y-auto space-y-4 flex-1 pr-2 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 border-slate-100 dark:border-slate-800">Personal Information</h4>
+                <p><span className="font-bold text-slate-500">Name:</span> {selectedRequest.fullName}</p>
+                <p><span className="font-bold text-slate-500">Email:</span> {selectedRequest.email}</p>
+                <p><span className="font-bold text-slate-500">Phone:</span> {selectedRequest.phone}</p>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 border-slate-100 dark:border-slate-800">Course Selection</h4>
+                {selectedRequest.status === 'PENDING' ? (
+                  <select
+                    value={selectedCourseId}
+                    onChange={(e) => setSelectedCourseId(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs mb-3 text-slate-800 dark:text-white"
+                  >
+                    <option value="">Select a Course</option>
+                    {courses.map((c) => (
+                      <option key={c._id} value={c._id}>{c.title}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p><span className="font-bold text-slate-500">Course:</span> {selectedRequest.courses?.map(c => c.title).join(', ')}</p>
+                )}
+                <p><span className="font-bold text-slate-500">Google Form Original Batch:</span> {selectedRequest.preferredBatch || 'N/A'}</p>
+              </div>
             </div>
             
-            <div className="overflow-y-auto space-y-4 flex-1 pr-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Personal Information</h4>
-                  <p><span className="font-bold text-slate-500">Name:</span> {selectedRequest.fullName}</p>
-                  <p><span className="font-bold text-slate-500">Email:</span> {selectedRequest.email}</p>
-                  <p><span className="font-bold text-slate-500">Phone:</span> {selectedRequest.phone}</p>
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Course Selection</h4>
-                  {selectedRequest.status === 'PENDING' ? (
-                    <select
-                      value={selectedCourseId}
-                      onChange={(e) => setSelectedCourseId(e.target.value)}
-                      className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs mb-3"
-                    >
-                      <option value="">Select a Course</option>
-                      {courses.map((c) => (
-                        <option key={c._id} value={c._id}>{c.title}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p><span className="font-bold text-slate-500">Course:</span> {selectedRequest.courses?.map(c => c.title).join(', ')}</p>
-                  )}
-                  <p><span className="font-bold text-slate-500">Google Form Original Batch:</span> {selectedRequest.preferredBatch || 'N/A'}</p>
-                </div>
+            <div>
+              <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 border-slate-100 dark:border-slate-800">Google Form Raw Data</h4>
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 max-h-48 overflow-y-auto">
+                <pre className="text-[10px] text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono">
+                  {JSON.stringify(selectedRequest.rawFormData, null, 2)}
+                </pre>
               </div>
-              
+            </div>
+            
+            {selectedRequest.status === 'PENDING' && (
               <div>
-                <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Google Form Raw Data</h4>
-                <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-border-dark max-h-48 overflow-y-auto">
-                  <pre className="text-[10px] text-slate-600 dark:text-slate-400 whitespace-pre-wrap font-mono">
-                    {JSON.stringify(selectedRequest.rawFormData, null, 2)}
-                  </pre>
-                </div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 border-slate-100 dark:border-slate-800">Rejection Reason (Optional)</h4>
+                <Input
+                  type="text"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Enter reason for rejection..."
+                  className="w-full"
+                />
               </div>
-              
-              {selectedRequest.status === 'PENDING' && (
-                <div>
-                  <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-2 border-b pb-1 dark:border-border-dark">Rejection Reason (Optional)</h4>
-                  <input
-                    type="text"
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Enter reason for rejection..."
-                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark"
-                  />
-                </div>
-              )}
-              {error && <div className="text-red-500 font-bold">{error}</div>}
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t dark:border-border-dark">
-              {selectedRequest.status === 'PENDING' && (
-                <>
-                  <button
-                    onClick={handleReject}
-                    disabled={submitting}
-                    className="px-4 py-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 font-bold flex items-center gap-1"
-                  >
-                    {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />} Reject
-                  </button>
-                  <button
-                    onClick={handleApprove}
-                    disabled={submitting}
-                    className="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 flex items-center gap-1"
-                  >
-                    {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5" /> Approve Student</>}
-                  </button>
-                </>
-              )}
-              {selectedRequest.status === 'APPROVED' && (
-                <button
-                  onClick={handleResendEmail}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 flex items-center gap-1"
-                >
-                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Mail className="w-3.5 h-3.5" /> Resend Approval Email</>}
-                </button>
-              )}
-            </div>
+            )}
+            {error && <div className="text-red-500 font-bold">{error}</div>}
           </div>
-        </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
+            {selectedRequest.status === 'PENDING' && (
+              <>
+                <Button
+                  variant="danger"
+                  onClick={handleReject}
+                  disabled={submitting}
+                  className="flex items-center gap-1"
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />} Reject
+                </Button>
+                <Button
+                  variant="success"
+                  onClick={handleApprove}
+                  disabled={submitting}
+                  className="flex items-center gap-1"
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5" /> Approve Student</>}
+                </Button>
+              </>
+            )}
+            {selectedRequest.status === 'APPROVED' && (
+              <Button
+                variant="primary"
+                onClick={handleResendEmail}
+                disabled={submitting}
+                className="flex items-center gap-1"
+              >
+                {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Mail className="w-3.5 h-3.5" /> Resend Approval Email</>}
+              </Button>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
   );

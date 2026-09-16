@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { BookOpen, Users, CalendarRange, Clock, Loader2, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { PageHeader, Card, EmptyState, LoadingState } from '../components/ui';
 
 interface Course {
   _id: string;
@@ -35,23 +36,19 @@ const MentorCourses: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    );
+    return <LoadingState message="Loading dashboard..." />;
   }
 
   return (
-    <div className="space-y-8 font-poppins text-slate-800 dark:text-slate-200">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Mentor Command Center</h2>
-        <p className="text-xs text-slate-500">Manage interactive student lectures, grade course assignments, and review curriculum feedback.</p>
-      </div>
+    <div className="space-y-8 font-poppins text-slate-800 dark:text-slate-200 pb-20">
+      <PageHeader
+        title="Mentor Command Center"
+        subtitle="Manage interactive student lectures, grade course assignments, and review curriculum feedback."
+      />
 
       {/* Row Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-card p-6 flex items-center gap-4">
+        <Card className="p-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center">
             <Users className="w-6 h-6" />
           </div>
@@ -59,9 +56,9 @@ const MentorCourses: React.FC = () => {
             <h5 className="text-2xl font-bold">{stats?.totalEnrolledStudents || 0}</h5>
             <p className="text-xs text-slate-500 font-medium">Assigned Enrolled Students</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="glass-card p-6 flex items-center gap-4">
+        <Card className="p-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
             <CalendarRange className="w-6 h-6" />
           </div>
@@ -69,9 +66,9 @@ const MentorCourses: React.FC = () => {
             <h5 className="text-2xl font-bold">{stats?.scheduledLiveClasses || 0}</h5>
             <p className="text-xs text-slate-500 font-medium">Scheduled Live Seminars</p>
           </div>
-        </div>
+        </Card>
 
-        <div className="glass-card p-6 flex items-center gap-4">
+        <Card className="p-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
             <Clock className="w-6 h-6" />
           </div>
@@ -79,7 +76,7 @@ const MentorCourses: React.FC = () => {
             <h5 className="text-2xl font-bold">{stats?.pendingGradingCount || 0}</h5>
             <p className="text-xs text-slate-500 font-medium">Pending Grade Submissions</p>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Courses Catalog Assigned List */}
@@ -87,11 +84,15 @@ const MentorCourses: React.FC = () => {
         <h3 className="font-bold text-base">Assigned Courses Skeletons</h3>
         
         {courses.length === 0 ? (
-          <div className="glass-card p-12 text-center text-slate-500 text-xs">No courses currently assigned to you.</div>
+          <EmptyState
+            icon={BookOpen}
+            title="No assigned courses"
+            description="You have not been assigned to any courses yet."
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
-              <div key={course._id} className="glass-card overflow-hidden hover:shadow-xl transition flex flex-col justify-between">
+              <Card key={course._id} className="p-0 overflow-hidden hover:shadow-xl transition flex flex-col justify-between">
                 <div>
                   <div className="h-40 w-full overflow-hidden bg-slate-900 border-b border-slate-100 dark:border-border-dark">
                     <img
@@ -116,7 +117,7 @@ const MentorCourses: React.FC = () => {
                     Manage Curriculum <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}

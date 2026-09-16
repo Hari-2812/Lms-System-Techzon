@@ -3,6 +3,7 @@ import { Search, Trash2, Check, Inbox, Mail, UserCheck, UserX, AlertTriangle, In
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import type { NotificationItem } from '../components/NotificationBell';
+import { PageHeader, Card, Button, EmptyState, Input, LoadingState, Badge } from '../components/ui';
 
 const AdminNotifications: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -103,48 +104,45 @@ const AdminNotifications: React.FC = () => {
   });
 
   return (
-    <div className="container mx-auto max-w-6xl font-poppins text-slate-800 dark:text-slate-100">
+    <div className="container mx-auto max-w-6xl font-poppins text-slate-800 dark:text-slate-100 pb-20">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            System Notifications
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Manage real-time notifications for student onboardings, approvals, and email status.
-          </p>
-        </div>
+        <PageHeader
+          title="System Notifications"
+          subtitle="Manage real-time notifications for student onboardings, approvals, and email status."
+        />
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="secondary"
             onClick={fetchNotifications}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition duration-200 border border-slate-250 dark:border-slate-750"
+            className="flex items-center gap-1.5"
           >
             <RefreshCw className="w-4 h-4" /> Refresh
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="accent"
             onClick={handleMarkAllRead}
             disabled={notifications.filter((n) => !n.isRead).length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-accent text-white hover:bg-accent-dark transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-accent/15"
+            className="flex items-center gap-1.5"
           >
             <Check className="w-4 h-4" /> Mark All Read
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Control Panel */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 mb-6 shadow-sm">
+      {/* Control Panel */}
+      <Card className="p-5 mb-6">
         <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
           {/* Search bar */}
           <div className="relative w-full lg:max-w-md">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-slate-400" />
-            </span>
-            <input
+            <Input
               type="text"
               placeholder="Search notifications by title or message..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-250 dark:bg-slate-800/40 dark:border-slate-750 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition duration-200"
+              icon={<Search className="w-4 h-4 text-slate-400" />}
+              className="w-full"
             />
           </div>
 
@@ -171,23 +169,18 @@ const AdminNotifications: React.FC = () => {
             ))}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Main List */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <Card className="p-0 overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-4 font-medium">Loading notifications...</p>
-          </div>
+          <LoadingState message="Loading notifications..." />
         ) : filteredNotifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-            <Inbox className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-4" />
-            <h3 className="font-bold text-slate-700 dark:text-slate-300">No Notifications Found</h3>
-            <p className="text-xs text-slate-400 dark:text-slate-500 max-w-sm mt-1.5 leading-relaxed">
-              We couldn't find any notifications matching your filters or search criteria.
-            </p>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No Notifications Found"
+            description="We couldn't find any notifications matching your filters or search criteria."
+          />
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {filteredNotifications.map((n) => (
@@ -211,9 +204,7 @@ const AdminNotifications: React.FC = () => {
                       {n.title}
                     </h3>
                     {!n.isRead && (
-                      <span className="bg-accent/10 text-accent text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        New
-                      </span>
+                      <Badge variant="accent">New</Badge>
                     )}
                   </div>
                   <p className="text-xs text-slate-655 dark:text-slate-350 mt-1.5 leading-relaxed">
@@ -255,7 +246,7 @@ const AdminNotifications: React.FC = () => {
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 };

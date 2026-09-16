@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Book, Clock, Trophy, FileText, CheckCircle2, Lock, PlayCircle, Loader2, ArrowLeft, MoreVertical, GraduationCap, BarChart, X, UploadCloud } from 'lucide-react';
+import { Book, Clock, Trophy, FileText, CheckCircle2, Lock, PlayCircle, Loader2, ArrowLeft, MoreVertical, GraduationCap, BarChart, X, UploadCloud, ChevronLeft } from 'lucide-react';
+import { Card, Badge, Button, PageHeader, Modal, LoadingState } from '../components/ui';
+import { Input, Textarea, Select } from '../components/ui';
 
 const AdminStudentDetails: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
@@ -177,11 +179,7 @@ const AdminStudentDetails: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    );
+    return <LoadingState message="Loading student details..." />;
   }
 
   if (!data) return (
@@ -204,27 +202,17 @@ const AdminStudentDetails: React.FC = () => {
   const certificatesEarned = courses.filter((c: any) => c.certificateStatus === 'Generated').length;
 
   return (
-    <div className="space-y-8 font-poppins text-slate-800 dark:text-slate-200">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-card-dark p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-white/5">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate('/admin/students')} 
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition text-slate-500"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-              Student Details
-              <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold ${profile.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                {profile.status}
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500">{profile.email}</p>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-8 font-poppins">
+      <PageHeader
+        title="Student Details"
+        description={profile.email}
+        icon={<Button variant="ghost" size="icon" onClick={() => navigate('/admin/students')}><ChevronLeft size={20} /></Button>}
+        actions={
+          <Badge variant={profile.status === 'active' ? 'success' : 'error'}>
+            {profile.status}
+          </Badge>
+        }
+      />
 
       <div className="flex gap-4 border-b border-slate-200 dark:border-white/10 mb-6">
         <button 
@@ -248,11 +236,10 @@ const AdminStudentDetails: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Profile & Stats */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Profile Card */}
-          <div className="glass-card p-6 border border-white/5 relative overflow-hidden group">
+          <Card noPadding className="relative overflow-hidden group p-0">
             <div className="absolute top-0 right-0 w-32 h-32 bg-accent/10 rounded-bl-full -z-10 group-hover:bg-accent/20 transition-all"></div>
             
-            <div className="flex flex-col items-center text-center">
+            <div className="flex flex-col items-center text-center p-6">
               <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-accent to-purple-500 flex items-center justify-center text-white text-4xl font-bold uppercase shadow-lg shadow-accent/30 mb-4">
                 {profile.name.substring(0, 2)}
               </div>
@@ -278,18 +265,17 @@ const AdminStudentDetails: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Learning Overview */}
-          <div className="glass-card p-6 border border-white/5">
+          <Card>
             <h4 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><BarChart className="w-4 h-4 text-accent"/> Learning Overview</h4>
             
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-white/5 text-center">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 text-center">
                 <div className="text-2xl font-extrabold text-accent mb-1">{totalEnrolled}</div>
                 <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Enrolled</div>
               </div>
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-white/5 text-center">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 text-center">
                 <div className="text-2xl font-extrabold text-green-500 mb-1">{completedCourses}</div>
                 <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Completed</div>
               </div>
@@ -306,7 +292,7 @@ const AdminStudentDetails: React.FC = () => {
                  </div>
                </div>
 
-               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-white/5">
+               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500"><Clock className="w-4 h-4"/></div>
                  <div>
                    <div className="text-xs font-bold">{Math.round(totalLearningTime / 60)} hrs {totalLearningTime % 60} mins</div>
@@ -314,7 +300,7 @@ const AdminStudentDetails: React.FC = () => {
                  </div>
                </div>
 
-               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-[#0f172a] border border-slate-100 dark:border-white/5">
+               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50">
                  <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500"><Trophy className="w-4 h-4"/></div>
                  <div>
                    <div className="text-xs font-bold">{certificatesEarned} Certificates</div>
@@ -322,7 +308,7 @@ const AdminStudentDetails: React.FC = () => {
                  </div>
                </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Right Column: Enrolled Courses & Analytics */}
@@ -331,10 +317,10 @@ const AdminStudentDetails: React.FC = () => {
           
           <div className="space-y-4">
             {courses.map((course: any) => (
-              <div key={course.courseId} className="glass-card overflow-hidden border border-white/5 hover:border-accent/30 transition-all group">
+              <Card key={course.courseId} noPadding className="overflow-hidden hover:border-accent/30 transition-all group p-0">
                 {/* Course Header Summary */}
                 <div 
-                  className="p-5 flex flex-col md:flex-row md:items-center gap-5 cursor-pointer bg-white/40 dark:bg-card-dark/40"
+                  className="p-5 flex flex-col md:flex-row md:items-center gap-5 cursor-pointer bg-white dark:bg-slate-900"
                   onClick={() => setExpandedCourse(expandedCourse === course.courseId ? null : course.courseId)}
                 >
                   <img src={course.thumbnailUrl || '/course-placeholder.jpg'} alt="" className="w-full md:w-36 h-24 object-cover rounded-xl shadow-sm" />
@@ -366,32 +352,32 @@ const AdminStudentDetails: React.FC = () => {
                        </svg>
                        <span className="absolute text-sm font-bold text-slate-800 dark:text-white">{course.progress}%</span>
                     </div>
-                    <span className={`text-[10px] uppercase font-bold mt-2 px-2 py-0.5 rounded ${course.status === 'Completed' ? 'text-green-500 bg-green-500/10' : 'text-blue-500 bg-blue-500/10'}`}>
+                    <Badge variant={course.status === 'Completed' ? 'success' : 'info'} className="mt-2">
                       {course.status}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
 
                 {/* Expanded Details */}
                 {expandedCourse === course.courseId && (
-                  <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-[#070b14]/50 space-y-8 animate-in slide-in-from-top-2">
+                  <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-8 animate-in slide-in-from-top-2">
                     
                     {/* Admin Actions */}
                     <div>
                       <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Admin Controls</h5>
                       <div className="flex flex-wrap gap-2">
-                        <button onClick={() => handleAction('reset', course.courseId)} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-accent text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold py-2 px-4 flex items-center justify-center transition">
+                        <Button variant="secondary" size="sm" onClick={() => handleAction('reset', course.courseId)}>
                           {actionLoading === `reset-${course.courseId}` ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Reset Progress'}
-                        </button>
-                        <button onClick={() => handleAction('unlock-all', course.courseId)} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-accent text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold py-2 px-4 flex items-center justify-center transition">
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleAction('unlock-all', course.courseId)}>
                           {actionLoading === `unlock-all-${course.courseId}` ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Unlock All Lessons'}
-                        </button>
-                        <button onClick={() => handleAction('complete', course.courseId)} className="btn-accent text-xs py-2 px-4 flex items-center justify-center">
+                        </Button>
+                        <Button variant="accent" size="sm" onClick={() => handleAction('complete', course.courseId)}>
                           {actionLoading === `complete-${course.courseId}` ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Mark Complete'}
-                        </button>
-                        <button onClick={() => handleAction('certificate', course.courseId)} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-accent text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold py-2 px-4 flex items-center justify-center transition">
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleAction('certificate', course.courseId)}>
                           {actionLoading === `certificate-${course.courseId}` ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Regenerate Cert'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
@@ -418,7 +404,7 @@ const AdminStudentDetails: React.FC = () => {
 
                   </div>
                 )}
-              </div>
+              </Card>
             ))}
             {courses.length === 0 && (
               <div className="text-center py-8 bg-slate-50 dark:bg-card-dark rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
@@ -430,41 +416,41 @@ const AdminStudentDetails: React.FC = () => {
 
           {/* Quizzes & Assignments Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div className="glass-card p-5 border border-white/5">
+            <Card>
               <h3 className="text-base font-bold flex items-center gap-2 mb-4"><FileText className="w-4 h-4 text-accent"/> Quiz Attempts</h3>
               <div className="space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
                 {quizzes.map((q: any) => (
-                  <div key={q._id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5 text-xs flex justify-between items-center">
+                  <div key={q._id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 text-xs flex justify-between items-center">
                     <span className="font-bold text-slate-700 dark:text-slate-200 truncate pr-4">{q.quizId?.title || 'Unknown Quiz'}</span>
                     <span className="font-bold text-accent bg-accent/10 px-2 py-1 rounded-md shrink-0">{q.score} / {q.totalQuestions}</span>
                   </div>
                 ))}
-                {quizzes.length === 0 && <p className="text-xs text-slate-500 text-center py-4">No quiz attempts recorded.</p>}
+                {quizzes.length === 0 && <EmptyState icon={<FileText />} title="No Quizzes" description="No quiz attempts recorded." />}
               </div>
-            </div>
+            </Card>
             
-            <div className="glass-card p-5 border border-white/5">
+            <Card>
               <h3 className="text-base font-bold flex items-center gap-2 mb-4"><GraduationCap className="w-4 h-4 text-accent"/> Assignments</h3>
               <div className="space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
                 {assignments.map((a: any) => (
-                  <div key={a._id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5 text-xs flex justify-between items-center">
+                  <div key={a._id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 text-xs flex justify-between items-center">
                     <span className="font-bold text-slate-700 dark:text-slate-200 truncate pr-4">{a.assignmentId?.title || 'Unknown Assignment'}</span>
-                    <span className={`font-bold px-2 py-1 rounded-md shrink-0 ${a.status === 'graded' ? 'text-green-500 bg-green-500/10' : 'text-yellow-500 bg-yellow-500/10'}`}>
+                    <Badge variant={a.status === 'graded' ? 'success' : 'warning'}>
                       {a.status.toUpperCase()}
-                    </span>
+                    </Badge>
                   </div>
                 ))}
-                {assignments.length === 0 && <p className="text-xs text-slate-500 text-center py-4">No assignments submitted.</p>}
+                {assignments.length === 0 && <EmptyState icon={<FileText />} title="No Assignments" description="No assignments submitted." />}
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Final Project & Certification */}
-          <div className="mt-6 glass-card p-5 border border-white/5 space-y-4">
+          <Card className="mt-6 space-y-4">
             <h3 className="text-base font-bold flex items-center gap-2"><Trophy className="w-4 h-4 text-accent"/> Final Project & Certification</h3>
             
             {courses.length > 0 && courses[0]?.progress === 100 ? (
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-white/5 space-y-3">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 space-y-3">
                 <div className="flex justify-between items-center text-sm font-semibold">
                   <span className="text-slate-500">Course Progress</span>
                   <span className="text-green-500">100% Completed</span>
@@ -473,18 +459,18 @@ const AdminStudentDetails: React.FC = () => {
                   <span className="text-slate-500">Project Status</span>
                   <span className="text-accent">Pending Assignment</span>
                 </div>
-                <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3">
-                  <button onClick={() => setAssignProjectModalOpen(true)} className="bg-accent text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-orange-600 transition">
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-700/50 flex justify-end gap-3">
+                  <Button variant="accent" onClick={() => setAssignProjectModalOpen(true)}>
                     Assign Project
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-white/5 text-center text-slate-500 text-xs font-semibold">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 text-center text-slate-500 text-xs font-semibold">
                 Student has not reached 100% course completion yet. Project assignment locked.
               </div>
             )}
-          </div>
+          </Card>
 
         </div>
       </div>
@@ -495,26 +481,36 @@ const AdminStudentDetails: React.FC = () => {
           ) : auditData ? (
             <>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="glass-card p-4 text-center">
-                  <p className="text-xs text-slate-500 font-bold uppercase">Total Courses</p>
-                  <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.totalCourses}</p>
-                </div>
-                <div className="glass-card p-4 text-center border-b-2 border-b-green-500">
-                  <p className="text-xs text-slate-500 font-bold uppercase">Paid</p>
-                  <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.paidCourses}</p>
-                </div>
-                <div className="glass-card p-4 text-center border-b-2 border-b-blue-500">
-                  <p className="text-xs text-slate-500 font-bold uppercase">Active Enrollments</p>
-                  <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.activeEnrollments}</p>
-                </div>
-                <div className="glass-card p-4 text-center border-b-2 border-b-red-500">
-                  <p className="text-xs text-slate-500 font-bold uppercase">Incorrect Access</p>
-                  <p className="text-2xl font-black text-red-500 mt-1">{auditData.summary.incorrectAccess}</p>
-                </div>
-                <div className="glass-card p-4 text-center border-b-2 border-b-accent">
-                  <p className="text-xs text-slate-500 font-bold uppercase">LMS Status</p>
-                  <p className={`text-sm font-black mt-2 ${auditData.summary.lmsAccess === 'GRANTED' ? 'text-green-500' : 'text-slate-500'}`}>{auditData.summary.lmsAccess}</p>
-                </div>
+                <Card className="text-center" noPadding>
+                  <div className="p-4">
+                    <p className="text-xs text-slate-500 font-bold uppercase">Total Courses</p>
+                    <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.totalCourses}</p>
+                  </div>
+                </Card>
+                <Card className="text-center border-b-2 border-b-green-500" noPadding>
+                  <div className="p-4">
+                    <p className="text-xs text-slate-500 font-bold uppercase">Paid</p>
+                    <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.paidCourses}</p>
+                  </div>
+                </Card>
+                <Card className="text-center border-b-2 border-b-blue-500" noPadding>
+                  <div className="p-4">
+                    <p className="text-xs text-slate-500 font-bold uppercase">Active Enrollments</p>
+                    <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">{auditData.summary.activeEnrollments}</p>
+                  </div>
+                </Card>
+                <Card className="text-center border-b-2 border-b-red-500" noPadding>
+                  <div className="p-4">
+                    <p className="text-xs text-slate-500 font-bold uppercase">Incorrect Access</p>
+                    <p className="text-2xl font-black text-red-500 mt-1">{auditData.summary.incorrectAccess}</p>
+                  </div>
+                </Card>
+                <Card className="text-center border-b-2 border-b-accent" noPadding>
+                  <div className="p-4">
+                    <p className="text-xs text-slate-500 font-bold uppercase">LMS Status</p>
+                    <p className={`text-sm font-black mt-2 ${auditData.summary.lmsAccess === 'GRANTED' ? 'text-green-500' : 'text-slate-500'}`}>{auditData.summary.lmsAccess}</p>
+                  </div>
+                </Card>
               </div>
 
               {auditData.summary.incorrectAccess > 0 && (
@@ -529,46 +525,43 @@ const AdminStudentDetails: React.FC = () => {
                 </div>
               )}
 
-              <div className="glass-card overflow-hidden">
-                <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex items-center justify-between">
+              <Card noPadding className="overflow-hidden">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 dark:text-white">Enrollment Validation</h3>
-                  <button 
-                    onClick={() => setShowAssignModal(true)}
-                    className="btn-accent py-1.5 px-3 text-[10px]"
-                  >
+                  <Button variant="accent" size="sm" onClick={() => setShowAssignModal(true)}>
                     Assign Course
-                  </button>
+                  </Button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800/50 text-[10px] uppercase text-slate-500">
-                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Course</th>
-                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Payment</th>
-                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Enrollment</th>
-                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">LMS Access</th>
-                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5">Status</th>
-                        <th className="p-4 font-bold border-b border-slate-100 dark:border-white/5 text-right">Action</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-slate-700/50">Course</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-slate-700/50">Payment</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-slate-700/50">Enrollment</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-slate-700/50">LMS Access</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-slate-700/50">Status</th>
+                        <th className="p-4 font-bold border-b border-slate-100 dark:border-slate-700/50 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm">
                       {auditData.audit.map((row: any) => (
-                        <tr key={row.courseId} className="hover:bg-slate-50 dark:hover:bg-white/5 transition border-b border-slate-100 dark:border-white/5 last:border-0">
+                        <tr key={row.courseId} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition border-b border-slate-100 dark:border-slate-700/50 last:border-0">
                           <td className="p-4 font-bold text-slate-800 dark:text-white">{row.courseName}</td>
                           <td className="p-4">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.paymentStatus === 'captured' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                            <Badge variant={row.paymentStatus === 'captured' ? 'success' : 'default'}>
                               {row.paymentStatus === 'captured' ? 'PAID' : row.paymentStatus || 'NONE'}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="p-4">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.enrollmentStatus === 'active' ? 'bg-blue-100 text-blue-700' : row.enrollmentStatus === 'suspended' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                            <Badge variant={row.enrollmentStatus === 'active' ? 'info' : row.enrollmentStatus === 'suspended' ? 'error' : 'default'}>
                               {row.enrollmentStatus || 'NONE'}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="p-4">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${row.lmsAccess === 'GRANTED' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                            <Badge variant={row.lmsAccess === 'GRANTED' ? 'success' : 'default'}>
                               {row.lmsAccess}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="p-4">
                             {row.accessVerified && row.paymentStatus === 'captured' && row.enrollmentStatus === 'active' ? (
@@ -584,22 +577,23 @@ const AdminStudentDetails: React.FC = () => {
                           </td>
                           <td className="p-4 text-right space-x-2 whitespace-nowrap">
                             {row.paymentStatus === 'captured' && row.enrollmentStatus === 'active' && !row.accessVerified && (
-                              <button 
+                              <Button 
+                                variant="outline" size="sm"
                                 onClick={() => handleVerifyCourse(row.courseId)}
                                 disabled={actionLoading === `verify-${row.courseId}`}
-                                className="bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold transition disabled:opacity-50"
+                                className="text-green-600 border-green-200 hover:border-green-300 dark:text-green-500 dark:border-green-900"
                               >
                                 {actionLoading === `verify-${row.courseId}` ? 'Verifying...' : '✓ Correct Access'}
-                              </button>
+                              </Button>
                             )}
                             {(row.auditStatus.includes('Incorrect Access') || row.auditStatus.includes('NOT VALID') || (row.enrollmentStatus && row.enrollmentStatus !== 'active' && row.enrollmentStatus !== 'NONE')) && (
-                              <button 
+                              <Button 
+                                variant="danger" size="sm"
                                 onClick={() => handleRemoveAccess(row.courseId, row.courseName)}
                                 disabled={actionLoading === `remove-${row.courseId}`}
-                                className="bg-red-50 text-red-500 hover:bg-red-100 px-3 py-1.5 rounded text-xs font-bold transition disabled:opacity-50"
                               >
                                 {actionLoading === `remove-${row.courseId}` ? 'Removing...' : 'Remove Access'}
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
@@ -612,7 +606,7 @@ const AdminStudentDetails: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </Card>
             </>
           ) : (
             <p className="text-center text-slate-500">Failed to load audit data.</p>
@@ -621,100 +615,82 @@ const AdminStudentDetails: React.FC = () => {
       )}
 
       {/* Assign Course Modal */}
-      {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-card-dark rounded-2xl w-full max-w-md shadow-2xl p-6">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Assign Course</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Select a course to assign. The student must have a verified payment for this course.
-            </p>
-            <div className="space-y-4">
-              <select
-                value={selectedCourseToAssign}
-                onChange={(e) => setSelectedCourseToAssign(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 dark:border-border-dark rounded-lg bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-accent dark:text-white"
-              >
-                <option value="">-- Select Course --</option>
-                {allCourses.map(c => (
-                  <option key={c._id} value={c._id}>{c.title}</option>
-                ))}
-              </select>
+      <Modal 
+        isOpen={showAssignModal} 
+        onClose={() => setShowAssignModal(false)}
+        title="Assign Course"
+        maxWidth="max-w-md"
+      >
+        <p className="text-xs text-slate-500 mb-4">
+          Select a course to assign. The student must have a verified payment for this course.
+        </p>
+        <div className="space-y-4">
+          <Select
+            value={selectedCourseToAssign}
+            onChange={(e) => setSelectedCourseToAssign(e.target.value)}
+          >
+            <option value="">-- Select Course --</option>
+            {allCourses.map(c => (
+              <option key={c._id} value={c._id}>{c.title}</option>
+            ))}
+          </Select>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-border-dark">
-                <button
-                  onClick={() => setShowAssignModal(false)}
-                  className="btn-secondary py-2 px-4"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAssignCourse}
-                  disabled={!selectedCourseToAssign || actionLoading === 'assign'}
-                  className="btn-accent py-2 px-4 disabled:opacity-50"
-                >
-                  {actionLoading === 'assign' ? 'Assigning...' : 'Assign'}
-                </button>
-              </div>
-            </div>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              variant="secondary"
+              onClick={() => setShowAssignModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={handleAssignCourse}
+              disabled={!selectedCourseToAssign || actionLoading === 'assign'}
+            >
+              {actionLoading === 'assign' ? 'Assigning...' : 'Assign'}
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* ASSIGN PROJECT MODAL */}
-      {assignProjectModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-card-dark border border-white/10 rounded-2xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar text-white shadow-2xl relative my-8">
-            <button onClick={() => { setAssignProjectModalOpen(false); setAssignStep(1); }} className="absolute top-6 right-6 text-slate-400 hover:text-white">
-              <X className="w-6 h-6" />
-            </button>
-            <h2 className="text-2xl font-bold mb-6">Assign Final Project</h2>
-            
+      <Modal 
+        isOpen={assignProjectModalOpen} 
+        onClose={() => { setAssignProjectModalOpen(false); setAssignStep(1); }}
+        title="Assign Final Project"
+        maxWidth="max-w-3xl"
+      >
             {assignStep === 1 && (
               <form onSubmit={(e) => { e.preventDefault(); setAssignStep(2); }} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-300">Project Title *</label>
-                    <input type="text" required value={assignForm.title} onChange={e => setAssignForm({...assignForm, title: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-300">Domain</label>
-                    <select value={assignForm.domain} onChange={e => setAssignForm({...assignForm, domain: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent">
-                      <option>Web Development</option>
-                      <option>Java</option>
-                      <option>Python</option>
-                      <option>AI / Data Analytics</option>
-                      <option>UI/UX</option>
-                    </select>
-                  </div>
+                  <Input label="Project Title" required value={assignForm.title} onChange={e => setAssignForm({...assignForm, title: e.target.value})} />
+                  <Select label="Domain" value={assignForm.domain} onChange={e => setAssignForm({...assignForm, domain: e.target.value})}>
+                    <option>Web Development</option>
+                    <option>Java</option>
+                    <option>Python</option>
+                    <option>AI / Data Analytics</option>
+                    <option>UI/UX</option>
+                  </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300">Project Description *</label>
-                  <textarea required rows={4} value={assignForm.description} onChange={e => setAssignForm({...assignForm, description: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" placeholder="Project Objective..."></textarea>
-                </div>
+                <Textarea label="Project Description" required rows={4} value={assignForm.description} onChange={e => setAssignForm({...assignForm, description: e.target.value})} placeholder="Project Objective..." />
 
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300">Project Instructions *</label>
-                  <textarea required rows={4} value={assignForm.instructions} onChange={e => setAssignForm({...assignForm, instructions: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" placeholder="- Complete all required modules..."></textarea>
-                </div>
+                <Textarea label="Project Instructions" required rows={4} value={assignForm.instructions} onChange={e => setAssignForm({...assignForm, instructions: e.target.value})} placeholder="- Complete all required modules..." />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input type="date" label="Due Date" required value={assignForm.dueDate} onChange={e => setAssignForm({...assignForm, dueDate: e.target.value})} />
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-300">Due Date</label>
-                    <input type="date" required value={assignForm.dueDate} onChange={e => setAssignForm({...assignForm, dueDate: e.target.value})} className="w-full bg-[#0a0514] border border-white/10 rounded-lg px-4 py-2.5 outline-none focus:border-accent" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-300">Project PDF (Optional)</label>
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Project PDF (Optional)</label>
                     {assignPdf ? (
-                      <div className="flex items-center justify-between bg-[#0a0514] border border-emerald-500/30 p-2.5 rounded-lg text-emerald-400">
+                      <div className="flex items-center justify-between bg-emerald-50 dark:bg-[#0a0514] border border-emerald-500/30 p-2.5 rounded-lg text-emerald-600 dark:text-emerald-400">
                         <span className="truncate text-sm font-semibold pr-2">✓ {assignPdf.name}</span>
                         <div className="flex gap-3">
                            <a href={assignPdf.url} target="_blank" rel="noreferrer" className="text-xs hover:underline">Preview</a>
-                           <button type="button" onClick={() => setAssignPdf(null)} className="text-xs text-red-400 hover:underline">Remove</button>
+                           <button type="button" onClick={() => setAssignPdf(null)} className="text-xs text-red-500 dark:text-red-400 hover:underline">Remove</button>
                         </div>
                       </div>
                     ) : (
-                      <label className="cursor-pointer flex items-center justify-center gap-2 w-full bg-[#0a0514] border border-dashed border-white/20 rounded-lg px-4 py-2.5 hover:border-accent transition text-slate-400 text-sm">
+                      <label className="cursor-pointer flex items-center justify-center gap-2 w-full bg-slate-50 dark:bg-[#0a0514] border border-dashed border-slate-300 dark:border-white/20 rounded-lg px-4 py-2.5 hover:border-accent transition text-slate-500 dark:text-slate-400 text-sm">
                          {uploadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
                          {uploadingPdf ? 'Uploading...' : 'Upload Project PDF'}
                          <input type="file" accept=".pdf" className="hidden" onChange={handlePdfUpload} disabled={uploadingPdf} />
@@ -723,82 +699,80 @@ const AdminStudentDetails: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-white/10 flex justify-end">
-                   <button type="submit" className="bg-accent text-white px-6 py-3 rounded-lg font-bold hover:bg-orange-600 transition">Next: Setup Requirements</button>
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                   <Button type="submit" variant="accent">Next: Setup Requirements</Button>
                 </div>
               </form>
             )}
 
             {assignStep === 2 && (
                <div className="space-y-6">
-                 <h3 className="text-lg font-semibold text-slate-200 border-b border-white/10 pb-2">Configure Submission Requirements</h3>
-                 <p className="text-sm text-slate-400">Add or modify the files and links the student must submit.</p>
+                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2">Configure Submission Requirements</h3>
+                 <p className="text-sm text-slate-500 dark:text-slate-400">Add or modify the files and links the student must submit.</p>
                  
                  <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                    {assignReqs.map((r, i) => (
-                      <div key={i} className="flex gap-4 items-center bg-[#0a0514] p-3 rounded-lg border border-white/5">
+                      <div key={i} className="flex gap-4 items-center bg-slate-50 dark:bg-[#0a0514] p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                         <input type="text" value={r.name} onChange={e => {
                           const nr = [...assignReqs]; nr[i].name = e.target.value; setAssignReqs(nr);
-                        }} className="flex-1 bg-transparent border border-white/10 rounded px-2 py-1 text-sm text-white" />
+                        }} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white" />
                         <select value={r.type} onChange={e => {
                           const nr = [...assignReqs]; nr[i].type = e.target.value; setAssignReqs(nr);
-                        }} className="bg-transparent border border-white/10 rounded px-2 py-1 text-sm text-white">
+                        }} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-sm text-slate-800 dark:text-white">
                           <option value="url">URL Link</option>
                           <option value="file">File Upload</option>
                         </select>
-                        <label className="flex items-center gap-2 text-sm">
+                        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                           <input type="checkbox" checked={r.isRequired} onChange={e => {
                              const nr = [...assignReqs]; nr[i].isRequired = e.target.checked; setAssignReqs(nr);
                           }} /> Required
                         </label>
                         <button onClick={() => {
                           const nr = [...assignReqs]; nr.splice(i, 1); setAssignReqs(nr);
-                        }} className="text-red-400 hover:text-red-500"><X className="w-4 h-4"/></button>
+                        }} className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-500"><X className="w-4 h-4"/></button>
                       </div>
                    ))}
                  </div>
                  <button onClick={() => setAssignReqs([...assignReqs, {name:'New Requirement', type:'url', isRequired:false}])} className="text-accent text-sm font-bold hover:underline">+ Add Requirement</button>
 
-                 <div className="pt-6 border-t border-white/10 flex justify-between">
-                   <button onClick={() => setAssignStep(1)} className="bg-slate-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-slate-700 transition">Back</button>
-                   <button onClick={() => setAssignStep(3)} className="bg-accent text-white px-6 py-3 rounded-lg font-bold hover:bg-orange-600 transition">Next: Review</button>
+                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between">
+                   <Button variant="secondary" onClick={() => setAssignStep(1)}>Back</Button>
+                   <Button variant="accent" onClick={() => setAssignStep(3)}>Next: Review</Button>
                  </div>
                </div>
             )}
 
             {assignStep === 3 && (
                <div className="space-y-6">
-                 <h3 className="text-lg font-semibold text-emerald-400 border-b border-white/10 pb-2">Review Assignment Details</h3>
-                 <div className="bg-[#0a0514] p-5 rounded-lg space-y-3 text-sm">
-                    <div className="flex justify-between"><span className="text-slate-500">Student:</span> <span className="font-semibold text-white">{profile?.name}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Course:</span> <span className="font-semibold text-white">{courses[0]?.courseName}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Project:</span> <span className="font-semibold text-white">{assignForm.title}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Due Date:</span> <span className="font-semibold text-white">{assignForm.dueDate}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Project PDF:</span> <span className="font-semibold text-emerald-400">{assignPdf ? '✓ Uploaded' : 'None'}</span></div>
+                 <h3 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 border-b border-slate-100 dark:border-slate-800 pb-2">Review Assignment Details</h3>
+                 <div className="bg-slate-50 dark:bg-[#0a0514] p-5 rounded-lg space-y-3 text-sm">
+                    <div className="flex justify-between"><span className="text-slate-500">Student:</span> <span className="font-semibold text-slate-800 dark:text-white">{profile?.name}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Course:</span> <span className="font-semibold text-slate-800 dark:text-white">{courses[0]?.courseName}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Project:</span> <span className="font-semibold text-slate-800 dark:text-white">{assignForm.title}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Due Date:</span> <span className="font-semibold text-slate-800 dark:text-white">{assignForm.dueDate}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Project PDF:</span> <span className="font-semibold text-emerald-600 dark:text-emerald-400">{assignPdf ? '✓ Uploaded' : 'None'}</span></div>
                  </div>
 
-                 <h4 className="text-sm font-semibold text-slate-300">Requirements:</h4>
-                 <div className="bg-[#0a0514] p-5 rounded-lg space-y-2 text-sm">
+                 <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Requirements:</h4>
+                 <div className="bg-slate-50 dark:bg-[#0a0514] p-5 rounded-lg space-y-2 text-sm">
                    {assignReqs.map((r, i) => (
                       <div key={i} className="flex justify-between">
-                        <span className="text-white">✓ {r.name}</span>
+                        <span className="text-slate-800 dark:text-white">✓ {r.name}</span>
                         <span className={r.isRequired ? 'text-accent' : 'text-slate-500'}>{r.isRequired ? 'Required' : 'Optional'}</span>
                       </div>
                    ))}
                  </div>
 
-                 <div className="pt-6 border-t border-white/10 flex justify-between">
-                   <button onClick={() => setAssignStep(2)} className="bg-slate-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-slate-700 transition" disabled={assigning}>Back</button>
-                   <button onClick={handleAssignProject} disabled={assigning} className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-500 transition disabled:opacity-50 flex items-center gap-2">
-                     {assigning ? <Loader2 className="w-5 h-5 animate-spin"/> : null}
+                 <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between">
+                   <Button variant="secondary" onClick={() => setAssignStep(2)} disabled={assigning}>Back</Button>
+                   <Button variant="primary" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleAssignProject} disabled={assigning}>
+                     {assigning ? <Loader2 className="w-5 h-5 animate-spin mr-2"/> : null}
                      {assigning ? 'Assigning...' : 'Assign Project'}
-                   </button>
+                   </Button>
                  </div>
                </div>
             )}
-          </div>
-        </div>
-      )}
+      </Modal>
 
     </div>
   );

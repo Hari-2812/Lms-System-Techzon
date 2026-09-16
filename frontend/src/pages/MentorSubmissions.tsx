@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { FileText, CheckCircle, ExternalLink, Loader2, X, GraduationCap } from 'lucide-react';
+import { PageHeader, Card, Modal, EmptyState, Badge, Button, Input, LoadingState } from '../components/ui';
 
 interface Submission {
   _id: string;
@@ -70,21 +71,17 @@ const MentorSubmissions: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    );
+    return <LoadingState message="Loading submissions..." />;
   }
 
   return (
-    <div className="space-y-8 font-poppins text-slate-800 dark:text-slate-200">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Assignments Grading Board</h2>
-        <p className="text-xs text-slate-500">Grade student coding projects, verify GitHub checkouts, and post feedback logs.</p>
-      </div>
+    <div className="space-y-8 font-poppins text-slate-800 dark:text-slate-200 pb-20">
+      <PageHeader
+        title="Assignments Grading Board"
+        subtitle="Grade student coding projects, verify GitHub checkouts, and post feedback logs."
+      />
 
-      <div className="glass-card overflow-hidden">
+      <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-semibold">
             <thead className="bg-slate-55/50 border-b border-slate-100 dark:border-border-dark text-slate-500 text-[10px] uppercase tracking-wider font-bold">
@@ -109,19 +106,17 @@ const MentorSubmissions: React.FC = () => {
                     {sub.assignmentId?.title || 'Assignment Task'}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] uppercase font-bold bg-accent/10 text-accent font-inter">
+                    <Badge variant="neutral">
                       {sub.submissionType}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-6 py-4 text-slate-400 font-medium">
                     {new Date(sub.submittedAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold ${
-                      sub.status === 'graded' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'
-                    }`}>
+                    <Badge variant={sub.status === 'graded' ? 'success' : 'warning'}>
                       {sub.status}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-6 py-4 font-bold">
                     {sub.marksObtained !== undefined
@@ -146,21 +141,25 @@ const MentorSubmissions: React.FC = () => {
           </table>
 
           {submissions.length === 0 && (
-            <div className="text-center py-12 text-slate-500 text-xs">No project submissions registered yet.</div>
+            <EmptyState
+              icon={FileText}
+              title="No submissions"
+              description="No project submissions registered yet."
+            />
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Grade modal */}
       {selectedSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 font-poppins">
-          <div className="w-full max-w-md glass-card p-6 border border-white/5 space-y-4 text-left relative dark:bg-card-dark">
-            <button onClick={() => setSelectedSub(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="font-extrabold text-slate-800 dark:text-white text-base">Evaluate Student Submission</h3>
-
-            <div className="p-4 bg-slate-50 dark:bg-card-dark/30 rounded-xl space-y-2 border border-slate-100 dark:border-border-dark">
+        <Modal
+          isOpen={!!selectedSub}
+          onClose={() => setSelectedSub(null)}
+          title="Evaluate Student Submission"
+          description={`Provide grading and feedback for ${selectedSub.studentId?.name}`}
+        >
+          <div className="space-y-4 mt-4 text-left relative">
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800">
               <p className="text-xs text-slate-500">Student: <span className="font-bold text-slate-700 dark:text-white">{selectedSub.studentId?.name}</span></p>
               <p className="text-xs text-slate-500">Assignment: <span className="font-bold text-slate-700 dark:text-white">{selectedSub.assignmentId?.title}</span></p>
               <p className="text-xs text-slate-500 flex items-center gap-1.5">
@@ -175,7 +174,7 @@ const MentorSubmissions: React.FC = () => {
                 </a>
               </p>
               {selectedSub.notes && (
-                <div className="text-[11px] text-slate-400 italic mt-2 border-t pt-2">
+                <div className="text-[11px] text-slate-400 italic mt-2 border-t border-slate-200 dark:border-slate-800 pt-2">
                   Student Notes: "{selectedSub.notes}"
                 </div>
               )}
@@ -183,35 +182,37 @@ const MentorSubmissions: React.FC = () => {
 
             <form onSubmit={handleGradeSubmit} className="space-y-4 text-xs font-semibold">
               <div className="space-y-1">
-                <label className="text-slate-400">Score / Marks Obtained (Max: {selectedSub.assignmentId?.maxMarks})</label>
-                <input
+                <label className="text-slate-500 dark:text-slate-400">Score / Marks Obtained (Max: {selectedSub.assignmentId?.maxMarks})</label>
+                <Input
                   type="number"
                   required
                   max={selectedSub.assignmentId?.maxMarks}
                   value={marks}
                   onChange={(e) => setMarks(parseInt(e.target.value))}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400">Mentor Remarks / Feedback</label>
+                <label className="text-slate-500 dark:text-slate-400">Mentor Remarks / Feedback</label>
                 <textarea
                   required
                   placeholder="Excellent work! Check out modular code improvements..."
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  className="glass-input py-2 text-xs h-24"
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-xs h-24 outline-none focus:border-accent resize-none transition"
                 />
               </div>
 
-              <button type="submit" disabled={grading} className="btn-accent w-full py-2.5 text-xs flex items-center justify-center gap-1.5">
-                {grading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Confirm Evaluation & Save
-              </button>
+              <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+                <Button type="submit" variant="accent" disabled={grading} className="w-full justify-center gap-1.5">
+                  {grading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                  Confirm Evaluation & Save
+                </Button>
+              </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { KeyRound, ShieldAlert, Loader2, CheckCircle } from 'lucide-react';
+import { Card, Button, Input } from '../components/ui';
 import type { RootState } from '../redux/store';
 import { setCredentials } from '../redux/authSlice';
 import api from '../services/api';
@@ -63,7 +64,7 @@ const ChangePassword: React.FC = () => {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center font-poppins">
-      <div className="w-full max-w-md bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-border-dark p-6 space-y-6 shadow-xl text-xs font-semibold">
+      <Card className="w-full max-w-md space-y-6 text-xs font-semibold">
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto text-xl shadow-lg">
             <KeyRound className="w-6 h-6" />
@@ -88,50 +89,51 @@ const ChangePassword: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold text-slate-400">Current Temporary Password</label>
-            <input
+            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Current Temporary Password</label>
+            <Input
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="••••••••••••"
               disabled={loading || success}
-              className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs outline-none focus:border-accent"
+              className="w-full"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold text-slate-400">New Secure Password</label>
-            <input
+            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">New Secure Password</label>
+            <Input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="••••••••••••"
               disabled={loading || success}
-              className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs outline-none focus:border-accent"
+              className="w-full"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold text-slate-400">Confirm New Password</label>
-            <input
+            <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Confirm New Password</label>
+            <Input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••••••"
               disabled={loading || success}
-              className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-border-dark bg-white dark:bg-secondary-dark text-xs outline-none focus:border-accent"
+              className="w-full"
             />
           </div>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
             disabled={loading || success}
-            className="w-full py-3 rounded-lg bg-primary text-white hover:bg-primary-light font-bold flex items-center justify-center gap-1.5 transition text-xs"
+            className="w-full flex items-center justify-center gap-1.5 transition text-xs"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Secure Password'}
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
     </div>
   );
 };

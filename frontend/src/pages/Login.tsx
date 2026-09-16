@@ -5,6 +5,7 @@ import { setCredentials } from '../redux/authSlice';
 import type { RootState } from '../redux/store';
 import api from '../services/api';
 import { ShieldCheck, Mail, Lock, KeyRound, Loader2, ArrowRight, Eye, EyeOff, Info } from 'lucide-react';
+import { Button, Input } from '../components/ui';
 import { BRAND } from '@/config/branding';
 
 const Login: React.FC = () => {
@@ -191,20 +192,20 @@ const Login: React.FC = () => {
                   Payment Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
+                  <Input
                     type="email"
                     required
                     placeholder="student@techzonwide.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm transition"
+                    icon={<Mail className="w-4 h-4 text-slate-400" />}
+                    className="w-full"
                   />
                 </div>
               </div>
-              <button type="submit" disabled={loading} className="w-full btn-accent py-3 flex items-center justify-center gap-2">
+              <Button type="submit" variant="accent" disabled={loading} className="w-full py-3 flex items-center justify-center gap-2">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Request Verification Code <ArrowRight className="w-4 h-4" /></>}
-              </button>
+              </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -213,21 +214,21 @@ const Login: React.FC = () => {
                   Enter OTP Passcode
                 </label>
                 <div className="relative">
-                  <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
+                  <Input
                     type="text"
                     maxLength={6}
                     required
                     placeholder="123456"
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 tracking-[0.5em] font-bold text-center border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-base transition"
+                    icon={<KeyRound className="w-4 h-4 text-slate-400" />}
+                    className="w-full tracking-[0.5em] font-bold text-center text-base"
                   />
                 </div>
               </div>
-              <button type="submit" disabled={loading} className="w-full btn-accent py-3 flex items-center justify-center">
+              <Button type="submit" variant="accent" disabled={loading} className="w-full py-3 flex items-center justify-center">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify Code & Access LMS'}
-              </button>
+              </Button>
             </form>
           )
         ) : (
@@ -238,14 +239,14 @@ const Login: React.FC = () => {
                 LMS Account Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
+                <Input
                   type="email"
                   required
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm transition"
+                  icon={<Mail className="w-4 h-4 text-slate-400" />}
+                  className="w-full"
                 />
               </div>
             </div>
@@ -255,14 +256,14 @@ const Login: React.FC = () => {
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
+                <Input
                   type={showPassword ? 'text' : 'password'}
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-slate-200 dark:border-border-dark bg-white text-[#111827] placeholder-slate-400 outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm transition"
+                  icon={<Lock className="w-4 h-4 text-slate-400" />}
+                  className="w-full pr-12"
                 />
                 <button
                   type="button"
@@ -294,9 +295,9 @@ const Login: React.FC = () => {
               </button>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full btn-primary py-3 flex items-center justify-center">
+            <Button type="submit" variant="primary" disabled={loading} className="w-full py-3 flex items-center justify-center">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In to LMS'}
-            </button>
+            </Button>
           </form>
         )}
 

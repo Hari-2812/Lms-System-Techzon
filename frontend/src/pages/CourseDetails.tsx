@@ -19,6 +19,7 @@ import {
   X,
   ShieldAlert
 } from 'lucide-react';
+import { Card, Button, Badge, LoadingState } from '../components/ui';
 import CustomVideoPlayer from '../components/CustomVideoPlayer';
 import Confetti from 'react-confetti';
 
@@ -298,11 +299,11 @@ const CourseDetails: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-8 font-poppins min-h-[80vh] w-full animate-pulse p-4 lg:p-0">
         <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6">
           <div className="h-4 bg-slate-200 rounded w-1/3"></div>
-          <div className="glass-card p-6 h-96"></div>
+          <Card className="h-96" noPadding></Card>
         </div>
         <div className="flex-1 flex flex-col gap-6">
           <div className="w-full aspect-video bg-slate-200 rounded-xl"></div>
-          <div className="glass-card p-6 h-32"></div>
+          <Card className="h-32" noPadding></Card>
         </div>
       </div>
     );
@@ -333,18 +334,20 @@ const CourseDetails: React.FC = () => {
       )}
 
       {/* MOBILE HEADER FOR SIDEBAR DRAWER */}
-      <div className="lg:hidden flex items-center justify-between glass-card p-4 mx-4 mt-4">
-        <span className="font-bold text-sm truncate">{course?.title}</span>
-        <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center">
-          <Menu className="w-5 h-5" />
-        </button>
-      </div>
+      <Card className="lg:hidden flex items-center justify-between mx-4 mt-4" noPadding>
+        <div className="p-4 flex items-center justify-between w-full">
+          <span className="font-bold text-sm truncate">{course?.title}</span>
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center">
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
+      </Card>
 
       {/* 2. RIGHT COLUMN: VIDEO, QUIZ, OR ASSIGNMENT WORKSPACE (Order 1 on Mobile, 2 on Desktop) */}
       <div className="flex-1 flex flex-col gap-4 lg:gap-6 min-w-0 order-1 lg:order-2 px-4 lg:px-0">
         {!activeQuiz ? (
           <>
-            <div className="glass-card overflow-hidden bg-black border-none relative w-full shadow-2xl rounded-none sm:rounded-xl">
+            <Card noPadding className="overflow-hidden bg-black border-none relative w-full shadow-2xl rounded-none sm:rounded-xl">
               {(() => {
                 if (selectedLesson?.locked) {
                   return (
@@ -391,18 +394,18 @@ const CourseDetails: React.FC = () => {
                   </div>
                 );
               })()}
-            </div>
+            </Card>
 
             {/* Lesson Title & Progress (Mobile order: Video -> Title -> Progress -> List) */}
             {selectedLesson && (
-              <div className="glass-card p-5 lg:p-6 flex flex-col justify-between gap-4">
+              <Card className="flex flex-col justify-between gap-4">
                 <div>
                   <h2 className="text-lg lg:text-xl font-bold text-slate-800 dark:text-white leading-tight">{selectedLesson.title}</h2>
                   <div className="flex items-center gap-2 mt-2">
                     {completedLessons.includes(selectedLesson._id) && (
-                      <span className="flex items-center gap-1 text-xs font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded-full">
+                      <Badge variant="success" className="gap-1 px-2 py-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Completed
-                      </span>
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -430,12 +433,12 @@ const CourseDetails: React.FC = () => {
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">You completed {course?.title} 100%.</p>
                     </div>
-                    <Link to="/student/certificates" className="px-4 py-2 bg-green-500 text-white rounded-lg text-xs font-bold shadow-lg flex-shrink-0">
-                      Download Certificate
+                    <Link to="/student/certificates">
+                      <Button variant="primary" className="bg-green-500 hover:bg-green-600">Download Certificate</Button>
                     </Link>
                   </div>
                 )}
-              </div>
+              </Card>
             )}
 
             {/* Tab Controls (Scrollable on mobile) */}
@@ -456,7 +459,7 @@ const CourseDetails: React.FC = () => {
             </div>
 
             {/* Tab Content Display */}
-            <div className="glass-card p-5 lg:p-6 min-h-[200px]">
+            <Card className="min-h-[200px]">
               {activeTab === 'video' && (
                 <div className="space-y-2 text-xs lg:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                   <h4 className="font-bold text-slate-800 dark:text-white">About this Lecture</h4>
@@ -473,7 +476,7 @@ const CourseDetails: React.FC = () => {
                       href={selectedLesson.notesUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 min-h-[44px]"
+                      className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 min-h-[44px]"
                     >
                       <span className="flex items-center gap-2">
                         <FileText className="w-5 h-5 text-accent" />
@@ -490,7 +493,7 @@ const CourseDetails: React.FC = () => {
                         href={item.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 min-h-[44px]"
+                        className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 min-h-[44px]"
                       >
                         <span className="flex items-center gap-2">
                           <GitBranch className="w-5 h-5 text-accent" />
@@ -515,7 +518,7 @@ const CourseDetails: React.FC = () => {
                     <div className="text-center py-6 text-xs text-slate-400">No assignment has been configured for this course yet.</div>
                   ) : (
                     assignments.map((assign) => (
-                      <div key={assign._id} className="p-5 border border-slate-100 dark:border-border-dark rounded-xl space-y-4">
+                      <div key={assign._id} className="p-5 border border-slate-100 dark:border-slate-800 rounded-xl space-y-4">
                         <div className="flex flex-col gap-2">
                           <h5 className="font-bold text-sm text-slate-800 dark:text-white">{assign.title}</h5>
                           <p className="text-xs text-slate-500">{assign.description}</p>
@@ -527,7 +530,7 @@ const CourseDetails: React.FC = () => {
                         </div>
 
                         {assign.submission ? (
-                          <div className="p-4 bg-slate-50 dark:bg-border-dark/30 rounded-lg text-xs space-y-2">
+                          <div className="p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg text-xs space-y-2">
                             <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
                               <span>Submission status:</span>
                               <span className="uppercase text-accent">{assign.submission.status}</span>
@@ -545,7 +548,7 @@ const CourseDetails: React.FC = () => {
                               <select
                                 value={subType}
                                 onChange={(e: any) => setSubType(e.target.value)}
-                                className="p-3 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent min-h-[44px]"
+                                className="p-3 text-xs border border-slate-200 dark:border-slate-700 rounded-lg outline-none bg-transparent min-h-[44px]"
                               >
                                 <option value="zip">ZIP File URL</option>
                                 <option value="pdf">PDF File URL</option>
@@ -558,22 +561,23 @@ const CourseDetails: React.FC = () => {
                                 placeholder="Paste submission link here..."
                                 value={subUrl}
                                 onChange={(e) => setSubUrl(e.target.value)}
-                                className="flex-1 p-3 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent min-h-[44px]"
+                                className="flex-1 p-3 text-xs border border-slate-200 dark:border-slate-700 rounded-lg outline-none bg-transparent min-h-[44px]"
                               />
                             </div>
                             <textarea
                               placeholder="Add optional notes for your mentor..."
                               value={subNotes}
                               onChange={(e) => setSubNotes(e.target.value)}
-                              className="w-full p-3 text-xs border border-slate-200 dark:border-border-dark rounded-lg outline-none bg-transparent min-h-[80px]"
+                              className="w-full p-3 text-xs border border-slate-200 dark:border-slate-700 rounded-lg outline-none bg-transparent min-h-[80px]"
                             />
-                            <button
+                            <Button
+                              variant="accent"
                               onClick={() => handleAssignSubmit(assign._id)}
                               disabled={submittingAssignment}
-                              className="btn-accent py-3 px-6 rounded-lg text-xs font-bold w-full sm:w-auto flex justify-center items-center gap-2 min-h-[44px]"
+                              className="w-full sm:w-auto flex justify-center items-center gap-2"
                             >
                               <UploadCloud className="w-4 h-4" /> Submit Assignment
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -590,7 +594,7 @@ const CourseDetails: React.FC = () => {
                     <div className="text-center py-6 text-xs text-slate-400">No quizzes scheduled for this course.</div>
                   ) : (
                     quizzes.map((quiz) => (
-                      <div key={quiz._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border border-slate-100 dark:border-border-dark rounded-xl">
+                      <div key={quiz._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border border-slate-100 dark:border-slate-800 rounded-xl">
                         <div className="space-y-1">
                           <h5 className="font-bold text-sm text-slate-800 dark:text-white">{quiz.title}</h5>
                           <div className="flex gap-4 text-[10px] text-slate-400 font-semibold">
@@ -602,32 +606,31 @@ const CourseDetails: React.FC = () => {
 
                         {quiz.attempted ? (
                           <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                            <span className={`text-xs font-bold px-3 py-1.5 rounded-full uppercase ${
-                              quiz.passed ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                            }`}>
+                            <Badge variant={quiz.passed ? 'success' : 'error'}>
                               {quiz.passed ? 'Passed' : 'Failed'}
-                            </span>
+                            </Badge>
                             <span className="text-xs text-slate-500 font-semibold">Score: {quiz.score}</span>
                           </div>
                         ) : (
-                          <button
+                          <Button
+                            variant="accent"
                             onClick={() => startQuiz(quiz)}
-                            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold min-h-[44px]"
+                            className="w-full sm:w-auto"
                           >
                             Start Quiz
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ))
                   )}
                 </div>
               )}
-            </div>
+            </Card>
           </>
         ) : (
           /* ACTIVE TIMER QUIZ TAKE SCREEN */
-          <div className="glass-card p-4 lg:p-6 space-y-6">
-             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-border-dark pb-4 gap-4">
+          <Card className="space-y-6">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 gap-4">
               <div>
                 <h3 className="font-extrabold text-slate-800 dark:text-white text-lg leading-6">{activeQuiz.title}</h3>
                 <p className="text-[10px] text-slate-500 mt-1">Question {currentQuestionIdx + 1} of {activeQuiz.questions.length}</p>
@@ -649,11 +652,11 @@ const CourseDetails: React.FC = () => {
                   {quizResultInfo.passed ? 'PASSED (GRADUATED)' : 'FAILED (TRY AGAIN)'}
                 </div>
                 
-                <div className="max-w-md mx-auto border border-slate-100 dark:border-border-dark rounded-xl p-4 text-left space-y-3">
+                <div className="max-w-md mx-auto border border-slate-100 dark:border-slate-800 rounded-xl p-4 text-left space-y-3">
                   <h5 className="font-bold text-xs uppercase text-slate-400 tracking-wider">Top Leaderboard Rank</h5>
                   <div className="space-y-1 text-xs">
                     {leaderboard.map((userL) => (
-                      <div key={userL.rank} className="flex justify-between py-2 border-b border-slate-50/50">
+                      <div key={userL.rank} className="flex justify-between py-2 border-b border-slate-50/50 dark:border-slate-800/50">
                         <span>{userL.rank}. {userL.name}</span>
                         <span className="font-semibold text-accent">{userL.score} pts ({userL.completedInSeconds}s)</span>
                       </div>
@@ -661,23 +664,24 @@ const CourseDetails: React.FC = () => {
                   </div>
                 </div>
 
-                <button
+                <Button
+                  variant="primary"
                   onClick={() => {
                     setActiveQuiz(null);
                     setQuizResultInfo(null);
                     fetchAssignmentsAndQuizzes();
                   }}
-                  className="btn-primary py-3 px-8 rounded-lg text-xs font-bold min-h-[44px] w-full sm:w-auto"
+                  className="w-full sm:w-auto"
                 >
                   Return to Lectures
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <span className="inline-block text-[10px] bg-primary/10 text-primary dark:bg-primary-light/20 dark:text-primary-light font-bold px-3 py-1 rounded-full uppercase">
+                  <Badge variant="primary" className="uppercase px-3 py-1">
                     {activeQuiz.questions[currentQuestionIdx].questionType}
-                  </span>
+                  </Badge>
                   <h4 className="font-bold text-slate-800 dark:text-white text-base leading-relaxed">
                     {activeQuiz.questions[currentQuestionIdx].questionText}
                   </h4>
@@ -703,7 +707,7 @@ const CourseDetails: React.FC = () => {
                         className={`w-full text-left p-4 rounded-xl text-xs sm:text-sm font-semibold border transition min-h-[52px] ${
                           isSelected
                             ? 'border-accent bg-accent/5 text-accent shadow-md shadow-accent/5'
-                            : 'border-slate-200 hover:bg-slate-50 dark:border-border-dark dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                            : 'border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
                         }`}
                       >
                         {option}
@@ -713,16 +717,17 @@ const CourseDetails: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <button
+                  <Button
+                    variant="accent"
                     onClick={nextQuestion}
-                    className="btn-accent px-8 py-3 text-xs font-bold rounded-lg min-h-[44px] w-full sm:w-auto"
+                    className="w-full sm:w-auto"
                   >
                     {currentQuestionIdx === activeQuiz.questions.length - 1 ? 'Submit Quiz' : 'Next Question →'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
-          </div>
+          </Card>
         )}
       </div>
 
@@ -745,7 +750,7 @@ const CourseDetails: React.FC = () => {
             ← Back to Dashboard
           </Link>
 
-          <div className="glass-card p-5 lg:p-6 space-y-5 lg:sticky lg:top-4 border-none lg:border-solid rounded-none lg:rounded-2xl bg-transparent lg:bg-white lg:dark:bg-slate-900">
+          <Card className="space-y-5 lg:sticky lg:top-4 rounded-none lg:rounded-2xl">
             <div>
               <h3 className="font-extrabold text-slate-800 dark:text-white line-clamp-2 leading-tight text-sm lg:text-base">{course?.title}</h3>
               <span className="text-[10px] text-accent font-bold uppercase tracking-wider mt-1 block">{course?.category}</span>
@@ -854,7 +859,7 @@ const CourseDetails: React.FC = () => {
                 );
               })}
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 

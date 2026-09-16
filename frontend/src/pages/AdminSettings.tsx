@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../utils/api';
 import { Settings as SettingsIcon, ShieldCheck, Mail, Phone, Loader2, Save } from 'lucide-react';
+import { PageHeader, Card, Button, Input, LoadingState } from '../components/ui';
 
 const AdminSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -79,21 +80,17 @@ const AdminSettings: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    );
+    return <LoadingState message="Loading system configurations..." />;
   }
 
   return (
-    <div className="space-y-8 font-poppins text-slate-800 dark:text-slate-200 max-w-4xl">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">System Settings</h2>
-        <p className="text-xs text-slate-500">Edit branding coordinates, customer support numbers, and maintenance controls.</p>
-      </div>
+    <div className="space-y-8 font-poppins text-slate-800 dark:text-slate-200 max-w-4xl pb-20">
+      <PageHeader
+        title="System Settings"
+        subtitle="Edit branding coordinates, customer support numbers, and maintenance controls."
+      />
 
-      <div className="glass-card p-6">
+      <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-6 text-xs font-semibold">
           {/* General Branding */}
           <div className="space-y-4">
@@ -102,23 +99,23 @@ const AdminSettings: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className="text-slate-500">App Name</label>
-                <input
+                <Input
                   type="text"
                   required
                   value={appName}
                   onChange={(e) => setAppName(e.target.value)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="text-slate-500">Company Legal Name</label>
-                <input
+                <Input
                   type="text"
                   required
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
             </div>
@@ -133,12 +130,12 @@ const AdminSettings: React.FC = () => {
                 <label className="text-slate-500 flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-accent" /> Support Email Address
                 </label>
-                <input
+                <Input
                   type="email"
                   required
                   value={supportEmail}
                   onChange={(e) => setSupportEmail(e.target.value)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
 
@@ -146,12 +143,12 @@ const AdminSettings: React.FC = () => {
                 <label className="text-slate-500 flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5 text-accent" /> Support Call Center Number
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   value={supportNumber}
                   onChange={(e) => setSupportNumber(e.target.value)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
             </div>
@@ -166,23 +163,23 @@ const AdminSettings: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className="text-slate-500">Google Spreadsheet ID</label>
-                <input
+                <Input
                   type="text"
                   placeholder="1uQ8V_bB-Y...etc"
                   value={spreadsheetId}
                   onChange={(e) => setSpreadsheetId(e.target.value)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="text-slate-500">Worksheet / Tab Name</label>
-                <input
+                <Input
                   type="text"
                   placeholder="Form Responses 1"
                   value={worksheetName}
                   onChange={(e) => setWorksheetName(e.target.value)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
 
@@ -198,11 +195,11 @@ const AdminSettings: React.FC = () => {
 
               <div className="space-y-1">
                 <label className="text-slate-500">Automatic Sync Interval (Minutes)</label>
-                <input
+                <Input
                   type="number"
                   value={syncIntervalMinutes}
                   onChange={(e) => setSyncIntervalMinutes(Number(e.target.value) || 15)}
-                  className="glass-input py-2 text-xs"
+                  className="w-full"
                 />
               </div>
 
@@ -243,8 +240,9 @@ const AdminSettings: React.FC = () => {
           {isDevMode && (
             <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-border-dark">
               <p className="text-xs text-slate-500">Development only: clear test students and onboarding duplicates from the database.</p>
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 disabled={clearingTestData}
                 onClick={async () => {
                   if (!window.confirm('This will remove duplicate and test records from the database. Continue?')) return;
@@ -258,24 +256,25 @@ const AdminSettings: React.FC = () => {
                     setClearingTestData(false);
                   }
                 }}
-                className="btn-secondary py-2.5 px-6 flex items-center gap-2"
+                className="flex items-center gap-2 max-w-xs"
               >
                 {clearingTestData ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Clear Test Data'}
-              </button>
+              </Button>
             </div>
           )}
           <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-border-dark">
-            <button
+            <Button
               type="submit"
+              variant="accent"
               disabled={saving}
-              className="btn-accent py-2.5 px-6 flex items-center gap-2"
+              className="flex items-center gap-2 min-w-[220px] justify-center"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Global Configuration
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
 };
