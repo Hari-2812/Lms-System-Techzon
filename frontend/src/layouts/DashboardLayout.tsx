@@ -43,6 +43,12 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const handleLogout = () => {
+    dispatch(logoutUser());
+    setMobileOpen(false);
+    navigate('/login');
+  };
+
   const sidebarGroups = [
     {
       title: 'LEARNING',
