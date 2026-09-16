@@ -11,7 +11,7 @@ import { sendProjectAssignedEmail, sendCertificateIssuedEmail } from '../service
 export const assignProject = async (req: any, res: Response) => {
   try {
     const { studentId } = req.params;
-    const { courseId, title, description, instructions, dueDate, requirements, domain, batch } = req.body;
+    const { courseId, title, description, instructions, projectPdf, dueDate, requirements, domain, batch } = req.body;
 
     const enrollment = await Enrollment.findOne({ studentId, courseId });
     if (!enrollment || enrollment.progress.percentComplete < 100) {
@@ -29,6 +29,7 @@ export const assignProject = async (req: any, res: Response) => {
       title,
       description,
       instructions,
+      projectPdf,
       dueDate,
       requirements,
       domain,

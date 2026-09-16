@@ -8,8 +8,9 @@ export interface IProjectAssignment extends Document {
   title: string;
   description: string;
   instructions?: string;
+  projectPdf?: string;
   dueDate?: Date;
-  requirements: string[]; // e.g. ['GitHub Repository URL', 'Live Project URL', 'Screenshots']
+  requirements: any[]; // Changed to any[] to support complex object arrays
   assignedBy: mongoose.Types.ObjectId;
   assignedAt: Date;
   status: 'ASSIGNED' | 'SUBMITTED' | 'UNDER_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
@@ -27,8 +28,9 @@ const ProjectAssignmentSchema: Schema<IProjectAssignment> = new Schema(
     title: { type: String, required: true },
     description: { type: String, required: true },
     instructions: { type: String },
+    projectPdf: { type: String },
     dueDate: { type: Date },
-    requirements: [{ type: String }],
+    requirements: [{ type: Schema.Types.Mixed }], // Changed to Mixed
     assignedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     assignedAt: { type: Date, default: Date.now },
     status: {

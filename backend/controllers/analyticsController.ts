@@ -245,9 +245,15 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
       
       const allLessons = await Lesson.find({ courseId }).sort('order').lean();
       const totalLessons = allLessons.length;
-      const completedIds = e.progress?.completedLessons?.map((id: any) => id.toString()) || [];
+      
+      const existingLessonIds = allLessons.map(l => l._id.toString());
+      const completedIds = (e.progress?.completedLessons || [])
+        .map((id: any) => id.toString())
+        .filter((id: string) => existingLessonIds.includes(id));
+        
       const lessonsCompleted = completedIds.length;
       const remainingLessons = totalLessons - lessonsCompleted;
+      const dynamicPercentComplete = totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0;
       
       let currentLesson = null;
       let nextLesson = null;
@@ -264,6 +270,11 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
       
       return {
         ...eObj,
+        progress: {
+           ...(eObj.progress || {}),
+           percentComplete: dynamicPercentComplete,
+           completedLessons: completedIds
+        },
         lessonsCompleted,
         remainingLessons,
         currentLesson,
@@ -272,8 +283,8 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
       };
     }));
 
-    // Completed courses count (percentComplete === 100)
-    const completedCoursesCount = enrollments.filter((e) => e.progress?.percentComplete === 100).length;
+    // Completed courses count (dynamically calculated percentComplete === 100)
+    const completedCoursesCount = enhancedEnrollments.filter((e) => e.progress?.percentComplete === 100).length;
 
     // Completed quiz count
     const quizAttempts = await QuizResult.countDocuments({ studentId });
@@ -518,16 +529,23 @@ export const getStudentAnalyticsDetails = async (req: Request, res: Response): P
         };
       });
 
+      const existingLessonIds = lessons.map(l => l._id.toString());
+      const validCompletedLessons = (enrollment.progress?.completedLessons || [])
+          .filter((cl: any) => existingLessonIds.includes(cl.toString()));
+      const completedLessonsCount = validCompletedLessons.length;
+      const totalLessons = lessons.length;
+      const progress = totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
+
       return {
         enrollmentId: enrollment._id,
         courseId,
         courseName: enrollment.courseId.title,
         thumbnailUrl: enrollment.courseId.thumbnailUrl,
         enrollmentDate: enrollment.startDate,
-        progress: enrollment.progress?.percentComplete || 0,
-        status: enrollment.status,
-        completedLessonsCount: enrollment.progress?.completedLessons?.length || 0,
-        totalLessons: lessons.length,
+        progress,
+        status: progress === 100 ? 'completed' : 'active',
+        completedLessonsCount,
+        totalLessons,
         timeSpent: Math.round(timeSpentSeconds / 60),
         certificateStatus: enrollment.certificateIssued ? 'Issued' : 'Pending',
         certificateId: enrollment.certificateId,

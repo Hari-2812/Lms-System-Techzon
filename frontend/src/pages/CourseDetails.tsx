@@ -410,11 +410,14 @@ const CourseDetails: React.FC = () => {
                 {/* Progress Bar (Visible on mobile here) */}
                 <div className="w-full mt-2 lg:hidden">
                   <div className="flex justify-between text-xs font-bold mb-1">
-                    <span>Course Progress</span>
+                    <span>Course Progress ({completedLessons.length} / {lessons.length})</span>
                     <span className="text-accent">{progressPercent}%</span>
                   </div>
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-1">
                     <div className="bg-accent h-2 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+                  </div>
+                  <div className="text-[10px] text-right font-medium text-slate-400">
+                    Remaining: {lessons.length - completedLessons.length} lessons
                   </div>
                 </div>
 
@@ -751,11 +754,14 @@ const CourseDetails: React.FC = () => {
             {/* Desktop Progress Bar */}
             <div className="hidden lg:block w-full">
               <div className="flex justify-between text-[10px] font-bold mb-1.5 uppercase text-slate-500">
-                <span>Course Progress</span>
+                <span>Course Progress ({completedLessons.length} / {lessons.length})</span>
                 <span className="text-accent">{progressPercent}%</span>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
+              <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 mb-1.5">
                 <div className="bg-accent h-1.5 rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+              </div>
+              <div className="text-[10px] text-right font-medium text-slate-400">
+                Remaining: {lessons.length - completedLessons.length} lessons
               </div>
             </div>
 

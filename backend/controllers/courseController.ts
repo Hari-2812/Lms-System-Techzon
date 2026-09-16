@@ -55,7 +55,7 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
       const enrollment = await Enrollment.findOne({
         studentId: req.user._id,
         courseId: course._id,
-        status: 'active',
+        status: { $in: ['active', 'completed'] },
         expiryDate: { $gt: new Date() },
       });
       if (!enrollment) {
@@ -150,6 +150,7 @@ export const getCourseDetails = async (req: any, res: Response): Promise<void> =
     
     if (req.user?.role === 'Student') {
       const total = enhancedLessons.length;
+      completedLessons = completedLessons.filter(id => enhancedLessons.some((l:any) => l._id.toString() === id));
       if (total > 0) {
         courseProgress = Math.round((completedLessons.length / total) * 100);
       }
@@ -466,9 +467,12 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     }
 
     const totalLessons = allLessons.length;
-    const completedCount = updatedEnrollment.progress.completedLessons.length;
+    const existingLessonIds = allLessons.map(l => l._id.toString());
+    const validCompletedLessons = updatedEnrollment.progress.completedLessons.filter((id: any) => existingLessonIds.includes(id.toString()));
+    const completedCount = validCompletedLessons.length;
     const newPercent = totalLessons === 0 ? 0 : Math.round((completedCount / totalLessons) * 100);
 
+    updatedEnrollment.progress.completedLessons = validCompletedLessons;
     updatedEnrollment.progress.percentComplete = newPercent;
     console.log(`[DEBUG] Course Progress Calculated: ${newPercent}%`);
     
@@ -485,6 +489,8 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 
     if (newPercent === 100) {
       updatedEnrollment.status = 'completed';
+    } else {
+      updatedEnrollment.status = 'active';
     }
 
     await updatedEnrollment.save();
