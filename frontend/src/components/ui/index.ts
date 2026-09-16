@@ -7,3 +7,4 @@ export { Modal } from './Modal';
 export { LoadingState, TableSkeleton } from './LoadingState';
 export { Input, Textarea } from './Input';
 export { Select } from './Select';
+export { CourseDomainVisual } from './CourseDomainVisual';

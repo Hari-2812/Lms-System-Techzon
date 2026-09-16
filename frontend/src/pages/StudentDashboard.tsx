@@ -5,7 +5,7 @@ import { BookOpen, Award, CheckCircle, Clock, Video, Loader2, ArrowRight, Calend
 import { getClassStatus, formatTimeIST, formatDateIST } from '../utils/classStatus';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
-import { Card, Badge, Button, EmptyState } from '../components/ui';
+import { Card, Badge, Button, EmptyState, CourseDomainVisual } from '../components/ui';
 
 interface Enrollment {
   _id: string;
@@ -173,12 +173,9 @@ const StudentDashboard: React.FC = () => {
                   <div>
                     {/* Thumbnail */}
                     <div className="h-40 w-full overflow-hidden relative bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                      <img
-                        src={enrollment.courseId?.thumbnailUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop'}
-                        alt={enrollment.courseId?.title || 'Course'}
-                        onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop'; }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                      />
+                      <div className="w-full h-full group-hover:scale-105 transition duration-500">
+                        <CourseDomainVisual courseName={enrollment.courseId?.title || ''} />
+                      </div>
                       <span className="absolute top-3 left-3 text-[10px] bg-accent/90 text-white font-bold px-2 py-0.5 rounded-full uppercase shadow-lg">
                         {enrollment.learningPlanId?.name}
                       </span>
