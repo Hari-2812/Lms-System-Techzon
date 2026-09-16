@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { Book, Clock, Trophy, FileText, CheckCircle2, Lock, PlayCircle, Loader2, ArrowLeft, MoreVertical, GraduationCap, BarChart, X, UploadCloud, ChevronLeft } from 'lucide-react';
-import { Card, Badge, Button, PageHeader, Modal, LoadingState } from '../components/ui';
+import { Card, Badge, Button, PageHeader, Modal, LoadingState, EmptyState } from '../components/ui';
 import { Input, Textarea, Select } from '../components/ui';
 
 const AdminStudentDetails: React.FC = () => {
