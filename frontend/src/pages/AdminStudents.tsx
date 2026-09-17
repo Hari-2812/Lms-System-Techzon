@@ -325,7 +325,7 @@ const AdminStudents: React.FC = () => {
                       <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-white">{item.paidCourseCount || 0}</td>
                       <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-white">{item.activeEnrollmentCount || 0}</td>
                       <td className="px-6 py-4">
-                        {item.activeEnrollmentCount === 0 ? (
+                        {item.enrolledCourseCount === 0 ? (
                           <span className="text-slate-400 text-[11px] font-semibold">No active courses</span>
                         ) : (
                           <div className="flex flex-col gap-1 w-32">
@@ -333,7 +333,7 @@ const AdminStudents: React.FC = () => {
                               <span className="text-slate-600 dark:text-slate-300">
                                 {Math.min(Math.max(item.overallProgress || 0, 0), 100)}% 
                                 <span className="font-normal text-slate-400 ml-1">
-                                  {item.activeEnrollmentCount === 1 ? '(1 Course)' : `(${item.activeEnrollmentCount} Courses)`}
+                                  {item.enrolledCourseCount === 1 ? '(1 Course)' : `(${item.enrolledCourseCount} Courses)`}
                                 </span>
                               </span>
                             </div>

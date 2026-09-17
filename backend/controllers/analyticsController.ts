@@ -434,42 +434,46 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
         let currentCourse = 'N/A';
         let batch = 'N/A';
         let paidCourseCount = new Set(payments.map(p => p.courseId?.toString())).size;
-        let activeEnrollmentCount = enrollments.filter(e => e.status === 'active').length;
+        const validEnrollments = enrollments.filter(e => e.courseId != null);
+        let activeEnrollmentCount = validEnrollments.filter(e => e.status === 'active').length;
         let incorrectAccess = 0;
 
-        if (enrollments.length > 0) {
-          let totalDynamicProgress = 0;
+        if (validEnrollments.length > 0) {
+          let totalLessonsAcrossCourses = 0;
+          let totalCompletedAcrossCourses = 0;
 
-          for (const e of enrollments) {
+          for (const e of validEnrollments) {
             const courseIdStr = (e.courseId as any)?._id?.toString() || e.courseId?.toString();
             const validLessonIds = courseLessonMap.get(courseIdStr) || [];
             const totalValidLessonsCount = validLessonIds.length;
             
-            let dynamicPercentComplete = 0;
             if (totalValidLessonsCount > 0) {
-               // Deduplicate completedLessons
+               totalLessonsAcrossCourses += totalValidLessonsCount;
+               
                const completedSet = new Set((e.progress?.completedLessons || []).map((id: any) => id.toString()));
-               // Count valid completions
                let validCompletedCount = 0;
                for (const id of completedSet) {
                  if (validLessonIds.includes(id)) {
                    validCompletedCount++;
                  }
                }
-               dynamicPercentComplete = Math.min(Math.round((validCompletedCount / totalValidLessonsCount) * 100), 100);
+               totalCompletedAcrossCourses += validCompletedCount;
             }
-            totalDynamicProgress += dynamicPercentComplete;
           }
 
-          overallProgress = Math.round(totalDynamicProgress / enrollments.length);
+          if (totalLessonsAcrossCourses > 0) {
+            overallProgress = Math.min(Math.round((totalCompletedAcrossCourses / totalLessonsAcrossCourses) * 100), 100);
+          } else {
+            overallProgress = 0;
+          }
           
-          const sorted = [...enrollments].sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+          const sorted = [...validEnrollments].sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
           currentCourse = (sorted[0].courseId as any)?.title || 'N/A';
           batch = sorted[0].batch || 'N/A';
 
           // calculate incorrect access
           const paidCourseIds = new Set(payments.map(p => p.courseId?.toString()));
-          incorrectAccess = enrollments.filter(e => e.status === 'active' && !paidCourseIds.has(e.courseId?._id?.toString())).length;
+          incorrectAccess = validEnrollments.filter(e => e.status === 'active' && !paidCourseIds.has((e.courseId as any)?._id?.toString())).length;
         }
 
         const lastProgress = await mongoose.model('Progress').findOne({ userId: student._id }).sort({ lastWatched: -1 }).lean() as any;
@@ -479,8 +483,8 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
 
         return {
           ...student,
-          enrolledCourses: enrollments.map((e) => (e.courseId as any)?._id || e.courseId),
-          enrolledCourseCount: enrollments.length,
+          enrolledCourses: validEnrollments.map((e) => (e.courseId as any)?._id || e.courseId),
+          enrolledCourseCount: validEnrollments.length,
           activeEnrollmentCount,
           paidCourseCount,
           incorrectAccess,
