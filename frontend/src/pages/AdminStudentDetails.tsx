@@ -20,6 +20,10 @@ const AdminStudentDetails: React.FC = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [selectedCourseToAssign, setSelectedCourseToAssign] = useState('');
+  const [overridePayment, setOverridePayment] = useState(false);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('captured');
+  const [overrideReason, setOverrideReason] = useState('');
 
   const [assignProjectModalOpen, setAssignProjectModalOpen] = useState(false);
   const [assignForm, setAssignForm] = useState({
@@ -111,11 +115,25 @@ const AdminStudentDetails: React.FC = () => {
 
   const handleAssignCourse = async () => {
     if (!selectedCourseToAssign) return;
+    if (overridePayment && !overrideReason) {
+      alert('Override reason is required when bypassing standard payment verification.');
+      return;
+    }
     setActionLoading('assign');
     try {
-      await api.post(`/admin/students/${studentId}/enrollment/assign`, { courseId: selectedCourseToAssign });
+      await api.post(`/admin/students/${studentId}/enrollment/assign`, { 
+        courseId: selectedCourseToAssign,
+        overridePayment,
+        paymentReference,
+        paymentStatus,
+        overrideReason
+      });
       setShowAssignModal(false);
       setSelectedCourseToAssign('');
+      setOverridePayment(false);
+      setPaymentReference('');
+      setPaymentStatus('captured');
+      setOverrideReason('');
       await fetchAudit();
       await fetchAnalytics();
       alert('Course assigned successfully.');
@@ -634,6 +652,47 @@ const AdminStudentDetails: React.FC = () => {
               <option key={c._id} value={c._id}>{c.title}</option>
             ))}
           </Select>
+
+          <div className="mt-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <input 
+                type="checkbox" 
+                checked={overridePayment} 
+                onChange={(e) => setOverridePayment(e.target.checked)} 
+                className="rounded border-slate-300 text-accent focus:ring-accent"
+              />
+              Override Payment Verification (Manual Assignment)
+            </label>
+            <p className="text-[10px] text-slate-500 ml-6 mt-1">Check this to assign the course without a standard gateway payment.</p>
+          </div>
+
+          {overridePayment && (
+            <div className="space-y-3 mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Payment Reference / Transaction ID (Optional)</label>
+                <Input 
+                  value={paymentReference} 
+                  onChange={(e) => setPaymentReference(e.target.value)} 
+                  placeholder="e.g. MANUAL-12345" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Payment Status</label>
+                <Select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+                  <option value="captured">Captured (Paid / Waived)</option>
+                  <option value="pending">Pending</option>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Admin Override Reason (Required) <span className="text-red-500">*</span></label>
+                <Input 
+                  value={overrideReason} 
+                  onChange={(e) => setOverrideReason(e.target.value)} 
+                  placeholder="Why is this course being manually assigned?" 
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <Button

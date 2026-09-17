@@ -362,9 +362,14 @@ export const removeStudentCourseAccess = async (req: Request, res: Response): Pr
   const { studentId, courseId } = req.params;
 
   try {
-    const enrollment = await Enrollment.findOne({ studentId, courseId, status: 'active' });
+    const enrollment = await Enrollment.findOne({ studentId, courseId });
     if (!enrollment) {
-      res.status(404).json({ success: false, message: 'Active enrollment not found for this course.' });
+      res.status(404).json({ success: false, message: 'Enrollment not found for this course.' });
+      return;
+    }
+
+    if (enrollment.status === 'suspended') {
+      res.status(200).json({ success: true, message: 'Course access is already removed/suspended.' });
       return;
     }
 
@@ -383,7 +388,7 @@ export const removeStudentCourseAccess = async (req: Request, res: Response): Pr
 
 export const assignStudentCourse = async (req: Request, res: Response): Promise<void> => {
   const { studentId } = req.params;
-  const { courseId } = req.body;
+  const { courseId, overridePayment, paymentReference, paymentStatus, overrideReason } = req.body;
 
   try {
     const student = await User.findById(studentId);
@@ -392,11 +397,49 @@ export const assignStudentCourse = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Verify payment
-    const payment = await Payment.findOne({ studentEmail: student.email, courseId, status: 'captured' });
-    if (!payment) {
-      res.status(400).json({ success: false, message: 'This student has no verified payment for this course. Cannot grant standard course access.' });
+    const plan = await mongoose.model('LearningPlan').findOne({ courseId, isDefault: true });
+    if (!plan) {
+      res.status(400).json({ success: false, message: 'No default learning plan found for this course.' });
       return;
+    }
+
+    if (overridePayment) {
+      if (!overrideReason) {
+        res.status(400).json({ success: false, message: 'Override reason is required.' });
+        return;
+      }
+      
+      let payment = await Payment.findOne({ studentEmail: student.email, courseId, status: 'captured' });
+      
+      if (!payment) {
+        const orderId = paymentReference || `MANUAL-${studentId}-${courseId}-${Date.now()}`;
+        const existingRef = await Payment.findOne({ orderId });
+        if (existingRef) {
+          res.status(400).json({ success: false, message: 'Payment reference already exists. Please use a unique reference.' });
+          return;
+        }
+
+        payment = new Payment({
+          orderId,
+          studentEmail: student.email,
+          studentName: student.name,
+          courseId,
+          learningPlanId: plan._id,
+          amount: 0,
+          currency: 'INR',
+          status: paymentStatus || 'captured',
+          transactionDate: new Date(),
+        });
+        await payment.save();
+        logger.info(`[ADMIN_ACTION] Admin bypassed payment for student ${studentId}, course ${courseId}. Reason: ${overrideReason}`);
+      }
+    } else {
+      // Verify payment
+      const payment = await Payment.findOne({ studentEmail: student.email, courseId, status: 'captured' });
+      if (!payment) {
+        res.status(400).json({ success: false, message: 'This student has no verified payment for this course. Cannot grant standard course access.' });
+        return;
+      }
     }
 
     const course = await Course.findById(courseId);
@@ -420,12 +463,6 @@ export const assignStudentCourse = async (req: Request, res: Response): Promise<
       }
       await enrollment.save();
     } else {
-      const plan = await mongoose.model('LearningPlan').findOne({ courseId, isDefault: true });
-      if (!plan) {
-        res.status(400).json({ success: false, message: 'No default learning plan found for this course.' });
-        return;
-      }
-
       enrollment = new Enrollment({
         studentId,
         courseId,
