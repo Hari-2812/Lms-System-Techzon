@@ -32,7 +32,7 @@ export const getLiveClasses = async (req: any, res: Response): Promise<void> => 
     } else {
       // Students only see live classes scheduled for their actively enrolled courses
       // AND where they are explicitly in studentIds (or studentIds is empty for legacy)
-      const enrollments = await Enrollment.find({ studentId: req.user._id, status: 'active' }).select('courseId');
+      const enrollments = await Enrollment.find({ studentId: req.user._id, status: { $in: ['active', 'completed'] } }).select('courseId');
       const courseIds = enrollments.map(e => e.courseId);
 
       classes = await LiveClass.find({ 
@@ -57,7 +57,7 @@ export const getLiveClasses = async (req: any, res: Response): Promise<void> => 
 export const getCourseStudents = async (req: any, res: Response): Promise<void> => {
   try {
     const { courseId } = req.params;
-    const enrollments = await Enrollment.find({ courseId, status: 'active' })
+    const enrollments = await Enrollment.find({ courseId, status: { $in: ['active', 'completed'] } })
       .populate('studentId', 'name email status');
       
     const students = enrollments.map(e => e.studentId).filter(s => s != null);
@@ -82,7 +82,7 @@ export const getLiveClassDetails = async (req: any, res: Response): Promise<void
 
     if (['SuperAdmin', 'Admin', 'Mentor', 'Support'].includes(req.user.role)) {
       // Return details with students list
-      const activeEnrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' })
+      const activeEnrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } })
         .populate('studentId', 'name email status');
       
       res.status(200).json({ success: true, data: { ...liveClass.toObject(), students: activeEnrollments } });
@@ -125,7 +125,7 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
     });
 
     // Filter req.body.studentIds against active enrollments
-    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
+    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } });
     const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
     
     let studentIdsToNotify: string[] = [];
@@ -194,7 +194,7 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
     // Filter studentIds if provided
     let newStudentIds: string[] | undefined;
     if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
-      const enrollments = await Enrollment.find({ courseId: liveClassToUpdate.courseId, status: 'active' });
+      const enrollments = await Enrollment.find({ courseId: liveClassToUpdate.courseId, status: { $in: ['active', 'completed'] } });
       const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
       
       const requestedStudentIds: string[] = (req.body.studentIds as unknown[])
@@ -215,7 +215,7 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
     }
 
     // Notify students of update
-    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
+    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } });
     let studentIdsToNotify: string[] = [];
     
     if (newStudentIds !== undefined) {
@@ -267,7 +267,7 @@ export const cancelLiveClass = async (req: any, res: Response): Promise<void> =>
     }
 
     // Notify students of cancellation
-    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
+    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } });
     let studentIdsToNotify: string[] = [];
     if (liveClass.studentIds && liveClass.studentIds.length > 0) {
       studentIdsToNotify = liveClass.studentIds.map(s => s.toString());
@@ -390,7 +390,7 @@ export const startLiveClass = async (req: any, res: Response): Promise<void> => 
     if (liveClass.studentIds && liveClass.studentIds.length > 0) {
       studentIdsToNotify = liveClass.studentIds.map(id => id.toString());
     } else {
-      const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: 'active' });
+      const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } });
       studentIdsToNotify = enrollments.map(e => e.studentId.toString());
     }
 

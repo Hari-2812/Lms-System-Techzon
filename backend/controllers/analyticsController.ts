@@ -226,7 +226,7 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
   try {
     const studentId = req.user._id;
 
-    const enrollments = await Enrollment.find({ studentId, status: 'active' }).populate('courseId', 'title category thumbnailUrl');
+    const enrollments = await Enrollment.find({ studentId, status: { $in: ['active', 'completed'] } }).populate('courseId', 'title category thumbnailUrl');
     const coursesCount = enrollments.length;
 
     if (coursesCount === 0) {
@@ -438,7 +438,7 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
 
     const studentsWithAnalytics = await Promise.all(
       students.map(async (student) => {
-        const enrollments = await Enrollment.find({ studentId: student._id, status: 'active' }).populate('courseId', 'title').lean();
+        const enrollments = await Enrollment.find({ studentId: student._id, status: { $in: ['active', 'completed'] } }).populate('courseId', 'title').lean();
         const payments = await Payment.find({ studentEmail: student.email, status: 'captured' }).lean();
         
         let overallProgress = 0;
@@ -447,7 +447,7 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
         let batch = 'N/A';
         let paidCourseCount = new Set(payments.map(p => p.courseId?.toString())).size;
         const validEnrollments = enrollments.filter(e => e.courseId != null);
-        let activeEnrollmentCount = validEnrollments.filter(e => e.status === 'active').length;
+        let activeEnrollmentCount = validEnrollments.filter(e => e.status === 'active' || e.status === 'completed').length;
         let incorrectAccess = 0;
 
         if (validEnrollments.length > 0) {
@@ -486,7 +486,7 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
 
           // calculate incorrect access
           const paidCourseIds = new Set(payments.map(p => p.courseId?.toString()));
-          incorrectAccess = validEnrollments.filter(e => e.status === 'active' && !paidCourseIds.has((e.courseId as any)?._id?.toString())).length;
+          incorrectAccess = validEnrollments.filter(e => (e.status === 'active' || e.status === 'completed') && !paidCourseIds.has((e.courseId as any)?._id?.toString())).length;
         }
 
         const lastProgress = await mongoose.model('Progress').findOne({ userId: student._id }).sort({ lastWatched: -1 }).lean() as any;
@@ -532,7 +532,7 @@ export const getStudentAnalyticsDetails = async (req: Request, res: Response): P
     }
 
 
-    const enrollments = await Enrollment.find({ studentId: id, status: 'active' })
+    const enrollments = await Enrollment.find({ studentId: id, status: { $in: ['active', 'completed'] } })
       .populate('courseId', 'title category thumbnailUrl')
       .populate('certificateId')
       .lean();

@@ -290,8 +290,8 @@ export const getStudentAccessAudit = async (req: Request, res: Response): Promis
           paymentStatus: 'NONE',
           paymentId: null,
           enrollmentStatus: enr.status,
-          lmsAccess: enr.status === 'active' ? 'GRANTED' : 'DENIED',
-          auditStatus: enr.status === 'active' ? '⚠ Incorrect Access' : '⚠ No Payment',
+          lmsAccess: (enr.status === 'active' || enr.status === 'completed') ? 'GRANTED' : 'DENIED',
+          auditStatus: (enr.status === 'active' || enr.status === 'completed') ? '⚠ Incorrect Access' : '⚠ No Payment',
           accessVerified: enr.accessVerified,
           accessVerifiedAt: enr.accessVerifiedAt,
           accessVerifiedBy: enr.accessVerifiedBy
@@ -299,18 +299,18 @@ export const getStudentAccessAudit = async (req: Request, res: Response): Promis
       } else {
         const entry = auditMap.get(courseIdStr);
         entry.enrollmentStatus = enr.status;
-        entry.lmsAccess = enr.status === 'active' ? 'GRANTED' : 'DENIED';
+        entry.lmsAccess = (enr.status === 'active' || enr.status === 'completed') ? 'GRANTED' : 'DENIED';
         
         entry.accessVerified = enr.accessVerified;
         entry.accessVerifiedAt = enr.accessVerifiedAt;
         entry.accessVerifiedBy = enr.accessVerifiedBy;
         
         let currentStatus = '';
-        if (entry.paymentStatus === 'captured' && enr.status === 'active') {
+        if (entry.paymentStatus === 'captured' && (enr.status === 'active' || enr.status === 'completed')) {
           currentStatus = 'ELIGIBLE';
-        } else if (entry.paymentStatus === 'NONE' && enr.status === 'active' && enr.accessVerified) {
+        } else if (entry.paymentStatus === 'NONE' && (enr.status === 'active' || enr.status === 'completed') && enr.accessVerified) {
           currentStatus = 'ELIGIBLE';
-        } else if (entry.paymentStatus !== 'captured' && entry.paymentStatus !== 'NONE' && enr.status === 'active') {
+        } else if (entry.paymentStatus !== 'captured' && entry.paymentStatus !== 'NONE' && (enr.status === 'active' || enr.status === 'completed')) {
           currentStatus = '⚠ INCORRECT ACCESS';
         } else if (enr.status === 'expired') {
           currentStatus = '⚠ Enrollment Expired';
@@ -338,14 +338,14 @@ export const getStudentAccessAudit = async (req: Request, res: Response): Promis
 
     const auditResults = Array.from(auditMap.values());
 
-    const activeCourses = auditResults.filter(r => r.enrollmentStatus === 'active' || r.paymentStatus === 'captured');
+    const activeCourses = auditResults.filter(r => r.enrollmentStatus === 'active' || r.enrollmentStatus === 'completed' || r.paymentStatus === 'captured');
 
     const summary = {
       totalCourses: activeCourses.length,
       paidCourses: auditResults.filter(r => r.paymentStatus === 'captured').length,
-      activeEnrollments: auditResults.filter(r => r.enrollmentStatus === 'active').length,
+      activeEnrollments: auditResults.filter(r => r.enrollmentStatus === 'active' || r.enrollmentStatus === 'completed').length,
       incorrectAccess: auditResults.filter(r => r.auditStatus === '⚠ INCORRECT ACCESS').length,
-      lmsAccess: auditResults.some(r => r.enrollmentStatus === 'active' && r.lmsAccess === 'GRANTED') ? 'GRANTED' : 'DENIED'
+      lmsAccess: auditResults.some(r => (r.enrollmentStatus === 'active' || r.enrollmentStatus === 'completed') && r.lmsAccess === 'GRANTED') ? 'GRANTED' : 'DENIED'
     };
 
     res.status(200).json({

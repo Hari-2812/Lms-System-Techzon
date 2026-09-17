@@ -19,7 +19,7 @@ export const getCourses = async (req: any, res: Response): Promise<void> => {
     if (['SuperAdmin', 'Admin', 'Mentor', 'Support'].includes(req.user?.role)) {
       const rawCourses = await Course.find().populate('mentors', 'name email').lean();
       courses = await Promise.all(rawCourses.map(async (course) => {
-        const studentCount = await Enrollment.countDocuments({ courseId: course._id, status: 'active' });
+        const studentCount = await Enrollment.countDocuments({ courseId: course._id, status: { $in: ['active', 'completed'] } });
         const lessonCount = await Lesson.countDocuments({ courseId: course._id, legacy: { $ne: true } });
         return { ...course, studentCount, lessonCount };
       }));
@@ -27,7 +27,7 @@ export const getCourses = async (req: any, res: Response): Promise<void> => {
       // Students only see courses they are actively enrolled in
       const enrollments = await Enrollment.find({
         studentId: req.user._id,
-        status: 'active',
+        status: { $in: ['active', 'completed'] },
         expiryDate: { $gt: new Date() },
       }).select('courseId');
 
