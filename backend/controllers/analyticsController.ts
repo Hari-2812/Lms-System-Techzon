@@ -413,6 +413,17 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
   try {
     const students = await getRegisteredStudentsForDirectory();
 
+    // Fetch all lessons to compute dynamic progress accurately
+    const allLessons = await Lesson.find({}, '_id courseId').lean();
+    const courseLessonMap = new Map<string, string[]>();
+    for (const lesson of allLessons) {
+      const courseIdStr = lesson.courseId.toString();
+      if (!courseLessonMap.has(courseIdStr)) {
+        courseLessonMap.set(courseIdStr, []);
+      }
+      courseLessonMap.get(courseIdStr)!.push(lesson._id.toString());
+    }
+
     const studentsWithAnalytics = await Promise.all(
       students.map(async (student) => {
         const enrollments = await Enrollment.find({ studentId: student._id }).populate('courseId', 'title').lean();
@@ -427,8 +438,30 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
         let incorrectAccess = 0;
 
         if (enrollments.length > 0) {
-          const totalProgress = enrollments.reduce((sum, e) => sum + (e.progress?.percentComplete || 0), 0);
-          overallProgress = Math.round(totalProgress / enrollments.length);
+          let totalDynamicProgress = 0;
+
+          for (const e of enrollments) {
+            const courseIdStr = (e.courseId as any)?._id?.toString() || e.courseId?.toString();
+            const validLessonIds = courseLessonMap.get(courseIdStr) || [];
+            const totalValidLessonsCount = validLessonIds.length;
+            
+            let dynamicPercentComplete = 0;
+            if (totalValidLessonsCount > 0) {
+               // Deduplicate completedLessons
+               const completedSet = new Set((e.progress?.completedLessons || []).map((id: any) => id.toString()));
+               // Count valid completions
+               let validCompletedCount = 0;
+               for (const id of completedSet) {
+                 if (validLessonIds.includes(id)) {
+                   validCompletedCount++;
+                 }
+               }
+               dynamicPercentComplete = Math.min(Math.round((validCompletedCount / totalValidLessonsCount) * 100), 100);
+            }
+            totalDynamicProgress += dynamicPercentComplete;
+          }
+
+          overallProgress = Math.round(totalDynamicProgress / enrollments.length);
           
           const sorted = [...enrollments].sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
           currentCourse = (sorted[0].courseId as any)?.title || 'N/A';
@@ -530,11 +563,12 @@ export const getStudentAnalyticsDetails = async (req: Request, res: Response): P
       });
 
       const existingLessonIds = lessons.map(l => l._id.toString());
-      const validCompletedLessons = (enrollment.progress?.completedLessons || [])
-          .filter((cl: any) => existingLessonIds.includes(cl.toString()));
+      // Deduplicate completedLessons before filtering
+      const completedSet = new Set((enrollment.progress?.completedLessons || []).map((cl: any) => cl.toString()));
+      const validCompletedLessons = Array.from(completedSet).filter((cl: string) => existingLessonIds.includes(cl));
       const completedLessonsCount = validCompletedLessons.length;
       const totalLessons = lessons.length;
-      const progress = totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
+      const progress = totalLessons > 0 ? Math.min(Math.round((completedLessonsCount / totalLessons) * 100), 100) : 0;
 
       return {
         enrollmentId: enrollment._id,
