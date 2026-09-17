@@ -44,13 +44,31 @@ export const sendEmail = async (options: {
 
     return { success: true, messageId: result.messageId };
   } catch (error: any) {
+    const errBody = error.body || error.response?.data || {};
+    const errMsg = error.message || errBody.message || "Unknown Brevo Error";
+    
+    // Mask recipient email
+    const maskedEmail = options.email.replace(/(.{2})(.*)(@.*)/, "$1***$3");
+
+    if (error.statusCode === 401 || (error.response && error.response.status === 401)) {
+      if (errMsg.includes("unrecognised IP address")) {
+        logger.error(`[BREVO_IP_AUTH_ERROR] Unauthorized IP Address detected by Brevo`, {
+          brevoErrorCode: errBody.code || '401_UNAUTHORIZED',
+          providerMessage: errMsg,
+          workflow: options.subject,
+          recipient: maskedEmail,
+          timestamp: new Date().toISOString()
+        });
+        throw new Error("BREVO_IP_UNAUTHORIZED");
+      }
+    }
+
     logger.error("EMAIL SEND FAILED", {
-      message: error.message,
+      message: errMsg,
       statusCode: error.statusCode || error.status,
-      body: error.body || error.response?.data,
-      recipient: options.email,
-      subject: options.subject,
-      stack: error.stack
+      body: errBody,
+      recipient: maskedEmail,
+      subject: options.subject
     });
     
     // Throw a clean error for the frontend

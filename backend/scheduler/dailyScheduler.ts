@@ -63,6 +63,11 @@ export const runDailyReminderJob = async (dryRun = false) => {
             } catch (emailErr: any) {
               await reminderModel.deleteOne({ studentId: student._id, date: todayDateStr, type: 'EMAIL_REMINDER' });
               logger.info(`[DAILY REMINDER] Email failed: ${maskedEmail} - ${emailErr.message}`);
+              if (emailErr.message === "BREVO_IP_UNAUTHORIZED") {
+                failedCount++;
+                logger.error("[DAILY REMINDER] Halting job due to Brevo IP Authorization failure.");
+                break; // Stop spamming if the IP is blocked
+              }
               throw emailErr;
             }
           } catch (err: any) {
