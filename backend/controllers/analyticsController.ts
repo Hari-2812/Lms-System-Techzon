@@ -425,7 +425,7 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
     }
 
     // Fetch all completion records from the Progress collection
-    const allProgressRecords = await mongoose.model('Progress').find({ completed: true }, 'userId lessonId').lean() as { userId: any; lessonId: any }[];
+    const allProgressRecords = await mongoose.model('Progress').find({ completed: true }, 'userId lessonId').lean() as unknown as { userId: any; lessonId: any }[];
     const userCompletedLessons = new Map<string, Set<string>>();
     for (const p of allProgressRecords) {
       const userIdStr = p.userId.toString();
