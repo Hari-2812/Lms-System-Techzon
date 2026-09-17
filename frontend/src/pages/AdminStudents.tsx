@@ -134,7 +134,7 @@ const AdminStudents: React.FC = () => {
       if (res.data.emailSent) {
         alert('Login credentials sent successfully.\n\nA new temporary password has been generated and sent to the student\'s email.');
       } else {
-        alert('Credentials updated, but email delivery failed. Please use Resend Login Credentials again or check SMTP configuration.');
+        alert(res.data.message || 'Credentials updated, but email delivery failed. Please use Resend Login Credentials again.');
       }
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to resend welcome credentials.');

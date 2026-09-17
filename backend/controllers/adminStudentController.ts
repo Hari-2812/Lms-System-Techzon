@@ -84,12 +84,16 @@ export const resendStudentCredentials = async (req: Request, res: Response): Pro
 
     // 4. Send email
     let emailSent = false;
+    let emailErrorCategory = 'UNKNOWN';
     try {
       await sendCredentialsResetEmail(student.email, student.name, newTempPassword);
       emailSent = true;
       logger.info(`[ADMIN_ACTION] Login credentials resent successfully to ${student.email} by admin ${(req as any).user.email}`);
     } catch (emailErr: any) {
       logger.error(`[EMAIL_ERROR] Failed to send credentials to ${student.email}:`, emailErr);
+      if (emailErr.message === "BREVO_IP_UNAUTHORIZED") {
+        emailErrorCategory = 'BREVO_IP_UNAUTHORIZED';
+      }
       // We don't fail the request, we just notify the admin the email failed
     }
 
@@ -102,11 +106,16 @@ export const resendStudentCredentials = async (req: Request, res: Response): Pro
       });
     } else {
       // Password was changed but email failed
+      const errorMsg = emailErrorCategory === 'BREVO_IP_UNAUTHORIZED'
+        ? 'Credentials were updated, but Brevo rejected the email request because the server IP is not authorized. Please contact the administrator.'
+        : 'Credentials updated, but email delivery failed. Please use Resend Login Credentials again.';
+        
       res.status(200).json({
         success: true,
-        message: 'Login credentials updated, but the email could not be sent. Please retry sending the credentials.',
+        message: errorMsg,
         email: student.email,
-        emailSent: false
+        emailSent: false,
+        errorCategory: emailErrorCategory
       });
     }
   } catch (error: any) {
