@@ -588,14 +588,42 @@ const AdminStudentDetails: React.FC = () => {
                                 {actionLoading === `verify-${row.courseId}` ? 'Verifying...' : '✓ Correct Access'}
                               </Button>
                             )}
-                            {(row.auditStatus.includes('Incorrect Access') || row.auditStatus.includes('NOT VALID') || (row.enrollmentStatus && row.enrollmentStatus !== 'active' && row.enrollmentStatus !== 'NONE')) && (
-                              <Button 
-                                variant="danger" size="sm"
-                                onClick={() => handleRemoveAccess(row.courseId, row.courseName)}
-                                disabled={actionLoading === `remove-${row.courseId}`}
-                              >
-                                {actionLoading === `remove-${row.courseId}` ? 'Removing...' : 'Remove Access'}
-                              </Button>
+                            {(row.auditStatus.includes('Incorrect Access') || row.auditStatus.includes('NOT VALID') || row.auditStatus === '⚠ Enrollment Missing' || (row.enrollmentStatus && row.enrollmentStatus !== 'active' && row.enrollmentStatus !== 'NONE')) && (
+                              <>
+                                {row.auditStatus === '⚠ Enrollment Missing' ? (
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    className="w-full justify-center bg-blue-500 hover:bg-blue-600 shadow text-xs py-1"
+                                    onClick={async () => {
+                                      setActionLoading(`sync-${row.courseId}`);
+                                      try {
+                                        await api.post(`/admin/students/${studentId}/enrollment/assign`, { courseId: row.courseId });
+                                        await fetchAudit();
+                                        await fetchAnalytics();
+                                        alert('Enrollment synchronized successfully.');
+                                      } catch (e: any) {
+                                        alert(e.response?.data?.message || 'Failed to sync enrollment');
+                                      } finally {
+                                        setActionLoading('');
+                                      }
+                                    }}
+                                    disabled={!!actionLoading}
+                                  >
+                                    {actionLoading === `sync-${row.courseId}` ? 'Syncing...' : 'Sync Enrollment'}
+                                  </Button>
+                                ) : (
+                                  <Button 
+                                    variant="secondary" 
+                                    size="sm"
+                                    className="w-full justify-center border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 dark:border-red-900/30 dark:hover:bg-red-900/20 text-xs py-1"
+                                    onClick={() => handleRemoveAccess(row.courseId, row.courseName)}
+                                    disabled={!!actionLoading}
+                                  >
+                                    {actionLoading === `remove-${row.courseId}` ? 'Removing...' : 'Remove Access'}
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </td>
                         </tr>

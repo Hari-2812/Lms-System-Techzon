@@ -329,12 +329,14 @@ export const getStudentAccessAudit = async (req: Request, res: Response): Promis
 
     const auditResults = Array.from(auditMap.values());
 
+    const activeCourses = auditResults.filter(r => r.enrollmentStatus === 'active' || r.paymentStatus === 'captured');
+
     const summary = {
-      totalCourses: auditResults.length,
-      paidCourses: auditResults.filter(a => a.paymentStatus === 'captured').length,
-      activeEnrollments: auditResults.filter(a => a.enrollmentStatus === 'active').length,
-      incorrectAccess: auditResults.filter(a => a.auditStatus.includes('Incorrect Access')).length,
-      lmsAccess: auditResults.some(a => a.lmsAccess === 'GRANTED') ? 'GRANTED' : 'DENIED'
+      totalCourses: activeCourses.length,
+      paidCourses: auditResults.filter(r => r.paymentStatus === 'captured').length,
+      activeEnrollments: auditResults.filter(r => r.enrollmentStatus === 'active').length,
+      incorrectAccess: auditResults.filter(r => r.auditStatus === '⚠ INCORRECT ACCESS').length,
+      lmsAccess: auditResults.some(r => r.enrollmentStatus === 'active' && r.lmsAccess === 'GRANTED') ? 'GRANTED' : 'DENIED'
     };
 
     res.status(200).json({

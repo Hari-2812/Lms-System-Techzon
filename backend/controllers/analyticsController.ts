@@ -226,7 +226,7 @@ export const getStudentStats = async (req: any, res: Response): Promise<void> =>
   try {
     const studentId = req.user._id;
 
-    const enrollments = await Enrollment.find({ studentId }).populate('courseId', 'title category thumbnailUrl');
+    const enrollments = await Enrollment.find({ studentId, status: 'active' }).populate('courseId', 'title category thumbnailUrl');
     const coursesCount = enrollments.length;
 
     if (coursesCount === 0) {
@@ -426,7 +426,7 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
 
     const studentsWithAnalytics = await Promise.all(
       students.map(async (student) => {
-        const enrollments = await Enrollment.find({ studentId: student._id }).populate('courseId', 'title').lean();
+        const enrollments = await Enrollment.find({ studentId: student._id, status: 'active' }).populate('courseId', 'title').lean();
         const payments = await Payment.find({ studentEmail: student.email, status: 'captured' }).lean();
         
         let overallProgress = 0;
@@ -519,7 +519,7 @@ export const getStudentAnalyticsDetails = async (req: Request, res: Response): P
     }
 
 
-    const enrollments = await Enrollment.find({ studentId: id })
+    const enrollments = await Enrollment.find({ studentId: id, status: 'active' })
       .populate('courseId', 'title category thumbnailUrl')
       .populate('certificateId')
       .lean();
