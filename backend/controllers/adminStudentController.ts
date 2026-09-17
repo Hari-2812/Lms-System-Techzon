@@ -299,7 +299,9 @@ export const getStudentAccessAudit = async (req: Request, res: Response): Promis
         let currentStatus = '';
         if (entry.paymentStatus === 'captured' && enr.status === 'active') {
           currentStatus = 'ELIGIBLE';
-        } else if (entry.paymentStatus !== 'captured' && enr.status === 'active') {
+        } else if (entry.paymentStatus === 'NONE' && enr.status === 'active' && enr.accessVerified) {
+          currentStatus = 'ELIGIBLE';
+        } else if (entry.paymentStatus !== 'captured' && entry.paymentStatus !== 'NONE' && enr.status === 'active') {
           currentStatus = '⚠ INCORRECT ACCESS';
         } else if (enr.status === 'expired') {
           currentStatus = '⚠ Enrollment Expired';
@@ -388,7 +390,7 @@ export const removeStudentCourseAccess = async (req: Request, res: Response): Pr
 
 export const assignStudentCourse = async (req: Request, res: Response): Promise<void> => {
   const { studentId } = req.params;
-  const { courseId, overridePayment, paymentReference, paymentStatus, overrideReason } = req.body;
+  const { courseId } = req.body;
 
   try {
     const student = await User.findById(studentId);
@@ -406,52 +408,13 @@ export const assignStudentCourse = async (req: Request, res: Response): Promise<
       return;
     }
 
-    if (overridePayment) {
-      if (!overrideReason) {
-        res.status(400).json({ success: false, message: 'Override reason is required.' });
-        return;
-      }
-      
-      let payment = await Payment.findOne({ studentEmail: student.email, courseId, status: 'captured' });
-      
-      if (!payment) {
-        const orderId = paymentReference || `MANUAL-${studentId}-${courseId}-${Date.now()}`;
-        const existingRef = await Payment.findOne({ orderId });
-        if (existingRef) {
-          res.status(400).json({ success: false, message: 'Payment reference already exists. Please use a unique reference.' });
-          return;
-        }
-
-        payment = new Payment({
-          orderId,
-          studentEmail: student.email,
-          studentName: student.name,
-          courseId,
-          learningPlanId: plan._id,
-          amount: 0,
-          currency: 'INR',
-          status: paymentStatus || 'captured',
-          transactionDate: new Date(),
-        });
-        await payment.save();
-        logger.info(`[ADMIN_ACTION] Admin bypassed payment for student ${studentId}, course ${courseId}. Reason: ${overrideReason}`);
-      }
-    } else {
-      // Verify payment
-      const payment = await Payment.findOne({ studentEmail: student.email, courseId, status: 'captured' });
-      if (!payment) {
-        res.status(400).json({ success: false, message: 'This student has no verified payment for this course. Cannot grant standard course access.' });
-        return;
-      }
-    }
-
     const course = await Course.findById(courseId);
     if (!course) {
       res.status(404).json({ success: false, message: 'Course not found.' });
       return;
     }
 
-  // reactivate a suspended one.
+    // reactivate a suspended one.
     let enrollment = await Enrollment.findOne({ studentId, courseId });
     if (enrollment) {
       if (enrollment.status === 'active') {
@@ -459,20 +422,33 @@ export const assignStudentCourse = async (req: Request, res: Response): Promise<
         return;
       }
       enrollment.status = 'active';
-      const plan = await mongoose.model('LearningPlan').findOne({ courseId, isDefault: true });
+      enrollment.accessVerified = true;
+      enrollment.accessVerifiedAt = new Date();
+      enrollment.accessVerifiedBy = req.user?._id;
+      
       if (plan) {
         enrollment.learningPlanId = plan._id as any;
-        enrollment.expiryDate = new Date(Date.now() + (plan as any).durationDays * 24 * 60 * 60 * 1000);
+        const durationMonths = (plan as any).durationMonths || 6;
+        const expiryDate = new Date();
+        expiryDate.setMonth(expiryDate.getMonth() + durationMonths);
+        enrollment.expiryDate = expiryDate;
       }
       await enrollment.save();
     } else {
+      const durationMonths = (plan as any).durationMonths || 6;
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + durationMonths);
+
       enrollment = new Enrollment({
         studentId,
         courseId,
         learningPlanId: plan._id,
         status: 'active',
         startDate: new Date(),
-        expiryDate: new Date(Date.now() + (plan as any).durationDays * 24 * 60 * 60 * 1000),
+        expiryDate,
+        accessVerified: true,
+        accessVerifiedAt: new Date(),
+        accessVerifiedBy: req.user?._id
       });
       await enrollment.save();
     }
