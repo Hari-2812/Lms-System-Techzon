@@ -424,6 +424,18 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
       courseLessonMap.get(courseIdStr)!.push(lesson._id.toString());
     }
 
+    // Fetch all completion records from the Progress collection
+    const allProgressRecords = await mongoose.model('Progress').find({ completed: true }, 'userId lessonId').lean() as { userId: any; lessonId: any }[];
+    const userCompletedLessons = new Map<string, Set<string>>();
+    for (const p of allProgressRecords) {
+      const userIdStr = p.userId.toString();
+      const lessonIdStr = p.lessonId.toString();
+      if (!userCompletedLessons.has(userIdStr)) {
+        userCompletedLessons.set(userIdStr, new Set());
+      }
+      userCompletedLessons.get(userIdStr)!.add(lessonIdStr);
+    }
+
     const studentsWithAnalytics = await Promise.all(
       students.map(async (student) => {
         const enrollments = await Enrollment.find({ studentId: student._id, status: 'active' }).populate('courseId', 'title').lean();
@@ -442,6 +454,8 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
           let totalLessonsAcrossCourses = 0;
           let totalCompletedAcrossCourses = 0;
 
+          const completedSet = userCompletedLessons.get(student._id.toString()) || new Set();
+
           for (const e of validEnrollments) {
             const courseIdStr = (e.courseId as any)?._id?.toString() || e.courseId?.toString();
             const validLessonIds = courseLessonMap.get(courseIdStr) || [];
@@ -450,10 +464,9 @@ export const getAdminStudentsList = async (req: Request, res: Response): Promise
             if (totalValidLessonsCount > 0) {
                totalLessonsAcrossCourses += totalValidLessonsCount;
                
-               const completedSet = new Set((e.progress?.completedLessons || []).map((id: any) => id.toString()));
                let validCompletedCount = 0;
-               for (const id of completedSet) {
-                 if (validLessonIds.includes(id)) {
+               for (const id of validLessonIds) {
+                 if (completedSet.has(id)) {
                    validCompletedCount++;
                  }
                }

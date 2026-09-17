@@ -246,13 +246,26 @@ const AdminStudents: React.FC = () => {
           title="LMS Users Directory"
           subtitle="Manage registered students lists and create secure mentor accounts."
         />
-        <Button
-          variant="accent"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5"
-        >
-          <UserPlus className="w-4 h-4" /> Provision Admin/Mentor
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={fetchUsers}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" /> Refresh
+          </Button>
+          <Button
+            variant="accent"
+            onClick={() => {
+              setShowForm(!showForm);
+              setRole('mentor');
+            }}
+            className="flex items-center gap-2 shadow-lg shadow-accent/20"
+          >
+            {showForm ? <X className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+            {showForm ? 'Cancel' : 'Create Mentor'}
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
