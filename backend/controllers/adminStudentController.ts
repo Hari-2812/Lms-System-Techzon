@@ -397,9 +397,12 @@ export const assignStudentCourse = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const plan = await mongoose.model('LearningPlan').findOne({ courseId, isDefault: true });
+    let plan = await mongoose.model('LearningPlan').findOne({ code: 'self-paced', isActive: true });
     if (!plan) {
-      res.status(400).json({ success: false, message: 'No default learning plan found for this course.' });
+      plan = await mongoose.model('LearningPlan').findOne({ isActive: true });
+    }
+    if (!plan) {
+      res.status(400).json({ success: false, message: 'No active learning plans found in the system. Please create a global learning plan first.' });
       return;
     }
 
