@@ -84,6 +84,8 @@ const DashboardRedirector: React.FC = () => {
 };
 
 const AppRoutes: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
+
   return (
     <Suspense fallback={<SuspenseFallback />}>
       <Routes>
