@@ -180,10 +180,10 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
         const course = await Course.findById(liveClass.courseId);
         const courseName = course?.title || 'Your Course';
         const d = new Date(liveClass.scheduledTime);
-        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
         
         const formatTime = (date: Date) => {
-          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }) + ' IST';
         };
         const startTimeStr = formatTime(d);
         const endD = new Date(d.getTime() + (liveClass.durationMinutes || 0) * 60000);
@@ -304,10 +304,10 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
         const course = await Course.findById(updatedLiveClass.courseId);
         const courseName = course?.title || 'Your Course';
         const d = new Date(updatedLiveClass.scheduledTime);
-        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
         
         const formatTime = (date: Date) => {
-          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }) + ' IST';
         };
         const startTimeStr = formatTime(d);
         const endD = new Date(d.getTime() + (updatedLiveClass.durationMinutes || 0) * 60000);
