@@ -127,6 +127,35 @@ const AdminEmailManagement: React.FC = () => {
     s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const getPreviewRecipient = () => {
+    if (selectedStudentIds.length === 0) {
+      return "No recipients selected";
+    }
+    if (selectedStudentIds.length === 1) {
+      const student = students.find(s => s._id === selectedStudentIds[0]);
+      return student ? `${student.name} <${student.email}>` : "Unknown Student";
+    }
+    return `${selectedStudentIds.length} selected students`;
+  };
+
+  const getPreviewNamePlaceholder = () => {
+    if (selectedStudentIds.length === 0) return 'Student';
+    if (selectedStudentIds.length === 1) {
+      const student = students.find(s => s._id === selectedStudentIds[0]);
+      return student ? student.name : 'Student';
+    }
+    return 'Students';
+  };
+  
+  const getPreviewEmailPlaceholder = () => {
+    if (selectedStudentIds.length === 0) return 'student@example.com';
+    if (selectedStudentIds.length === 1) {
+      const student = students.find(s => s._id === selectedStudentIds[0]);
+      return student ? student.email : 'student@example.com';
+    }
+    return 'students@example.com';
+  };
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto text-slate-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -173,34 +202,44 @@ const AdminEmailManagement: React.FC = () => {
       </div>
 
       {activeTab === 'compose' && (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 relative z-10">
           {/* Left Column: Recipients & Editor */}
           <div className="xl:col-span-7 space-y-6">
             
             {/* Recipient Selection Card */}
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative z-20">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
                   <Users className="text-accent" size={20} />
                   Select Recipients
                 </h2>
-                <div className="bg-slate-800 text-xs px-3 py-1 rounded-full text-slate-300 font-medium">
-                  {selectedStudentIds.length} Selected
+                <div className="flex items-center gap-3">
+                  {selectedStudentIds.length > 0 && (
+                    <button 
+                      onClick={() => setSelectedStudentIds([])}
+                      className="text-xs text-slate-400 hover:text-red-400 transition-colors underline"
+                    >
+                      Clear Selection
+                    </button>
+                  )}
+                  <div className="bg-slate-800 text-xs px-3 py-1 rounded-full text-slate-300 font-medium">
+                    {selectedStudentIds.length} Selected
+                  </div>
                 </div>
               </div>
               
-              <div className="relative mb-4 group">
+              <div className="relative mb-4 group z-20">
                 <Search className="absolute left-3.5 top-3 text-slate-500 group-focus-within:text-accent transition-colors" size={18} />
                 <input
                   type="text"
                   placeholder="Search by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-950/50 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all text-sm"
+                  className="w-full pl-11 pr-4 py-2.5 bg-slate-950/50 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all text-sm relative z-20"
                 />
               </div>
 
-              <div className="h-64 overflow-y-auto border border-slate-800 rounded-xl bg-slate-950/30 custom-scrollbar">
+              <div className="h-64 overflow-y-auto border border-slate-800 rounded-xl bg-slate-950/30 custom-scrollbar relative z-10">
                 {isLoading ? (
                   <div className="p-4 space-y-3">
                     {[1, 2, 3, 4].map(i => (
@@ -220,7 +259,7 @@ const AdminEmailManagement: React.FC = () => {
                     <p className="text-sm text-center mb-4">Failed to connect to the student database.</p>
                     <button 
                       onClick={fetchStudents}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm transition-colors text-white"
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm transition-colors text-white relative z-20"
                     >
                       <RefreshCw size={14} /> Retry Loading
                     </button>
@@ -239,7 +278,7 @@ const AdminEmailManagement: React.FC = () => {
                             type="checkbox" 
                             onChange={handleSelectAll}
                             checked={filteredStudents.length > 0 && selectedStudentIds.length === filteredStudents.length}
-                            className="rounded bg-slate-950 border-slate-700 text-accent focus:ring-accent focus:ring-offset-slate-900 cursor-pointer"
+                            className="rounded bg-slate-950 border-slate-700 text-accent focus:ring-accent focus:ring-offset-slate-900 cursor-pointer relative z-20"
                           />
                         </th>
                         <th className="p-4 font-medium tracking-wider">Student Name</th>
@@ -254,7 +293,7 @@ const AdminEmailManagement: React.FC = () => {
                               type="checkbox" 
                               checked={selectedStudentIds.includes(student._id)}
                               onChange={() => handleSelectStudent(student._id)}
-                              className="rounded bg-slate-950 border-slate-700 text-accent focus:ring-accent focus:ring-offset-slate-900 cursor-pointer"
+                              className="rounded bg-slate-950 border-slate-700 text-accent focus:ring-accent focus:ring-offset-slate-900 cursor-pointer relative z-20"
                             />
                           </td>
                           <td className="p-4 font-medium text-slate-200">
@@ -282,34 +321,40 @@ const AdminEmailManagement: React.FC = () => {
             </div>
 
             {/* Composer Card */}
-            <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5 relative z-20">
               <h2 className="text-lg font-semibold flex items-center gap-2 text-white border-b border-slate-800 pb-4">
                 <FileText className="text-accent" size={20} />
                 Compose Message
               </h2>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Email Subject</label>
+                <div className="relative z-30">
+                  <label htmlFor="email-subject" className="block text-sm font-medium text-slate-300 mb-1.5 ml-1">Email Subject</label>
                   <input
+                    id="email-subject"
+                    name="subject"
                     type="text"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-950/50 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all text-sm"
+                    disabled={isSending}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all text-sm disabled:opacity-50 relative z-30 pointer-events-auto"
                     placeholder="Enter an engaging email subject..."
                   />
                 </div>
 
-                <div>
+                <div className="relative z-30">
                   <div className="flex justify-between items-end mb-1.5 ml-1">
-                    <label className="block text-sm font-medium text-slate-300">Message Content (HTML)</label>
+                    <label htmlFor="email-body" className="block text-sm font-medium text-slate-300">Message Content (HTML)</label>
                     <span className="text-xs text-slate-500">Variables: <code className="bg-slate-800 px-1 py-0.5 rounded text-[10px] text-accent font-mono">{'{'}{'{'}studentName{'}'}{'}'}</code> <code className="bg-slate-800 px-1 py-0.5 rounded text-[10px] text-accent font-mono">{'{'}{'{'}studentEmail{'}'}{'}'}</code></span>
                   </div>
                   <textarea
+                    id="email-body"
+                    name="htmlContent"
                     value={htmlContent}
                     onChange={(e) => setHtmlContent(e.target.value)}
+                    disabled={isSending}
                     rows={12}
-                    className="w-full px-4 py-3 bg-slate-950/50 border border-slate-800 rounded-xl text-slate-300 placeholder-slate-700 focus:border-accent focus:ring-1 focus:ring-accent outline-none font-mono text-sm leading-relaxed custom-scrollbar resize-y min-h-[200px]"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-300 placeholder-slate-700 focus:border-accent focus:ring-1 focus:ring-accent outline-none font-mono text-sm leading-relaxed custom-scrollbar resize-y min-h-[200px] disabled:opacity-50 relative z-30 pointer-events-auto"
                     placeholder="<h1>Hello {{studentName}},</h1>&#10;<p>Welcome to our latest session...</p>"
                   ></textarea>
                 </div>
@@ -319,7 +364,7 @@ const AdminEmailManagement: React.FC = () => {
                 <button
                   disabled={isSending || selectedStudentIds.length === 0 || !subject.trim() || !htmlContent.trim()}
                   onClick={handleSend}
-                  className="px-8 py-3 bg-accent hover:bg-accent-hover text-white font-medium rounded-xl flex items-center gap-2.5 transition-all shadow-lg shadow-accent/20 hover:shadow-accent/40 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:shadow-none disabled:hover:translate-y-0 disabled:cursor-not-allowed"
+                  className="px-8 py-3 bg-accent hover:bg-accent-hover text-white font-medium rounded-xl flex items-center gap-2.5 transition-all shadow-lg shadow-accent/20 hover:shadow-accent/40 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:shadow-none disabled:hover:translate-y-0 disabled:cursor-not-allowed relative z-30"
                 >
                   {isSending ? (
                     <>
@@ -338,7 +383,7 @@ const AdminEmailManagement: React.FC = () => {
           </div>
 
           {/* Right Column: Preview */}
-          <div className="xl:col-span-5 h-[800px] sticky top-8">
+          <div className="xl:col-span-5 h-[800px] sticky top-8 z-10">
             <div className="bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden h-full border border-slate-200">
               <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-3">
                 <div className="flex gap-1.5">
@@ -351,13 +396,13 @@ const AdminEmailManagement: React.FC = () => {
               
               <div className="p-4 border-b border-slate-100 bg-white">
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center text-sm">
-                    <span className="text-slate-400 w-16">To:</span>
-                    <span className="text-slate-800 font-medium">Student Name &lt;student@example.com&gt;</span>
+                  <div className="flex items-start text-sm">
+                    <span className="text-slate-400 w-16 mt-0.5">To:</span>
+                    <span className="text-slate-800 font-medium flex-1 break-words">{getPreviewRecipient()}</span>
                   </div>
-                  <div className="flex items-center text-sm">
-                    <span className="text-slate-400 w-16">Subject:</span>
-                    <span className="text-slate-900 font-bold">{subject || <span className="text-slate-300 font-normal italic">No subject entered...</span>}</span>
+                  <div className="flex items-start text-sm">
+                    <span className="text-slate-400 w-16 mt-0.5">Subject:</span>
+                    <span className="text-slate-900 font-bold flex-1 break-words">{subject || <span className="text-slate-300 font-normal italic">No subject entered...</span>}</span>
                   </div>
                 </div>
               </div>
@@ -366,8 +411,8 @@ const AdminEmailManagement: React.FC = () => {
                 {htmlContent ? (
                   <div dangerouslySetInnerHTML={{ 
                     __html: htmlContent
-                      .replace(/{{studentName}}/g, 'Student')
-                      .replace(/{{studentEmail}}/g, 'student@example.com') 
+                      .replace(/{{studentName}}/g, getPreviewNamePlaceholder())
+                      .replace(/{{studentEmail}}/g, getPreviewEmailPlaceholder()) 
                   }} />
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
@@ -382,7 +427,7 @@ const AdminEmailManagement: React.FC = () => {
       )}
 
       {activeTab === 'history' && (
-        <div className="bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative z-10">
            <div className="flex items-center justify-between mb-6">
              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                <Clock className="text-accent" size={20} />
