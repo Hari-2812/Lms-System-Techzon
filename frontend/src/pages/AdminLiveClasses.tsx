@@ -181,11 +181,21 @@ const AdminLiveClasses: React.FC = () => {
       };
 
       if (editMode) {
-        await api.put(`/live-classes/${editClassId}`, payload);
-        alert('Live class updated successfully!');
+        const res = await api.put(`/live-classes/${editClassId}`, payload);
+        const { emailSummary } = res.data;
+        if (emailSummary) {
+          alert(`Live class updated successfully!\n\nEmail notification summary:\n- Total eligible students: ${emailSummary.totalEligible}\n- Emails sent successfully: ${emailSummary.sentCount}\n- Failed: ${emailSummary.failedCount}\n\n(Emails are processed asynchronously)`);
+        } else {
+          alert('Live class updated successfully!');
+        }
       } else {
         const res = await api.post('/live-classes', payload);
-        alert(res.data.message || 'Live class created successfully!');
+        const { emailSummary } = res.data;
+        if (emailSummary) {
+          alert(`Live class scheduled successfully!\n\nEmail notification summary:\n- Total eligible students: ${emailSummary.totalEligible}\n- Emails sent successfully: ${emailSummary.sentCount}\n- Failed: ${emailSummary.failedCount}\n\n(Emails are processed asynchronously)`);
+        } else {
+          alert(res.data.message || 'Live class created successfully!');
+        }
       }
       
       fetchClassesForCourse(selectedCourse._id);

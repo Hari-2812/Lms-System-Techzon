@@ -387,3 +387,56 @@ export const sendCertificateIssuedEmail = async (
 `;
   return await sendEmail({ email, subject: `Congratulations! Your Techzon LMS Certificate Has Been Issued`, html });
 };
+
+export const sendLiveClassNotificationEmail = async (
+  email: string,
+  name: string,
+  courseName: string,
+  classTitle: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  mentorName: string,
+  platform: string,
+  meetingLink: string,
+  isUpdate: boolean = false
+): Promise<{ success: boolean; messageId: string }> => {
+  const subjectText = isUpdate ? `🔄 Update: Live Class Scheduled – ${courseName} | Techzon Wide` : `📢 New Live Class Scheduled – ${courseName} | Techzon Wide`;
+  const headingText = isUpdate ? `Live Class Updated` : `New Live Class Scheduled`;
+  const bodyIntro = isUpdate 
+    ? `We are writing to inform you that the details of a scheduled live class for your course have been updated.`
+    : `We are excited to inform you that a new live class has been scheduled for your course.`;
+
+  const html = `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">
+  <h2 style="color: #241252; text-align: center; border-bottom: 2px solid #f4f4f4; padding-bottom: 15px;">${headingText}</h2>
+  <p style="color: #333333; font-size: 16px;">Hello <strong>${name}</strong>,</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">${bodyIntro}</p>
+  
+  <div style="background-color: #f9f9fc; border-left: 4px solid #F57C20; padding: 15px; margin: 25px 0; border-radius: 4px;">
+    <p style="margin: 5px 0;"><strong>Course:</strong> ${courseName}</p>
+    <p style="margin: 5px 0;"><strong>Class:</strong> ${classTitle}</p>
+    <p style="margin: 5px 0;"><strong>Date:</strong> ${date}</p>
+    <p style="margin: 5px 0;"><strong>Time:</strong> ${startTime} – ${endTime}</p>
+    <p style="margin: 5px 0;"><strong>Mentor:</strong> ${mentorName}</p>
+    <p style="margin: 5px 0;"><strong>Platform:</strong> ${platform}</p>
+  </div>
+  
+  ${meetingLink ? `
+  <div style="text-align: center; margin: 35px 0;">
+    <a href="${meetingLink}" style="background-color: #F57C20; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+      Join Live Class
+    </a>
+  </div>
+  ` : `
+  <p style="color: #d9534f; font-style: italic;">The meeting link will be provided shortly before the class begins.</p>
+  `}
+  
+  <p style="color: #555555; font-size: 14px; margin-top: 20px;">Please ensure you join on time. We look forward to seeing you in the session!</p>
+  
+  <br/>
+  <p style="color: #888; font-size: 14px;">Regards,<br/>Team Techzon Wide<br/><a href="mailto:support@techzonwide.com" style="color: #F57C20;">support@techzonwide.com</a></p>
+</div>
+`;
+  return await sendEmail({ email, subject: subjectText, html });
+};

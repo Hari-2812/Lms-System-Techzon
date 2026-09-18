@@ -5,6 +5,8 @@ import AuditLog from '../models/AuditLog';
 import Enrollment from '../models/Enrollment';
 import Notification from '../models/Notification';
 import { getIO } from '../services/socketService';
+import Course from '../models/Course';
+import { sendLiveClassNotificationEmail } from '../services/email';
 
 export const getLiveClasses = async (req: any, res: Response): Promise<void> => {
   try {
@@ -125,8 +127,8 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
     });
 
     // Filter req.body.studentIds against active enrollments
-    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } });
-    const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
+    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } }).populate<{studentId: any}>('studentId');
+    const enrolledStudentIds = enrollments.map(e => e.studentId._id.toString());
     
     let studentIdsToNotify: string[] = [];
     if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
@@ -146,8 +148,15 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
     }
     
     let notificationsFailed = false;
+    
+    // Email tracking
+    let totalEligible = 0;
+    let sentCount = 0;
+    let failedCount = 0;
+    
     try {
       if (studentIdsToNotify.length > 0) {
+        // App notifications
         const notifications = studentIdsToNotify.map(studentId => ({
           title: 'Live Class Scheduled',
           message: `A new live class "${liveClass.title}" has been scheduled for your course.`,
@@ -166,6 +175,48 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
             type: 'LIVE_CLASS_CREATED'
           });
         });
+        
+        // Email Notifications
+        const course = await Course.findById(liveClass.courseId);
+        const courseName = course?.title || 'Your Course';
+        const d = new Date(liveClass.scheduledTime);
+        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        
+        const formatTime = (date: Date) => {
+          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        };
+        const startTimeStr = formatTime(d);
+        const endD = new Date(d.getTime() + (liveClass.durationMinutes || 0) * 60000);
+        const endTimeStr = formatTime(endD);
+        
+        const eligibleStudents = enrollments.filter(e => 
+          studentIdsToNotify.includes(e.studentId._id.toString()) && 
+          e.studentId.email
+        );
+        totalEligible = eligibleStudents.length;
+
+        // Send emails asynchronously, non-blocking
+        Promise.all(eligibleStudents.map(async (enrollment) => {
+          try {
+            await sendLiveClassNotificationEmail(
+              enrollment.studentId.email,
+              enrollment.studentId.name || 'Student',
+              courseName,
+              liveClass.title,
+              dateStr,
+              startTimeStr,
+              endTimeStr,
+              liveClass.mentorId?.toString() || 'Techzon Mentor', // In a real app we might want to populate mentorId
+              liveClass.meetingPlatform || 'Online',
+              liveClass.meetingLink || '',
+              false // isUpdate
+            );
+            sentCount++;
+          } catch (emailErr) {
+            console.error(`Failed to send email to ${enrollment.studentId.email}:`, emailErr);
+            failedCount++;
+          }
+        })).catch(err => console.error('Error processing emails', err));
       }
     } catch (notifErr) {
       console.error('Failed to send notifications for new live class:', notifErr);
@@ -175,7 +226,8 @@ export const createLiveClass = async (req: any, res: Response): Promise<void> =>
     res.status(201).json({ 
       success: true, 
       data: liveClass, 
-      message: notificationsFailed ? 'Live class created successfully. Some notifications could not be delivered.' : 'Live class created successfully.' 
+      emailSummary: { totalEligible, sentCount, failedCount },
+      message: notificationsFailed ? 'Live class created successfully. Some app notifications could not be delivered.' : 'Live class created successfully.' 
     });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
@@ -193,9 +245,9 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
 
     // Filter studentIds if provided
     let newStudentIds: string[] | undefined;
+    const enrollments = await Enrollment.find({ courseId: liveClassToUpdate.courseId, status: { $in: ['active', 'completed'] } }).populate<{studentId: any}>('studentId');
     if (req.body.studentIds && Array.isArray(req.body.studentIds)) {
-      const enrollments = await Enrollment.find({ courseId: liveClassToUpdate.courseId, status: { $in: ['active', 'completed'] } });
-      const enrolledStudentIds = enrollments.map(e => e.studentId.toString());
+      const enrolledStudentIds = enrollments.map(e => e.studentId._id.toString());
       
       const requestedStudentIds: string[] = (req.body.studentIds as unknown[])
         .filter((id): id is string => typeof id === 'string')
@@ -203,38 +255,39 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
         .filter(Boolean);
 
       const uniqueIds = [...new Set(requestedStudentIds)];
-      newStudentIds = uniqueIds.filter(sid => enrolledStudentIds.includes(sid));
+      newStudentIds = uniqueIds.filter(id => enrolledStudentIds.includes(id));
       
-      req.body.studentIds = newStudentIds.map(id => new mongoose.Types.ObjectId(id));
+      req.body.studentIds = newStudentIds; // Set for update
     }
 
-    const liveClass = await LiveClass.findByIdAndUpdate(id, req.body, { new: true });
-    if (!liveClass) {
-      res.status(404).json({ success: false, message: 'Class not found' });
-      return;
-    }
+    const updatedLiveClass = await LiveClass.findByIdAndUpdate(
+      id,
+      { $set: req.body },
+      { new: true }
+    );
 
-    // Notify students of update
-    const enrollments = await Enrollment.find({ courseId: liveClass.courseId, status: { $in: ['active', 'completed'] } });
-    let studentIdsToNotify: string[] = [];
-    
-    if (newStudentIds !== undefined) {
-      studentIdsToNotify = newStudentIds;
-    } else if (liveClass.studentIds && liveClass.studentIds.length > 0) {
-      studentIdsToNotify = liveClass.studentIds.map(s => s.toString());
-    } else {
-      studentIdsToNotify = enrollments.map(e => e.studentId.toString());
-    }
-    
+    await AuditLog.create({
+      userId: req.user._id,
+      action: 'UPDATE_LIVE_CLASS',
+      details: `Updated live class: ${updatedLiveClass?.title}`,
+    });
+
+    // Determine who to notify
+    const studentIdsToNotify = newStudentIds || (updatedLiveClass?.studentIds?.map(id => id.toString()) || []);
+    let notificationsFailed = false;
+    let totalEligible = 0;
+    let sentCount = 0;
+    let failedCount = 0;
+
     try {
-      if (studentIdsToNotify.length > 0) {
+      if (studentIdsToNotify.length > 0 && updatedLiveClass) {
         const notifications = studentIdsToNotify.map(studentId => ({
           title: 'Live Class Updated',
-          message: `Your live class "${liveClass.title}" has been updated.`,
+          message: `The live class "${updatedLiveClass.title}" has been updated.`,
           type: 'LIVE_CLASS_UPDATED',
           recipientRole: ['Student'],
           recipientId: studentId,
-          metadata: { liveClassId: liveClass._id, courseId: liveClass.courseId }
+          metadata: { liveClassId: updatedLiveClass._id, courseId: updatedLiveClass.courseId }
         }));
         await Notification.insertMany(notifications);
 
@@ -242,16 +295,64 @@ export const updateLiveClass = async (req: any, res: Response): Promise<void> =>
         studentIdsToNotify.forEach(studentId => {
           io.to(`user:${studentId}`).emit('notification:new', {
             title: 'Live Class Updated',
-            message: `Your live class "${liveClass.title}" has been updated.`,
+            message: `The live class "${updatedLiveClass.title}" has been updated.`,
             type: 'LIVE_CLASS_UPDATED'
           });
         });
+        
+        // Email Notifications
+        const course = await Course.findById(updatedLiveClass.courseId);
+        const courseName = course?.title || 'Your Course';
+        const d = new Date(updatedLiveClass.scheduledTime);
+        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        
+        const formatTime = (date: Date) => {
+          return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        };
+        const startTimeStr = formatTime(d);
+        const endD = new Date(d.getTime() + (updatedLiveClass.durationMinutes || 0) * 60000);
+        const endTimeStr = formatTime(endD);
+        
+        const eligibleStudents = enrollments.filter(e => 
+          studentIdsToNotify.includes(e.studentId._id.toString()) && 
+          e.studentId.email
+        );
+        totalEligible = eligibleStudents.length;
+
+        // Send emails asynchronously, non-blocking
+        Promise.all(eligibleStudents.map(async (enrollment) => {
+          try {
+            await sendLiveClassNotificationEmail(
+              enrollment.studentId.email,
+              enrollment.studentId.name || 'Student',
+              courseName,
+              updatedLiveClass.title,
+              dateStr,
+              startTimeStr,
+              endTimeStr,
+              updatedLiveClass.mentorId?.toString() || 'Techzon Mentor', // In a real app we might want to populate mentorId
+              updatedLiveClass.meetingPlatform || 'Online',
+              updatedLiveClass.meetingLink || '',
+              true // isUpdate
+            );
+            sentCount++;
+          } catch (emailErr) {
+            console.error(`Failed to send update email to ${enrollment.studentId.email}:`, emailErr);
+            failedCount++;
+          }
+        })).catch(err => console.error('Error processing update emails', err));
       }
     } catch (notifErr) {
-      console.error('Failed to send notifications for update:', notifErr);
+      console.error('Failed to send notifications for updated live class:', notifErr);
+      notificationsFailed = true;
     }
 
-    res.status(200).json({ success: true, data: liveClass });
+    res.status(200).json({ 
+      success: true, 
+      data: updatedLiveClass, 
+      emailSummary: { totalEligible, sentCount, failedCount },
+      message: notificationsFailed ? 'Live class updated successfully. Some app notifications could not be delivered.' : 'Live class updated successfully.' 
+    });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
   }
