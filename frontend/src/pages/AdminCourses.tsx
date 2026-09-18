@@ -30,6 +30,9 @@ const AdminCourses: React.FC = () => {
   const [courseToDelete, setCourseToDelete] = useState<any | null>(null);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCheckingDeps, setIsCheckingDeps] = useState(false);
+  const [courseDependencies, setCourseDependencies] = useState<any | null>(null);
+  const [isSafeToDelete, setIsSafeToDelete] = useState(false);
 
   useEffect(() => {
     fetchCourses();
@@ -76,10 +79,24 @@ const AdminCourses: React.FC = () => {
     }
   };
 
-  const confirmDeleteCourse = (course: any, e: React.MouseEvent) => {
+  const confirmDeleteCourse = async (course: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setCourseToDelete(course);
     setDeleteConfirmationText('');
+    setCourseDependencies(null);
+    setIsSafeToDelete(false);
+    setIsCheckingDeps(true);
+
+    try {
+      const res = await api.get(`/courses/${course._id}/dependencies`);
+      setCourseDependencies(res.data.data.dependencies);
+      setIsSafeToDelete(res.data.data.isSafeToDelete);
+    } catch (error: any) {
+      alert('Failed to check course dependencies.');
+      setCourseToDelete(null);
+    } finally {
+      setIsCheckingDeps(false);
+    }
   };
 
   const handleDeleteCourse = async () => {
@@ -202,10 +219,11 @@ const AdminCourses: React.FC = () => {
                           </h4>
                           <button
                             onClick={(e) => confirmDeleteCourse(course, e)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            disabled={isCheckingDeps && courseToDelete?._id === course._id}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 disabled:opacity-50"
                             title="Delete Course"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {isCheckingDeps && courseToDelete?._id === course._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                           </button>
                         </div>
                         
@@ -341,14 +359,14 @@ const AdminCourses: React.FC = () => {
       </div>
 
       {/* Delete Confirmation Modal */}
-      {courseToDelete && (
+      {courseToDelete && !isCheckingDeps && courseDependencies && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-border-dark overflow-hidden transform scale-100 transition-transform">
             
             <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3 text-red-600 dark:text-red-500">
+              <div className={`flex items-center gap-3 ${isSafeToDelete ? 'text-red-600 dark:text-red-500' : 'text-orange-600 dark:text-orange-500'}`}>
                 <AlertTriangle className="w-5 h-5" />
-                <h3 className="font-extrabold text-lg">Delete Course Permanently?</h3>
+                <h3 className="font-extrabold text-lg">{isSafeToDelete ? 'Delete Course Permanently?' : 'Cannot Delete Course'}</h3>
               </div>
               <button 
                 onClick={() => setCourseToDelete(null)}
@@ -359,29 +377,57 @@ const AdminCourses: React.FC = () => {
             </div>
 
             <div className="p-6 space-y-5">
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                You are about to permanently delete the course <strong className="text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">{courseToDelete.title}</strong> and all its associated curriculum data. 
-                <span className="block mt-2 font-bold text-red-600 dark:text-red-400">This action cannot be undone.</span>
-              </p>
-              
-              <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 p-4 rounded-xl">
-                <p className="text-xs text-orange-800 dark:text-orange-300 font-medium leading-relaxed">
-                  <strong>Data Integrity Check:</strong> The system will verify if this course has active student enrollments, payments, or progress. If dependencies exist, the deletion will be securely blocked by the backend to prevent data corruption.
-                </p>
-              </div>
+              {!isSafeToDelete ? (
+                <>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    This course has active dependencies and <strong className="text-red-600 dark:text-red-400">cannot be permanently deleted</strong> to prevent data corruption.
+                  </p>
+                  
+                  <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-2">
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">Linked Records Found:</p>
+                    <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                      <li>• Modules: <strong>{courseDependencies.modules}</strong></li>
+                      <li>• Lessons: <strong>{courseDependencies.lessons}</strong></li>
+                      <li className={courseDependencies.enrollments > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Active enrollments: <strong>{courseDependencies.enrollments}</strong></li>
+                      <li className={courseDependencies.progressRecords > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Progress records: <strong>{courseDependencies.progressRecords}</strong></li>
+                      <li className={courseDependencies.payments > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Payments: <strong>{courseDependencies.payments}</strong></li>
+                      <li className={courseDependencies.certificates > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Certificates: <strong>{courseDependencies.certificates}</strong></li>
+                    </ul>
+                  </div>
+                  
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <strong>Action Required:</strong> To delete this course, you must first remove or reassign all associated students, progress, and financial records.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    You are about to permanently delete the course <strong className="text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">{courseToDelete.title}</strong> and its unused curriculum data. 
+                    <span className="block mt-2 font-bold text-red-600 dark:text-red-400">This action cannot be undone.</span>
+                  </p>
+                  
+                  <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 p-4 rounded-xl">
+                    <p className="text-xs text-green-800 dark:text-green-300 font-medium leading-relaxed">
+                      <strong>Safe to Delete:</strong> This course has <strong>0</strong> active students, payments, or progress records. The following orphaned records will be permanently removed:
+                      <br/>- Modules: <strong>{courseDependencies.modules}</strong>
+                      <br/>- Lessons: <strong>{courseDependencies.lessons}</strong>
+                    </p>
+                  </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Please type <span className="text-slate-900 dark:text-white select-all font-mono font-bold bg-slate-100 dark:bg-slate-800 px-1 rounded">{courseToDelete.title}</span> to confirm.
-                </label>
-                <input
-                  type="text"
-                  value={deleteConfirmationText}
-                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                  className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none text-slate-800 dark:text-white transition-all font-medium"
-                  placeholder="Type course name..."
-                />
-              </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Please type <span className="text-slate-900 dark:text-white select-all font-mono font-bold bg-slate-100 dark:bg-slate-800 px-1 rounded">{courseToDelete.title}</span> to confirm.
+                    </label>
+                    <input
+                      type="text"
+                      value={deleteConfirmationText}
+                      onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                      className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none text-slate-800 dark:text-white transition-all font-medium"
+                      placeholder="Type course name..."
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900/50">
@@ -390,19 +436,21 @@ const AdminCourses: React.FC = () => {
                 disabled={isDeleting}
                 className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition disabled:opacity-50"
               >
-                Cancel
+                {isSafeToDelete ? 'Cancel' : 'Close'}
               </button>
-              <button
-                onClick={handleDeleteCourse}
-                disabled={deleteConfirmationText !== courseToDelete.title || isDeleting}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-red-500/20"
-              >
-                {isDeleting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</>
-                ) : (
-                  <><Trash2 className="w-4 h-4" /> Delete Permanently</>
-                )}
-              </button>
+              {isSafeToDelete && (
+                <button
+                  onClick={handleDeleteCourse}
+                  disabled={deleteConfirmationText !== courseToDelete.title || isDeleting}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-red-500/20"
+                >
+                  {isDeleting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</>
+                  ) : (
+                    <><Trash2 className="w-4 h-4" /> Delete Permanently</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

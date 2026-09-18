@@ -529,6 +529,46 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 
 
 
+export const checkCourseDependencies = async (req: any, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const course = await Course.findById(id);
+    if (!course) {
+      res.status(404).json({ success: false, message: 'Course not found' });
+      return;
+    }
+
+    const enrollmentCount = await Enrollment.countDocuments({ courseId: id });
+    const progressCount = await Progress.countDocuments({ courseId: id });
+    const paymentCount = await mongoose.model('Payment').countDocuments({ courseId: id });
+    const certCount = await mongoose.model('Certificate').countDocuments({ courseId: id });
+    const quizResultCount = await mongoose.model('QuizResult').countDocuments({ courseId: id });
+    const moduleCount = await Module.countDocuments({ courseId: id });
+    const lessonCount = await Lesson.countDocuments({ courseId: id });
+
+    const hasActiveDependencies = enrollmentCount > 0 || progressCount > 0 || paymentCount > 0 || certCount > 0 || quizResultCount > 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        isSafeToDelete: !hasActiveDependencies,
+        dependencies: {
+          enrollments: enrollmentCount,
+          progressRecords: progressCount,
+          payments: paymentCount,
+          certificates: certCount,
+          quizResults: quizResultCount,
+          modules: moduleCount,
+          lessons: lessonCount
+        }
+      }
+    });
+  } catch (error: any) {
+    logger.error('Error checking course dependencies:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 export const deleteCourse = async (req: any, res: Response): Promise<void> => {
   const { id } = req.params;
   try {

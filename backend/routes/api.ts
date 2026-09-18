@@ -44,7 +44,6 @@ import {
   createCourse,
   updateCourse,
   duplicateCourse,
-  deleteCourse,
   createModule,
   updateModule,
   deleteModule,
@@ -53,6 +52,8 @@ import {
   deleteLesson,
   trackLessonProgress,
   syncBunnyLibrary,
+  deleteCourse,
+  checkCourseDependencies
 } from '../controllers/courseController';
 import {
   getLiveClasses,
@@ -294,11 +295,12 @@ if (!fs.existsSync(uploadDir)) {
 const upload = multer({ dest: uploadDir });
 
 // Course Management CRUDs
-router.post('/courses/sync-bunny', syncBunnyLibrary);
+router.post('/courses/sync-bunny', protect, authorize('SuperAdmin', 'Admin'), syncBunnyLibrary);
+router.get('/courses/:id/dependencies', protect, authorize('SuperAdmin', 'Admin'), checkCourseDependencies);
 router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.post('/courses/:id/duplicate', duplicateCourse);
-router.delete('/courses/:id', deleteCourse);
+router.delete('/courses/:id', protect, authorize('SuperAdmin', 'Admin'), deleteCourse);
 
 
 // Modules CRUD
