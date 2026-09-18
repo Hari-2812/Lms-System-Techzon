@@ -25,6 +25,7 @@ const AdminCourses: React.FC = () => {
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Published'>('All');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'All' | 'Available' | 'Missing' | 'Duplicate'>('All');
 
   // Deletion Modal states
   const [courseToDelete, setCourseToDelete] = useState<any | null>(null);
@@ -66,8 +67,9 @@ const AdminCourses: React.FC = () => {
   const handleSyncBunny = async () => {
     setIsSyncing(true);
     try {
-      await api.post('/courses/sync-bunny');
-      alert('Bunny Stream Library Sync Complete! The curriculum has been rebuilt.');
+      const response = await api.post('/courses/sync-bunny');
+      const data = response.data.data;
+      alert(`Sync Complete! \nSynced: ${data.coursesSynced} \nMissing: ${data.coursesMissing} \nDuplicates: ${data.coursesDuplicate}`);
       await fetchCourses();
       if (selectedCourse) {
         await handleSelectCourse(selectedCourse);
@@ -123,9 +125,18 @@ const AdminCourses: React.FC = () => {
   // Filter and search courses
   const filteredCourses = courses.filter((course) => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = statusFilter === 'All' || course.status === statusFilter || (statusFilter === 'Published' && course.status?.toLowerCase() === 'published') || (statusFilter === 'Draft' && course.status?.toLowerCase() === 'draft');
-    return matchesSearch && matchesFilter;
+    const matchesStatus = statusFilter === 'All' || course.status === statusFilter || (statusFilter === 'Published' && course.status?.toLowerCase() === 'published') || (statusFilter === 'Draft' && course.status?.toLowerCase() === 'draft');
+    
+    // Default to 'Available' if not set for backward compatibility
+    const courseAvailability = course.availabilityStatus || 'Available';
+    const matchesAvailability = availabilityFilter === 'All' || courseAvailability === availabilityFilter;
+    
+    return matchesSearch && matchesStatus && matchesAvailability;
   });
+
+  const availableCount = courses.filter(c => (c.availabilityStatus || 'Available') === 'Available').length;
+  const missingCount = courses.filter(c => c.availabilityStatus === 'Missing').length;
+  const duplicateCount = courses.filter(c => c.availabilityStatus === 'Duplicate').length;
 
   return (
     <div className="space-y-6 animate-fade-in font-poppins relative">
@@ -142,6 +153,26 @@ const AdminCourses: React.FC = () => {
           {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {isSyncing ? 'Syncing...' : 'Sync Bunny Library'}
         </button>
+      </div>
+
+      {/* Sync Dashboard Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+          <p className="text-xs text-slate-500 font-bold mb-1">Total LMS Courses</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{courses.length}</p>
+        </div>
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+          <p className="text-xs text-green-600 dark:text-green-400 font-bold mb-1">Available in Bunny</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{availableCount}</p>
+        </div>
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-red-200 dark:border-red-900/50 shadow-sm bg-red-50/50 dark:bg-red-500/5">
+          <p className="text-xs text-red-600 dark:text-red-400 font-bold mb-1">Missing from Bunny</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{missingCount}</p>
+        </div>
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-orange-200 dark:border-orange-900/50 shadow-sm bg-orange-50/50 dark:bg-orange-500/5">
+          <p className="text-xs text-orange-600 dark:text-orange-400 font-bold mb-1">Duplicate Courses</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{duplicateCount}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
@@ -170,13 +201,14 @@ const AdminCourses: React.FC = () => {
               <div className="relative">
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  value={availabilityFilter}
+                  onChange={(e) => setAvailabilityFilter(e.target.value as any)}
                   className="w-full sm:w-auto pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-border-dark rounded-lg text-xs focus:ring-2 focus:ring-accent outline-none text-slate-800 dark:text-white appearance-none cursor-pointer"
                 >
-                  <option value="All">All Status</option>
-                  <option value="Published">Published</option>
-                  <option value="Draft">Draft</option>
+                  <option value="All">All Sync Status</option>
+                  <option value="Available">Available</option>
+                  <option value="Missing">Missing</option>
+                  <option value="Duplicate">Duplicate</option>
                 </select>
               </div>
             </div>
@@ -207,7 +239,10 @@ const AdminCourses: React.FC = () => {
                           ${isSelected 
                             ? 'border-accent bg-accent/5 dark:bg-accent/10 shadow-md ring-1 ring-accent/20' 
                             : 'border-slate-200 bg-white hover:bg-slate-50 dark:bg-card-dark dark:border-border-dark dark:hover:border-slate-600 shadow-sm hover:shadow-md'
-                          }`}
+                          }
+                          ${course.availabilityStatus === 'Missing' ? 'opacity-75 bg-red-50/30 dark:bg-red-500/5 border-red-200 dark:border-red-900/50' : ''}
+                          ${course.availabilityStatus === 'Duplicate' ? 'bg-orange-50/30 dark:bg-orange-500/5 border-orange-200 dark:border-orange-900/50' : ''}
+                        `}
                       >
                         {isSelected && (
                           <div className="absolute top-0 left-0 w-1 h-full bg-accent"></div>
@@ -228,13 +263,25 @@ const AdminCourses: React.FC = () => {
                         </div>
                         
                         <div className="flex justify-between items-center mt-auto pt-2 border-t border-slate-100 dark:border-slate-800/60">
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide uppercase ${
-                            isDraft 
-                              ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' 
-                              : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                          }`}>
-                            {course.status || 'Draft'}
-                          </span>
+                          <div className="flex gap-2 items-center">
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide uppercase ${
+                              isDraft 
+                                ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' 
+                                : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            }`}>
+                              {course.status || 'Draft'}
+                            </span>
+                            {course.availabilityStatus === 'Missing' && (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide uppercase bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                Missing
+                              </span>
+                            )}
+                            {course.availabilityStatus === 'Duplicate' && (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide uppercase bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                                Duplicate
+                              </span>
+                            )}
+                          </div>
                           
                           <span className="text-[10px] text-slate-400 font-mono">
                             ID: {course._id.substring(course._id.length - 6)}
@@ -397,6 +444,11 @@ const AdminCourses: React.FC = () => {
                   
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                     <strong>Action Required:</strong> To delete this course, you must first remove or reassign all associated students, progress, and financial records.
+                    {courseToDelete?.availabilityStatus === 'Missing' && (
+                      <span className="block mt-1 font-bold text-red-500">
+                        This course is missing from Bunny Stream. Please go to the Student Directory to reassign affected students to an available course.
+                      </span>
+                    )}
                   </p>
                 </>
               ) : (

@@ -643,9 +643,6 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
   } catch (err: any) {
     console.log('Bunny API Error');
     console.error(err.message);
-    console.error(err.stack);
-    console.error(err.status);
-    console.error(err.responseBody);
     
     res.status(500).json({ 
       success: false, 
@@ -656,30 +653,61 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
     return;
   }
 
+  // Sanity check: If API returns 0 collections but we have many in DB, it might be a glitch.
+  // But we'll trust the API. If it's literally 0, we'll proceed.
+
   let coursesSynced = 0;
+  let coursesMissing = 0;
+  let coursesDuplicate = 0;
   let lessonsAdded = 0;
   let lessonsUpdated = 0;
   let lessonsRemoved = 0;
   let errors: string[] = [];
 
+  const syncTime = new Date();
+  const matchedCourseIds = new Set<string>();
+  const activeTitles = new Set<string>();
+
   for (const collection of collections) {
     const collectionName = collection.name;
+    const collectionId = collection.guid;
     
     // Step 3: Find or Create LMS Course
-    let course = await Course.findOne({ title: new RegExp(`^${collectionName}$`, 'i') });
+    // 1. Try to find by collection ID first
+    let course = await Course.findOne({ bunnyCollectionId: collectionId });
+    
+    // 2. If not found by ID, try to find by exact title match (that hasn't been matched yet)
+    if (!course) {
+      course = await Course.findOne({ 
+        title: new RegExp(`^${collectionName}$`, 'i'),
+        _id: { $nin: Array.from(matchedCourseIds) }
+      });
+    }
+
     if (!course) {
       course = new Course({
         title: collectionName,
         slug: collectionName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         description: `Imported from Bunny Collection: ${collectionName}`,
         category: collectionName,
-        status: 'published'
+        status: 'published',
+        bunnyCollectionId: collectionId,
+        availabilityStatus: 'Available',
+        lastBunnySyncAt: syncTime
       });
       await course.save();
       console.log(`Course Created: ${course.title}`);
     } else {
-      console.log(`Course Found: ${course.title}`);
+      // Update existing course to link it properly
+      course.bunnyCollectionId = collectionId;
+      course.availabilityStatus = 'Available';
+      course.lastBunnySyncAt = syncTime;
+      await course.save();
+      console.log(`Course Found & Linked: ${course.title}`);
     }
+    
+    matchedCourseIds.add(course._id.toString());
+    activeTitles.add(course.title.toLowerCase());
     coursesSynced++;
 
     // Ensure at least one module exists for this course
@@ -691,11 +719,10 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
         order: 1
       });
       await moduleDoc.save();
-      console.log(`Module Created: Lessons`);
     }
 
     // Filter videos for this collection
-    const collectionVideos = videos.filter(v => v.collectionId === collection.guid);
+    const collectionVideos = videos.filter(v => v.collectionId === collectionId);
     collectionVideos.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
     const bunnyVideoIdsInCollection = new Set(collectionVideos.map(v => v.guid));
 
@@ -719,7 +746,6 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
           lesson.order = order++;
           await lesson.save();
           lessonsUpdated++;
-          console.log(`Lesson Updated: ${lesson.title}`);
         } else {
           lesson = new Lesson({
             courseId: course._id,
@@ -735,35 +761,59 @@ export const syncBunnyLibrary = async (req: Request, res: Response): Promise<voi
           });
           await lesson.save();
           lessonsAdded++;
-          console.log(`Lesson Added: ${lesson.title}`);
         }
       } catch (lessonErr: any) {
         errors.push(`Error syncing lesson ${videoName}: ${lessonErr.message}`);
       }
     }
 
-    // Step 5: Delete ONLY lessons that no longer exist in Bunny
+    // Delete ONLY lessons that no longer exist in Bunny
     const allCourseLessons = await Lesson.find({ courseId: course._id, provider: 'bunny' });
     for (const l of allCourseLessons) {
       if (l.bunnyVideoId && !bunnyVideoIdsInCollection.has(l.bunnyVideoId)) {
         await Lesson.findByIdAndDelete(l._id);
         lessonsRemoved++;
-        console.log(`Lesson Removed: ${l.title}`);
       }
     }
   }
 
-  console.log('Matching Courses complete');
-  console.log('Updating Lessons complete');
-  console.log('Deleting Removed Lessons complete');
-  console.log('Sync Complete');
+  // Identify Missing and Duplicate courses
+  const allCourses = await Course.find();
+  for (const course of allCourses) {
+    if (!matchedCourseIds.has(course._id.toString())) {
+      let newStatus: 'Missing' | 'Duplicate' = 'Missing';
+      
+      // If we already matched a course with this same title, then this unmatched one is a Duplicate.
+      // Or if it shares a bunnyCollectionId with an active collection (but another course was matched to it), it's a Duplicate.
+      const isTitleDuplicate = activeTitles.has(course.title.toLowerCase());
+      const isIdDuplicate = collections.some(c => c.guid === course.bunnyCollectionId);
+
+      if (isTitleDuplicate || isIdDuplicate) {
+        newStatus = 'Duplicate';
+        coursesDuplicate++;
+      } else {
+        newStatus = 'Missing';
+        coursesMissing++;
+      }
+
+      course.availabilityStatus = newStatus;
+      course.lastBunnySyncAt = syncTime;
+      await course.save();
+    }
+  }
+
+  console.log(`Sync Complete: Synced ${coursesSynced}, Missing ${coursesMissing}, Duplicates ${coursesDuplicate}`);
   
   res.status(200).json({
     success: true,
-    coursesSynced,
-    lessonsAdded,
-    lessonsUpdated,
-    lessonsRemoved,
-    errors: errors
+    data: {
+      coursesSynced,
+      coursesMissing,
+      coursesDuplicate,
+      lessonsAdded,
+      lessonsUpdated,
+      lessonsRemoved,
+      errors: errors
+    }
   });
 };

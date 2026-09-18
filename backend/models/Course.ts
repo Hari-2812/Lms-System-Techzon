@@ -16,6 +16,9 @@ export interface ICourse extends Document {
   };
   duration?: number;
   price?: number;
+  bunnyCollectionId?: string;
+  availabilityStatus?: 'Available' | 'Missing' | 'Duplicate';
+  lastBunnySyncAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +44,13 @@ const CourseSchema: Schema<ICourse> = new Schema(
     },
     duration: { type: Number, default: 0 },
     price: { type: Number, default: 0 },
+    bunnyCollectionId: { type: String, index: true },
+    availabilityStatus: { 
+      type: String, 
+      enum: ['Available', 'Missing', 'Duplicate'],
+      default: 'Available'
+    },
+    lastBunnySyncAt: { type: Date }
   },
   { timestamps: true }
 );
