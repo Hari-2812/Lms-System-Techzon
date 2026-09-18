@@ -538,7 +538,8 @@ export const checkCourseDependencies = async (req: any, res: Response): Promise<
       return;
     }
 
-    const enrollmentCount = await Enrollment.countDocuments({ courseId: id });
+    const activeEnrollmentCount = await Enrollment.countDocuments({ courseId: id, status: 'active' });
+    const revokedEnrollmentCount = await Enrollment.countDocuments({ courseId: id, status: { $ne: 'active' } });
     const progressCount = await Progress.countDocuments({ courseId: id });
     const paymentCount = await mongoose.model('Payment').countDocuments({ courseId: id });
     const certCount = await mongoose.model('Certificate').countDocuments({ courseId: id });
@@ -546,14 +547,15 @@ export const checkCourseDependencies = async (req: any, res: Response): Promise<
     const moduleCount = await Module.countDocuments({ courseId: id });
     const lessonCount = await Lesson.countDocuments({ courseId: id });
 
-    const hasActiveDependencies = enrollmentCount > 0 || progressCount > 0 || paymentCount > 0 || certCount > 0 || quizResultCount > 0;
+    const hasActiveDependencies = activeEnrollmentCount > 0 || progressCount > 0 || paymentCount > 0 || certCount > 0 || quizResultCount > 0;
 
     res.status(200).json({
       success: true,
       data: {
         isSafeToDelete: !hasActiveDependencies,
         dependencies: {
-          enrollments: enrollmentCount,
+          activeEnrollments: activeEnrollmentCount,
+          revokedEnrollments: revokedEnrollmentCount,
           progressRecords: progressCount,
           payments: paymentCount,
           certificates: certCount,
@@ -585,18 +587,20 @@ export const deleteCourse = async (req: any, res: Response): Promise<void> => {
     }
 
     // 1. Dependency Checks - Data Integrity
-    const enrollmentCount = await Enrollment.countDocuments({ courseId: id });
+    const activeEnrollmentCount = await Enrollment.countDocuments({ courseId: id, status: 'active' });
+    const revokedEnrollmentCount = await Enrollment.countDocuments({ courseId: id, status: { $ne: 'active' } });
     const progressCount = await Progress.countDocuments({ courseId: id });
     const paymentCount = await mongoose.model('Payment').countDocuments({ courseId: id });
     const certCount = await mongoose.model('Certificate').countDocuments({ courseId: id });
     const quizResultCount = await mongoose.model('QuizResult').countDocuments({ courseId: id });
 
-    if (enrollmentCount > 0 || progressCount > 0 || paymentCount > 0 || certCount > 0 || quizResultCount > 0) {
+    if (activeEnrollmentCount > 0 || progressCount > 0 || paymentCount > 0 || certCount > 0 || quizResultCount > 0) {
       res.status(400).json({ 
         success: false, 
-        message: 'Cannot permanently delete this course because it has active dependencies.',
+        message: 'Cannot permanently delete this course because it has active dependencies or protected historical records.',
         details: {
-          enrollments: enrollmentCount,
+          activeEnrollments: activeEnrollmentCount,
+          revokedEnrollments: revokedEnrollmentCount,
           progressRecords: progressCount,
           payments: paymentCount,
           certificates: certCount,

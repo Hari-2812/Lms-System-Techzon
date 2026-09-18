@@ -427,7 +427,9 @@ const AdminCourses: React.FC = () => {
               {!isSafeToDelete ? (
                 <>
                   <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    This course has active dependencies and <strong className="text-red-600 dark:text-red-400">cannot be permanently deleted</strong> to prevent data corruption.
+                    {courseDependencies.activeEnrollments > 0 
+                      ? "This course has active student enrollments that must be reassigned before it can be permanently deleted."
+                      : "This course has protected historical records (payments, certificates, or progress) and cannot be deleted to preserve data integrity."}
                   </p>
                   
                   <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-2">
@@ -435,7 +437,8 @@ const AdminCourses: React.FC = () => {
                     <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
                       <li>• Modules: <strong>{courseDependencies.modules}</strong></li>
                       <li>• Lessons: <strong>{courseDependencies.lessons}</strong></li>
-                      <li className={courseDependencies.enrollments > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Active enrollments: <strong>{courseDependencies.enrollments}</strong></li>
+                      <li className={courseDependencies.activeEnrollments > 0 ? "text-red-600 dark:text-red-400 font-bold" : ""}>• Active enrollments: <strong>{courseDependencies.activeEnrollments}</strong></li>
+                      <li>• Revoked enrollments: <strong>{courseDependencies.revokedEnrollments}</strong></li>
                       <li className={courseDependencies.progressRecords > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Progress records: <strong>{courseDependencies.progressRecords}</strong></li>
                       <li className={courseDependencies.payments > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Payments: <strong>{courseDependencies.payments}</strong></li>
                       <li className={courseDependencies.certificates > 0 ? "text-orange-600 dark:text-orange-400 font-bold" : ""}>• Certificates: <strong>{courseDependencies.certificates}</strong></li>
@@ -460,9 +463,12 @@ const AdminCourses: React.FC = () => {
                   
                   <div className="bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 p-4 rounded-xl">
                     <p className="text-xs text-green-800 dark:text-green-300 font-medium leading-relaxed">
-                      <strong>Safe to Delete:</strong> This course has <strong>0</strong> active students, payments, or progress records. The following orphaned records will be permanently removed:
+                      <strong>Safe to Delete:</strong> This course has <strong>0</strong> active students or protected records. The following unused records will be permanently removed:
                       <br/>- Modules: <strong>{courseDependencies.modules}</strong>
                       <br/>- Lessons: <strong>{courseDependencies.lessons}</strong>
+                      {courseDependencies.revokedEnrollments > 0 && (
+                        <><br/>- Revoked enrollments (orphaned): <strong>{courseDependencies.revokedEnrollments}</strong></>
+                      )}
                     </p>
                   </div>
 
