@@ -440,3 +440,11 @@ export const sendLiveClassNotificationEmail = async (
 `;
   return await sendEmail({ email, subject: subjectText, html });
 };
+
+export const sendDynamicEmail = async (
+  email: string,
+  subject: string,
+  html: string
+): Promise<{ success: boolean; messageId: string }> => {
+  return await sendEmail({ email, subject, html });
+};

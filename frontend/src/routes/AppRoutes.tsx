@@ -27,6 +27,7 @@ const AdminSettings = React.lazy(() => import('../pages/AdminSettings'));
 const AdminOnboarding = React.lazy(() => import('../pages/AdminOnboarding'));
 const GoogleFormSync = React.lazy(() => import('../pages/GoogleFormSync'));
 const AdminNotifications = React.lazy(() => import('../pages/AdminNotifications'));
+const AdminEmailManagement = React.lazy(() => import('../pages/AdminEmailManagement'));
 
 const MentorCourses = React.lazy(() => import('../pages/MentorCourses'));
 const MentorSubmissions = React.lazy(() => import('../pages/MentorSubmissions'));
@@ -120,6 +121,16 @@ const AppRoutes: React.FC = () => {
                         </RoleGuard>
                       }
                     />
+
+                    {/* SuperAdmin specific routes */}
+                    {user?.role === 'SuperAdmin' && (
+                      <>
+                        <Route path="/superadmin/settings" element={<AdminSettings />} />
+                        <Route path="/superadmin/onboarding" element={<AdminOnboarding />} />
+                        <Route path="/superadmin/form-sync" element={<GoogleFormSync />} />
+                        <Route path="/superadmin/email-management" element={<AdminEmailManagement />} />
+                      </>
+                    )}
 
                     {/* Course Details Details */}
                     <Route path="/courses/:id" element={<CourseDetails />} />

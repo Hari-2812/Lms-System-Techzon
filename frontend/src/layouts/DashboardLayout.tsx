@@ -23,7 +23,8 @@ import {
   X,
   ClipboardList,
   RefreshCw,
-  Bell
+  Bell,
+  Mail
 } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
 import { Toaster } from 'react-hot-toast';
@@ -66,6 +67,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       items: [
         { name: 'Live Classes', path: '/live-classes', icon: <Calendar size={18} />, roles: ['Student'] },
         { name: 'Live Classes', path: '/admin/live-classes', icon: <Calendar size={18} />, roles: ['Mentor', 'Admin', 'SuperAdmin'] },
+        { name: 'Email Management', path: '/superadmin/email-management', icon: <Mail size={18} />, roles: ['SuperAdmin'] },
         { name: 'System Notifications', path: '/admin/notifications', icon: <Bell size={18} />, roles: ['Admin', 'SuperAdmin'] },
         { name: 'Support Tickets', path: '/tickets', icon: <LifeBuoy size={18} />, roles: ['Student', 'Support', 'Admin', 'SuperAdmin'] },
       ]

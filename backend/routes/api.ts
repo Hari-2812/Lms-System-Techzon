@@ -99,6 +99,7 @@ import {
 } from '../controllers/analyticsController';
 import { protect, authorize, checkPlanFeature } from '../middleware/auth';
 import notificationRoutes from './notificationRoutes';
+import emailCampaignRoutes from './emailCampaignRoutes';
 import { assignProject, getProjects, approveProject, requestChanges } from '../controllers/projectAdminController';
 import { getMyProject, submitProject } from '../controllers/projectStudentController';
 
@@ -372,5 +373,8 @@ router.post('/users/create-admin-mentor', async (req, res) => {
     res.status(400).json({ success: false, error: error.message });
   }
 });
+
+// Admin Email Management routes
+router.use('/admin/email-management', emailCampaignRoutes);
 
 export default router;
