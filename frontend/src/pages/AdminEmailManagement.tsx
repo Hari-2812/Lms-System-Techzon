@@ -366,8 +366,8 @@ const AdminEmailManagement: React.FC = () => {
                 {htmlContent ? (
                   <div dangerouslySetInnerHTML={{ 
                     __html: htmlContent
-                      .replace(/{{studentName}}/g, 'John Doe')
-                      .replace(/{{studentEmail}}/g, 'john@example.com') 
+                      .replace(/{{studentName}}/g, 'Student')
+                      .replace(/{{studentEmail}}/g, 'student@example.com') 
                   }} />
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">

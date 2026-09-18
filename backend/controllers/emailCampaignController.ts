@@ -80,7 +80,11 @@ const processCampaign = async (campaignId: string, students: any[], subject: str
     try {
       if (!student.email) throw new Error('Missing email address');
       
-      const result = await sendDynamicEmail(student.email, subject, htmlContent);
+      const personalizedHtml = htmlContent
+        .replace(/{{studentName}}/g, student.name || 'Student')
+        .replace(/{{studentEmail}}/g, student.email);
+
+      const result = await sendDynamicEmail(student.email, subject, personalizedHtml);
       if (result.success) {
         status = 'sent';
         sentCount++;
