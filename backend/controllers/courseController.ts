@@ -532,24 +532,53 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 export const deleteCourse = async (req: any, res: Response): Promise<void> => {
   const { id } = req.params;
   try {
+    // Only SuperAdmins should be able to delete courses
+    if (req.user.role !== 'SuperAdmin') {
+      res.status(403).json({ success: false, message: 'Forbidden. Only SuperAdmin can delete courses.' });
+      return;
+    }
+
     const course = await Course.findById(id);
     if (!course) {
       res.status(404).json({ success: false, message: 'Course not found' });
       return;
     }
 
-    // Cascade delete related records securely
+    // 1. Dependency Checks - Data Integrity
+    const enrollmentCount = await Enrollment.countDocuments({ courseId: id });
+    const progressCount = await Progress.countDocuments({ courseId: id });
+    const paymentCount = await mongoose.model('Payment').countDocuments({ courseId: id });
+    const certCount = await mongoose.model('Certificate').countDocuments({ courseId: id });
+    const quizResultCount = await mongoose.model('QuizResult').countDocuments({ courseId: id });
+
+    if (enrollmentCount > 0 || progressCount > 0 || paymentCount > 0 || certCount > 0 || quizResultCount > 0) {
+      res.status(400).json({ 
+        success: false, 
+        message: 'Cannot permanently delete this course because it has active dependencies.',
+        details: {
+          enrollments: enrollmentCount,
+          progressRecords: progressCount,
+          payments: paymentCount,
+          certificates: certCount,
+          quizResults: quizResultCount
+        }
+      });
+      return;
+    }
+
+    // 2. Cascade delete related curriculum records securely
     await Lesson.deleteMany({ courseId: id });
     await Module.deleteMany({ courseId: id });
+    
+    // 3. Delete the actual course
     await Course.findByIdAndDelete(id);
 
     // Note: We intentionally do not delete Cloudinary assets per instructions.
-    // We intentionally leave Enrollments intact or let the frontend display "No courses assigned" if they get orphaned,
-    // though typically admins manage enrollments manually via the new updateStudentEnrollments endpoint.
+    // Note: We intentionally do not delete Bunny Stream videos.
 
-    logger.info(`Course ${course.title} and all its modules, lessons, and video references were deleted by Admin ${req.user._id}.`);
+    logger.info(`Course ${course.title} and all its modules and lessons were permanently deleted by SuperAdmin ${req.user._id}.`);
 
-    res.status(200).json({ success: true, message: 'Course deleted successfully' });
+    res.status(200).json({ success: true, message: 'Course deleted successfully.' });
   } catch (error: any) {
     logger.error('Error deleting course:', error);
     res.status(500).json({ success: false, error: error.message });
