@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import ProjectAssignment from '../models/ProjectAssignment';
 import ProjectSubmission from '../models/ProjectSubmission';
+import Enrollment from '../models/Enrollment';
 
 export const getMyProject = async (req: any, res: Response) => {
   try {
@@ -10,6 +11,11 @@ export const getMyProject = async (req: any, res: Response) => {
     
     if (!project) {
       return res.status(404).json({ success: false, message: 'No project assigned' });
+    }
+
+    const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId });
+    if (!enrollment || enrollment.status !== 'completed') {
+      return res.status(403).json({ success: false, message: 'Course must be completed before accessing the project' });
     }
 
     const submission = await ProjectSubmission.findOne({ projectAssignmentId: project._id }).sort('-version');
@@ -28,6 +34,11 @@ export const submitProject = async (req: any, res: Response) => {
     const project = await ProjectAssignment.findById(id);
     if (!project || project.studentId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Unauthorized or not found' });
+    }
+
+    const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId: project.courseId });
+    if (!enrollment || enrollment.status !== 'completed') {
+      return res.status(403).json({ success: false, message: 'Course must be completed before submitting the project' });
     }
 
     let submission = await ProjectSubmission.findOne({ projectAssignmentId: id }).sort('-version');

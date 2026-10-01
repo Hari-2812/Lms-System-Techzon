@@ -667,8 +667,8 @@ export const adminMarkComplete = async (req: Request, res: Response): Promise<vo
     }, { new: true }).populate('studentId').populate('courseId');
 
     if (enrollment && !enrollment.certificateIssued) {
-      const { generateCertificateOffline } = require('../utils/certificateGenerator');
-      const cert = await generateCertificateOffline(id, courseId);
+      const { generateCertificateOffline } = require('./certificateController');
+      const cert = await generateCertificateOffline(id, courseId, enrollment._id);
       enrollment.certificateIssued = true;
       enrollment.certificateId = cert.certificateId;
       await enrollment.save();
@@ -711,15 +711,18 @@ export const adminRegenerateCertificate = async (req: Request, res: Response): P
       res.status(400).json({ success: false, message: 'Invalid ID format' });
       return;
     }
-    const { generateCertificateOffline } = require('../utils/certificateGenerator');
-    const cert = await generateCertificateOffline(id, courseId);
+    const enrollment = await Enrollment.findOne({ studentId: id, courseId });
+    if (!enrollment) {
+      res.status(404).json({ success: false, message: 'Enrollment not found' });
+      return;
+    }
+
+    const { generateCertificateOffline } = require('./certificateController');
+    const cert = await generateCertificateOffline(id, courseId, enrollment._id);
     
-    await Enrollment.findOneAndUpdate({ studentId: id, courseId }, {
-      $set: {
-        certificateIssued: true,
-        certificateId: cert.certificateId
-      }
-    });
+    enrollment.certificateIssued = true;
+    enrollment.certificateId = cert.certificateId;
+    await enrollment.save();
 
     res.json({ success: true, message: 'Certificate regenerated', data: cert });
   } catch (error: any) {

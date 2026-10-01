@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../utils/api';
-import { Loader2, UploadCloud, X, File as FileIcon, CheckCircle2 } from 'lucide-react';
+import { Loader2, UploadCloud, X, File as FileIcon, CheckCircle2, Lock } from 'lucide-react';
 import { Card, Button, Input, PageHeader, Badge, EmptyState } from '../components/ui';
 
 const StudentProject: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [projectData, setProjectData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
 
   // Form State
   const [links, setLinks] = useState<any>({});
@@ -24,7 +25,8 @@ const StudentProject: React.FC = () => {
     try {
       const res = await api.get(`/student/projects/${courseId}`);
       setProjectData(res.data.data);
-    } catch (error) {
+    } catch (error: any) {
+      setFetchError(error.response?.data?.message || 'Failed to load project.');
       console.error(error);
     } finally {
       setLoading(false);
@@ -118,9 +120,17 @@ const StudentProject: React.FC = () => {
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="animate-spin w-8 h-8 text-accent" /></div>;
 
+  if (fetchError) return (
+    <div className="p-12 text-center space-y-4">
+      <Lock className="w-12 h-12 mx-auto text-slate-400" />
+      <p className="text-slate-500 font-semibold">{fetchError}</p>
+    </div>
+  );
+
   if (!projectData?.project) return (
-    <div className="p-12 text-center text-slate-400">
-      <p>No project has been assigned yet. Complete your course to become eligible.</p>
+    <div className="p-12 text-center space-y-4">
+      <Lock className="w-12 h-12 mx-auto text-slate-400" />
+      <p className="text-slate-500 font-semibold">No project has been assigned yet. Complete your course to become eligible.</p>
     </div>
   );
 
