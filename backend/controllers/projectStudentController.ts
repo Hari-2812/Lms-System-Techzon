@@ -6,10 +6,10 @@ import Enrollment from '../models/Enrollment';
 export const getMyProject = async (req: any, res: Response) => {
   try {
     const { courseId } = req.params;
-    const project = await ProjectAssignment.findOne({ studentId: req.user._id, courseId })
+    const projects = await ProjectAssignment.find({ studentId: req.user._id, courseId })
       .populate('submissionId');
     
-    if (!project) {
+    if (!projects || projects.length === 0) {
       return res.status(404).json({ success: false, message: 'No project assigned' });
     }
 
@@ -18,9 +18,12 @@ export const getMyProject = async (req: any, res: Response) => {
       return res.status(403).json({ success: false, message: 'Course must be completed before accessing the project' });
     }
 
-    const submission = await ProjectSubmission.findOne({ projectAssignmentId: project._id }).sort('-version');
+    const projectsWithSubmissions = await Promise.all(projects.map(async (project) => {
+      const submission = await ProjectSubmission.findOne({ projectAssignmentId: project._id }).sort('-version');
+      return { project, submission };
+    }));
 
-    res.status(200).json({ success: true, data: { project, submission } });
+    res.status(200).json({ success: true, data: projectsWithSubmissions });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

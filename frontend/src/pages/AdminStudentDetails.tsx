@@ -27,7 +27,7 @@ const AdminStudentDetails: React.FC = () => {
     description: '',
     instructions: '',
     domain: 'Web Development',
-    dueDate: '',
+    projectType: 'MINOR',
     difficulty: 'Intermediate'
   });
   const [assignReqs, setAssignReqs] = useState<any[]>([
@@ -163,7 +163,7 @@ const AdminStudentDetails: React.FC = () => {
         instructions: assignForm.instructions,
         projectPdf: assignPdf?.url,
         domain: assignForm.domain,
-        dueDate: assignForm.dueDate,
+        projectType: assignForm.projectType,
         requirements: assignReqs,
         batch: courses[0]?.batch || 'General'
       });
@@ -708,7 +708,10 @@ const AdminStudentDetails: React.FC = () => {
                 <Textarea label="Project Instructions" required rows={4} value={assignForm.instructions} onChange={e => setAssignForm({...assignForm, instructions: e.target.value})} placeholder="- Complete all required modules..." />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input type="date" label="Due Date" required value={assignForm.dueDate} onChange={e => setAssignForm({...assignForm, dueDate: e.target.value})} />
+                  <Select label="Project Type" value={assignForm.projectType} onChange={e => setAssignForm({...assignForm, projectType: e.target.value})}>
+                    <option value="MINOR">Minor Project (10 Days)</option>
+                    <option value="MAJOR">Major Project (30 Days)</option>
+                  </Select>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Project PDF (Optional)</label>
                     {assignPdf ? (
@@ -779,7 +782,8 @@ const AdminStudentDetails: React.FC = () => {
                     <div className="flex justify-between"><span className="text-slate-500">Student:</span> <span className="font-semibold text-slate-800 dark:text-white">{profile?.name}</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Course:</span> <span className="font-semibold text-slate-800 dark:text-white">{courses[0]?.courseName}</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Project:</span> <span className="font-semibold text-slate-800 dark:text-white">{assignForm.title}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Due Date:</span> <span className="font-semibold text-slate-800 dark:text-white">{assignForm.dueDate}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Project Type:</span> <span className="font-semibold text-slate-800 dark:text-white">{assignForm.projectType === 'MINOR' ? 'Minor Project' : 'Major Project'}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Due Date:</span> <span className="font-semibold text-slate-800 dark:text-white">{assignForm.projectType === 'MINOR' ? '+10 Days' : '+30 Days'}</span></div>
                     <div className="flex justify-between"><span className="text-slate-500">Project PDF:</span> <span className="font-semibold text-emerald-600 dark:text-emerald-400">{assignPdf ? '✓ Uploaded' : 'None'}</span></div>
                  </div>
 

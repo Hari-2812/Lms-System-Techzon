@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IProjectAssignment extends Document {
   courseId: mongoose.Types.ObjectId;
   studentId: mongoose.Types.ObjectId;
+  projectType: 'MINOR' | 'MAJOR';
   domain: string;
   batch: string;
   title: string;
@@ -23,6 +24,7 @@ const ProjectAssignmentSchema: Schema<IProjectAssignment> = new Schema(
   {
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
     studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    projectType: { type: String, enum: ['MINOR', 'MAJOR'], required: true },
     domain: { type: String },
     batch: { type: String },
     title: { type: String, required: true },
@@ -43,6 +45,6 @@ const ProjectAssignmentSchema: Schema<IProjectAssignment> = new Schema(
   { timestamps: true }
 );
 
-ProjectAssignmentSchema.index({ studentId: 1, courseId: 1 }, { unique: true });
+ProjectAssignmentSchema.index({ studentId: 1, courseId: 1, projectType: 1 }, { unique: true });
 
 export default mongoose.model<IProjectAssignment>('ProjectAssignment', ProjectAssignmentSchema);

@@ -11,16 +11,27 @@ import { sendProjectAssignedEmail, sendCertificateIssuedEmail } from '../service
 export const assignProject = async (req: any, res: Response) => {
   try {
     const { studentId } = req.params;
-    const { courseId, title, description, instructions, projectPdf, dueDate, requirements, domain, batch } = req.body;
+    const { courseId, title, description, instructions, projectPdf, requirements, domain, batch, projectType } = req.body;
 
     const enrollment = await Enrollment.findOne({ studentId, courseId });
     if (!enrollment || enrollment.progress.percentComplete < 100) {
       return res.status(400).json({ success: false, message: 'Student must complete 100% of the course first' });
     }
 
-    const existing = await ProjectAssignment.findOne({ studentId, courseId });
+    if (!projectType || !['MINOR', 'MAJOR'].includes(projectType)) {
+      return res.status(400).json({ success: false, message: 'Valid projectType (MINOR or MAJOR) is required' });
+    }
+
+    const existing = await ProjectAssignment.findOne({ studentId, courseId, projectType });
     if (existing) {
-      return res.status(400).json({ success: false, message: 'Project already assigned for this course' });
+      return res.status(400).json({ success: false, message: `${projectType} Project already assigned for this course` });
+    }
+
+    let calculatedDueDate = new Date();
+    if (projectType === 'MINOR') {
+      calculatedDueDate.setDate(calculatedDueDate.getDate() + 10);
+    } else {
+      calculatedDueDate.setDate(calculatedDueDate.getDate() + 30);
     }
 
     const project = new ProjectAssignment({
@@ -30,10 +41,11 @@ export const assignProject = async (req: any, res: Response) => {
       description,
       instructions,
       projectPdf,
-      dueDate,
+      dueDate: calculatedDueDate,
       requirements,
       domain,
       batch,
+      projectType,
       assignedBy: req.user._id,
       status: 'ASSIGNED'
     });
