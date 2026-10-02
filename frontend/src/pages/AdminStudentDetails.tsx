@@ -156,7 +156,7 @@ const AdminStudentDetails: React.FC = () => {
     e.preventDefault();
     setAssigning(true);
     try {
-      await api.post(`/admin/projects/assign/${studentId}`, {
+      await api.post(`/admin/students/${studentId}/projects`, {
         courseId: courses[0]?.courseId,
         title: assignForm.title,
         description: assignForm.description,
