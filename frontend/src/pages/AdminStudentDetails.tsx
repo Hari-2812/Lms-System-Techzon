@@ -161,7 +161,7 @@ const AdminStudentDetails: React.FC = () => {
     
     setAssigning(true);
     try {
-      await api.post(`/admin/students/${studentId}/projects`, {
+      const response = await api.post(`/admin/students/${studentId}/projects`, {
         courseId: courses[0]?.courseId,
         title: assignForm.title,
         description: assignForm.description,
@@ -172,7 +172,13 @@ const AdminStudentDetails: React.FC = () => {
         requirements: assignReqs,
         batch: courses[0]?.batch || 'General'
       });
-      alert('Project Assigned Successfully!');
+      
+      if (response.data.emailSent === false) {
+        alert('Project assigned successfully, but the email could not be sent.');
+      } else {
+        alert('Project assigned successfully and notification email sent.');
+      }
+      
       setAssignProjectModalOpen(false);
       setAssignStep(1);
       // Refresh to update project status

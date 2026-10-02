@@ -6,6 +6,7 @@ import Certificate from '../models/Certificate';
 import User from '../models/User';
 import Course from '../models/Course';
 import { sendProjectAssignedEmail, sendCertificateIssuedEmail } from '../services/email';
+import logger from '../config/logger';
 
 
 export const assignProject = async (req: any, res: Response) => {
@@ -52,11 +53,33 @@ export const assignProject = async (req: any, res: Response) => {
     await project.save();
 
     const student = await User.findById(studentId);
-    if (student) {
-      await sendProjectAssignedEmail(student.email, student.name, title);
+    let emailSent = false;
+    
+    if (student && student.email) {
+      const course = await Course.findById(courseId);
+      const courseName = course ? course.title : 'N/A';
+      
+      try {
+        await sendProjectAssignedEmail(
+          student.email,
+          student.name,
+          title,
+          projectType,
+          courseName,
+          project.assignedAt || new Date(),
+          calculatedDueDate,
+          projectType === 'MINOR' ? 10 : 30,
+          description,
+          projectPdf
+        );
+        emailSent = true;
+      } catch (emailError: any) {
+        logger.error(`Failed to send project assignment email to ${student.email}:`, emailError);
+        // Do not roll back or throw; email failure is gracefully handled
+      }
     }
 
-    res.status(201).json({ success: true, data: project });
+    res.status(201).json({ success: true, data: project, emailSent });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
