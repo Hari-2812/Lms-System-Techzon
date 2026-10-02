@@ -154,6 +154,11 @@ const AdminStudentDetails: React.FC = () => {
 
   const handleAssignProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!courses || courses.length === 0 || !courses[0]?.courseId) {
+      alert('Error: Student is not actively enrolled in any course.');
+      return;
+    }
+    
     setAssigning(true);
     try {
       await api.post(`/admin/students/${studentId}/projects`, {
@@ -174,7 +179,11 @@ const AdminStudentDetails: React.FC = () => {
       await fetchAnalytics();
       await fetchAudit();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to assign project');
+      const errorMsg = error.response?.data?.message 
+        || (typeof error.response?.data === 'string' ? `Server Error: ${error.response.status}` : null)
+        || error.message 
+        || 'Failed to assign project';
+      alert(`Failed: ${errorMsg}`);
     } finally {
       setAssigning(false);
     }
