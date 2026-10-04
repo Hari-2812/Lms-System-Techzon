@@ -24,6 +24,17 @@ export const assignProject = async (req: any, res: Response) => {
       return res.status(400).json({ success: false, message: 'Valid projectType (MINOR or MAJOR) is required' });
     }
 
+    if (projectType === 'MAJOR') {
+      const minorProject = await ProjectAssignment.findOne({ studentId, courseId, projectType: 'MINOR' });
+      if (!minorProject) {
+         return res.status(400).json({ success: false, message: 'Student must have a Minor Project assigned first.' });
+      }
+      const minorSubmission = await ProjectSubmission.findOne({ projectAssignmentId: minorProject._id });
+      if (!minorSubmission || !['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'].includes(minorSubmission.status)) {
+         return res.status(400).json({ success: false, message: 'Student must submit the Minor Project before a Major Project can be assigned.' });
+      }
+    }
+
     const existing = await ProjectAssignment.findOne({ studentId, courseId, projectType });
     if (existing) {
       return res.status(400).json({ success: false, message: `${projectType} Project already assigned for this course` });

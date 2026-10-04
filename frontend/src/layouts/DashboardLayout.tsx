@@ -83,6 +83,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       title: 'MANAGEMENT',
       items: [
         { name: 'LMS Overview', path: '/admin/overview', icon: <Activity size={18} />, roles: ['Admin', 'SuperAdmin'] },
+        { name: 'Projects', path: '/admin/projects', icon: <FileText size={18} />, roles: ['Admin', 'SuperAdmin'] },
         { name: 'Google Form Sync', path: '/admin/google-sync', icon: <RefreshCw size={18} />, roles: ['Admin', 'SuperAdmin'] },
         { name: 'Audit Logs', path: '/admin/audit', icon: <Shield size={18} />, roles: ['Admin', 'SuperAdmin'] },
         { name: 'System Settings', path: '/admin/settings', icon: <SettingsIcon size={18} />, roles: ['Admin', 'SuperAdmin'] },
