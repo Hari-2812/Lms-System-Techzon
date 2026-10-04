@@ -33,6 +33,7 @@ const MentorCourses = React.lazy(() => import('../pages/MentorCourses'));
 const MentorSubmissions = React.lazy(() => import('../pages/MentorSubmissions'));
 
 const AdminProjects = React.lazy(() => import('../pages/AdminProjects'));
+const AdminProjectConfig = React.lazy(() => import('../pages/AdminProjectConfig'));
 const StudentProject = React.lazy(() => import('../pages/StudentProject'));
 
 const SuspenseFallback = () => (
@@ -193,6 +194,14 @@ const AppRoutes: React.FC = () => {
                       element={
                         <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
                           <AdminProjects />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/admin/projects/config/:courseId"
+                      element={
+                        <RoleGuard allowedRoles={['Admin', 'SuperAdmin']}>
+                          <AdminProjectConfig />
                         </RoleGuard>
                       }
                     />

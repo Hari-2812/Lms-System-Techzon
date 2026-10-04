@@ -100,7 +100,7 @@ import {
 import { protect, authorize, checkPlanFeature } from '../middleware/auth';
 import notificationRoutes from './notificationRoutes';
 import emailCampaignRoutes from './emailCampaignRoutes';
-import { assignProject, getProjects, approveProject, requestChanges } from '../controllers/projectAdminController';
+import { assignProject, getProjects, approveProject, requestChanges, getCourseProjectConfig, updateCourseProjectConfig } from '../controllers/projectAdminController';
 import { getMyProject, submitProject } from '../controllers/projectStudentController';
 
 const router = Router();
@@ -253,6 +253,9 @@ router.post('/admin/students/:studentId/projects', assignProject);
 router.get('/admin/projects', getProjects);
 router.post('/admin/projects/:id/approve', approveProject);
 router.post('/admin/projects/:id/request-changes', requestChanges);
+
+router.get('/admin/course-project-config/:courseId', getCourseProjectConfig);
+router.post('/admin/course-project-config/:courseId', updateCourseProjectConfig);
 
 
 // Onboarding requests API

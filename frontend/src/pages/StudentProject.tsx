@@ -329,13 +329,22 @@ const StudentProject: React.FC = () => {
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white line-clamp-2">{project.title}</h3>
                 <p className="text-sm text-slate-500 line-clamp-3">{project.description}</p>
                 
+                {project.status === 'LOCKED' && typeof project.courseProgress === 'number' && (
+                  <div className="mt-4">
+                    <div className="w-full bg-slate-200 rounded-full h-2.5 dark:bg-slate-700">
+                      <div className="bg-accent h-2.5 rounded-full" style={{ width: `${project.courseProgress}%` }}></div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2 font-semibold text-right">{Math.round(project.courseProgress)}% Completed</p>
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-sm">
                   <div className="text-slate-600 dark:text-slate-400">
                     <span className="block text-xs uppercase tracking-wider text-slate-400 font-semibold">Deadline</span>
-                    {project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'N/A'}
+                    {project.status === 'LOCKED' ? 'Locked' : (project.dueDate ? new Date(project.dueDate).toLocaleDateString() : 'N/A')}
                   </div>
                   <div className={`font-semibold ${isOverdue ? 'text-red-500' : 'text-slate-700 dark:text-slate-300'}`}>
-                    {isOverdue ? 'Overdue' : (daysRemaining !== null ? `${daysRemaining} days left` : '')}
+                    {project.status === 'LOCKED' ? '' : (isOverdue ? 'Overdue' : (daysRemaining !== null ? `${daysRemaining} days left` : ''))}
                   </div>
                 </div>
               </div>
@@ -344,9 +353,10 @@ const StudentProject: React.FC = () => {
                 <Button 
                   variant="primary" 
                   className="w-full"
+                  disabled={project.status === 'LOCKED'}
                   onClick={() => setSelectedProjectIndex(index)}
                 >
-                  {project.status === 'ASSIGNED' || project.status === 'CHANGES_REQUESTED' ? 'Submit Project' : 'View Details'}
+                  {project.status === 'LOCKED' ? <span className="flex items-center justify-center gap-2"><Lock className="w-4 h-4"/> Locked</span> : (project.status === 'ASSIGNED' || project.status === 'CHANGES_REQUESTED' ? 'Submit Project' : 'View Details')}
                 </Button>
               </div>
             </Card>

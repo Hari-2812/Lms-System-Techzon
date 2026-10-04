@@ -2,28 +2,137 @@ import { Request, Response } from 'express';
 import ProjectAssignment from '../models/ProjectAssignment';
 import ProjectSubmission from '../models/ProjectSubmission';
 import Enrollment from '../models/Enrollment';
+import CourseProjectConfig from '../models/CourseProjectConfig';
+import Course from '../models/Course';
+import { sendProjectAssignedEmail } from '../services/email';
+import logger from '../config/logger';
 
 export const getMyProject = async (req: any, res: Response) => {
   try {
     const { courseId } = req.params;
-    const projects = await ProjectAssignment.find({ studentId: req.user._id, courseId })
-      .populate('submissionId');
+    const studentId = req.user._id;
+
+    const enrollment = await Enrollment.findOne({ studentId, courseId });
+    if (!enrollment) {
+      return res.status(403).json({ success: false, message: 'Enrollment not found' });
+    }
+
+    const config = await CourseProjectConfig.findOne({ courseId });
     
-    if (!projects || projects.length === 0) {
-      return res.status(404).json({ success: false, message: 'No project assigned' });
+    // Check current assigned projects
+    let projects = await ProjectAssignment.find({ studentId, courseId }).populate('submissionId');
+    
+    // Auto-assignment logic if config exists
+    if (config) {
+      const isCourseCompleted = enrollment.progress.percentComplete >= 100;
+      
+      let minorProject = projects.find(p => p.projectType === 'MINOR');
+      let majorProject = projects.find(p => p.projectType === 'MAJOR');
+
+      // Stage 2: Minor Project unlocked (Course 100%)
+      if (isCourseCompleted && !minorProject && config.minorProject.isActive) {
+        let calculatedDueDate = new Date();
+        calculatedDueDate.setDate(calculatedDueDate.getDate() + 10);
+        
+        minorProject = new ProjectAssignment({
+          studentId,
+          courseId,
+          title: config.minorProject.title,
+          description: config.minorProject.description,
+          instructions: config.minorProject.instructions,
+          projectPdf: config.minorProject.projectPdf,
+          requirements: config.minorProject.requirements,
+          projectType: 'MINOR',
+          assignedBy: studentId, // System assigned
+          dueDate: calculatedDueDate,
+          status: 'ASSIGNED'
+        });
+        await minorProject.save();
+        projects.push(minorProject);
+
+        // Send email
+        try {
+          const course = await Course.findById(courseId);
+          const courseName = course ? course.title : 'N/A';
+          await sendProjectAssignedEmail(req.user.email, req.user.name, minorProject.title, 'MINOR', courseName, new Date(), calculatedDueDate, 10, minorProject.description, minorProject.projectPdf);
+        } catch (e) {
+          logger.error('Failed to send auto-assigned minor project email', e);
+        }
+      }
+
+      // Stage 4: Major Project unlocked (Minor is submitted/under_review/approved)
+      const isMinorSubmitted = minorProject && ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'].includes(minorProject.status);
+      
+      if (isMinorSubmitted && !majorProject && config.majorProject.isActive) {
+        let calculatedDueDate = new Date();
+        calculatedDueDate.setDate(calculatedDueDate.getDate() + 30);
+        
+        majorProject = new ProjectAssignment({
+          studentId,
+          courseId,
+          title: config.majorProject.title,
+          description: config.majorProject.description,
+          instructions: config.majorProject.instructions,
+          projectPdf: config.majorProject.projectPdf,
+          requirements: config.majorProject.requirements,
+          projectType: 'MAJOR',
+          assignedBy: studentId,
+          dueDate: calculatedDueDate,
+          status: 'ASSIGNED'
+        });
+        await majorProject.save();
+        projects.push(majorProject);
+
+        // Send email
+        try {
+          const course = await Course.findById(courseId);
+          const courseName = course ? course.title : 'N/A';
+          await sendProjectAssignedEmail(req.user.email, req.user.name, majorProject.title, 'MAJOR', courseName, new Date(), calculatedDueDate, 30, majorProject.description, majorProject.projectPdf);
+        } catch (e) {
+          logger.error('Failed to send auto-assigned major project email', e);
+        }
+      }
     }
 
-    const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId });
-    if (!enrollment || enrollment.status !== 'completed') {
-      return res.status(403).json({ success: false, message: 'Course must be completed before accessing the project' });
+    // Prepare response data with dummy locked projects if applicable
+    const responseData = [];
+    let minorProject = projects.find(p => p.projectType === 'MINOR');
+    let majorProject = projects.find(p => p.projectType === 'MAJOR');
+
+    if (minorProject) {
+      const submission = await ProjectSubmission.findOne({ projectAssignmentId: minorProject._id }).sort('-version');
+      responseData.push({ project: minorProject, submission });
+    } else if (config && config.minorProject.isActive) {
+      responseData.push({
+        project: {
+          _id: 'locked_minor',
+          projectType: 'MINOR',
+          title: config.minorProject.title,
+          description: 'Complete 100% of your course videos to unlock the Minor Project.',
+          status: 'LOCKED',
+          courseProgress: enrollment.progress.percentComplete
+        },
+        submission: null
+      });
     }
 
-    const projectsWithSubmissions = await Promise.all(projects.map(async (project) => {
-      const submission = await ProjectSubmission.findOne({ projectAssignmentId: project._id }).sort('-version');
-      return { project, submission };
-    }));
+    if (majorProject) {
+      const submission = await ProjectSubmission.findOne({ projectAssignmentId: majorProject._id }).sort('-version');
+      responseData.push({ project: majorProject, submission });
+    } else if (config && config.majorProject.isActive) {
+      responseData.push({
+        project: {
+          _id: 'locked_major',
+          projectType: 'MAJOR',
+          title: config.majorProject.title,
+          description: 'Submit your Minor Project successfully to unlock the Major Project.',
+          status: 'LOCKED'
+        },
+        submission: null
+      });
+    }
 
-    res.status(200).json({ success: true, data: projectsWithSubmissions });
+    res.status(200).json({ success: true, data: responseData });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -39,9 +148,18 @@ export const submitProject = async (req: any, res: Response) => {
       return res.status(403).json({ success: false, message: 'Unauthorized or not found' });
     }
 
-    const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId: project.courseId });
-    if (!enrollment || enrollment.status !== 'completed') {
-      return res.status(403).json({ success: false, message: 'Course must be completed before submitting the project' });
+    // Only minor project requires course completion for submission
+    if (project.projectType === 'MINOR') {
+      const enrollment = await Enrollment.findOne({ studentId: req.user._id, courseId: project.courseId });
+      if (!enrollment || enrollment.progress.percentComplete < 100) {
+        return res.status(403).json({ success: false, message: 'Course must be 100% completed before submitting the Minor Project' });
+      }
+    } else if (project.projectType === 'MAJOR') {
+      // Major project requires minor project submission
+      const minorProject = await ProjectAssignment.findOne({ studentId: req.user._id, courseId: project.courseId, projectType: 'MINOR' });
+      if (!minorProject || !['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'].includes(minorProject.status)) {
+        return res.status(403).json({ success: false, message: 'Minor Project must be submitted before submitting the Major Project' });
+      }
     }
 
     let submission = await ProjectSubmission.findOne({ projectAssignmentId: id }).sort('-version');

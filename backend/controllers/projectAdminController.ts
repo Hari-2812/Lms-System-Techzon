@@ -7,6 +7,7 @@ import User from '../models/User';
 import Course from '../models/Course';
 import { sendProjectAssignedEmail, sendCertificateIssuedEmail } from '../services/email';
 import logger from '../config/logger';
+import CourseProjectConfig from '../models/CourseProjectConfig';
 
 
 export const assignProject = async (req: any, res: Response) => {
@@ -177,6 +178,46 @@ export const requestChanges = async (req: any, res: Response) => {
     await submission.save();
 
     res.status(200).json({ success: true, message: 'Changes requested successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getCourseProjectConfig = async (req: any, res: Response) => {
+  try {
+    const { courseId } = req.params;
+    const config = await CourseProjectConfig.findOne({ courseId });
+    if (!config) {
+      // Return a default empty structure so the frontend can populate the form
+      return res.status(200).json({
+        success: true,
+        data: {
+          minorProject: { title: '', description: '', isActive: true, requirements: [] },
+          majorProject: { title: '', description: '', isActive: true, requirements: [] }
+        }
+      });
+    }
+    res.status(200).json({ success: true, data: config });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateCourseProjectConfig = async (req: any, res: Response) => {
+  try {
+    const { courseId } = req.params;
+    const { minorProject, majorProject } = req.body;
+
+    let config = await CourseProjectConfig.findOne({ courseId });
+    if (!config) {
+      config = new CourseProjectConfig({ courseId, minorProject, majorProject });
+    } else {
+      config.minorProject = minorProject;
+      config.majorProject = majorProject;
+    }
+
+    await config.save();
+    res.status(200).json({ success: true, data: config });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
