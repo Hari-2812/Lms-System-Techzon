@@ -15,7 +15,6 @@ const AdminProjects: React.FC = () => {
 
   useEffect(() => {
     fetchProjects();
-    fetchCourses();
   }, []);
 
   const fetchProjects = async () => {
