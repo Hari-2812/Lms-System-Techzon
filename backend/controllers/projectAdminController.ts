@@ -233,3 +233,127 @@ export const updateCourseProjectConfig = async (req: any, res: Response) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const reconcileProjects = async (req: any, res: Response) => {
+  try {
+    let minorAssignedCount = 0;
+    let majorAssignedCount = 0;
+    let errors = [];
+
+    const configs = await CourseProjectConfig.find({});
+    
+    for (const config of configs) {
+      const courseId = config.courseId;
+      const course = await Course.findById(courseId);
+      const courseName = course ? course.title : 'N/A';
+
+      // Reconcile Minor Projects
+      if (config.minorProject && config.minorProject.isActive) {
+        const eligibleEnrollments = await Enrollment.find({
+          courseId,
+          'progress.percentComplete': { $gte: 100 }
+        }).populate('studentId', 'name email');
+
+        for (const enrollment of eligibleEnrollments) {
+          const student: any = enrollment.studentId;
+          if (!student) continue;
+
+          const existingMinor = await ProjectAssignment.findOne({
+            studentId: student._id,
+            courseId,
+            projectType: 'MINOR'
+          });
+
+          if (!existingMinor) {
+            try {
+              let calculatedDueDate = new Date();
+              calculatedDueDate.setDate(calculatedDueDate.getDate() + 10);
+
+              const minorProject = new ProjectAssignment({
+                studentId: student._id,
+                courseId,
+                title: config.minorProject.title,
+                description: config.minorProject.description,
+                instructions: config.minorProject.instructions,
+                projectPdf: config.minorProject.projectPdf,
+                requirements: config.minorProject.requirements,
+                projectType: 'MINOR',
+                assignedBy: req.user._id, // Reconciled by Admin
+                dueDate: calculatedDueDate,
+                status: 'ASSIGNED'
+              });
+              await minorProject.save();
+              minorAssignedCount++;
+
+              await sendProjectAssignedEmail(student.email, student.name, minorProject.title, 'MINOR', courseName, new Date(), calculatedDueDate, 10, minorProject.description, minorProject.projectPdf);
+            } catch (err: any) {
+              logger.error(`Reconciliation minor project error for student ${student._id}: ${err.message}`);
+              errors.push(`Minor project failed for student ${student.email}: ${err.message}`);
+            }
+          }
+        }
+      }
+
+      // Reconcile Major Projects
+      if (config.majorProject && config.majorProject.isActive) {
+        const submittedMinors = await ProjectAssignment.find({
+          courseId,
+          projectType: 'MINOR',
+          status: { $in: ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'] }
+        }).populate('studentId', 'name email');
+
+        for (const minor of submittedMinors) {
+          const student: any = minor.studentId;
+          if (!student) continue;
+
+          const existingMajor = await ProjectAssignment.findOne({
+            studentId: student._id,
+            courseId,
+            projectType: 'MAJOR'
+          });
+
+          if (!existingMajor) {
+            try {
+              let calculatedDueDate = new Date();
+              calculatedDueDate.setDate(calculatedDueDate.getDate() + 30);
+
+              const majorProject = new ProjectAssignment({
+                studentId: student._id,
+                courseId,
+                title: config.majorProject.title,
+                description: config.majorProject.description,
+                instructions: config.majorProject.instructions,
+                projectPdf: config.majorProject.projectPdf,
+                requirements: config.majorProject.requirements,
+                projectType: 'MAJOR',
+                assignedBy: req.user._id, // Reconciled by Admin
+                dueDate: calculatedDueDate,
+                status: 'ASSIGNED'
+              });
+              await majorProject.save();
+              majorAssignedCount++;
+
+              await sendProjectAssignedEmail(student.email, student.name, majorProject.title, 'MAJOR', courseName, new Date(), calculatedDueDate, 30, majorProject.description, majorProject.projectPdf);
+            } catch (err: any) {
+              logger.error(`Reconciliation major project error for student ${student._id}: ${err.message}`);
+              errors.push(`Major project failed for student ${student.email}: ${err.message}`);
+            }
+          }
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Reconciliation complete',
+      data: {
+        minorAssignedCount,
+        majorAssignedCount,
+        errors
+      }
+    });
+  } catch (error: any) {
+    logger.error(`Reconciliation Error: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Reconciliation failed', error: error.message });
+  }
+};

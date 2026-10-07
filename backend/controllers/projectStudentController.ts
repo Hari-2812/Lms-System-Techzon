@@ -22,77 +22,9 @@ export const getMyProject = async (req: any, res: Response) => {
     // Check current assigned projects
     let projects = await ProjectAssignment.find({ studentId, courseId }).populate('submissionId');
     
-    // Auto-assignment logic if config exists
-    if (config) {
-      const isCourseCompleted = enrollment.progress.percentComplete >= 100;
-      
-      let minorProject = projects.find(p => p.projectType === 'MINOR');
-      let majorProject = projects.find(p => p.projectType === 'MAJOR');
-
-      // Stage 2: Minor Project unlocked (Course 100%)
-      if (isCourseCompleted && !minorProject && config.minorProject.isActive) {
-        let calculatedDueDate = new Date();
-        calculatedDueDate.setDate(calculatedDueDate.getDate() + 10);
-        
-        minorProject = new ProjectAssignment({
-          studentId,
-          courseId,
-          title: config.minorProject.title,
-          description: config.minorProject.description,
-          instructions: config.minorProject.instructions,
-          projectPdf: config.minorProject.projectPdf,
-          requirements: config.minorProject.requirements,
-          projectType: 'MINOR',
-          assignedBy: studentId, // System assigned
-          dueDate: calculatedDueDate,
-          status: 'ASSIGNED'
-        });
-        await minorProject.save();
-        projects.push(minorProject);
-
-        // Send email
-        try {
-          const course = await Course.findById(courseId);
-          const courseName = course ? course.title : 'N/A';
-          await sendProjectAssignedEmail(req.user.email, req.user.name, minorProject.title, 'MINOR', courseName, new Date(), calculatedDueDate, 10, minorProject.description, minorProject.projectPdf);
-        } catch (e) {
-          logger.error('Failed to send auto-assigned minor project email', e);
-        }
-      }
-
-      // Stage 4: Major Project unlocked (Minor is submitted/under_review/approved)
-      const isMinorSubmitted = minorProject && ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'].includes(minorProject.status);
-      
-      if (isMinorSubmitted && !majorProject && config.majorProject.isActive) {
-        let calculatedDueDate = new Date();
-        calculatedDueDate.setDate(calculatedDueDate.getDate() + 30);
-        
-        majorProject = new ProjectAssignment({
-          studentId,
-          courseId,
-          title: config.majorProject.title,
-          description: config.majorProject.description,
-          instructions: config.majorProject.instructions,
-          projectPdf: config.majorProject.projectPdf,
-          requirements: config.majorProject.requirements,
-          projectType: 'MAJOR',
-          assignedBy: studentId,
-          dueDate: calculatedDueDate,
-          status: 'ASSIGNED'
-        });
-        await majorProject.save();
-        projects.push(majorProject);
-
-        // Send email
-        try {
-          const course = await Course.findById(courseId);
-          const courseName = course ? course.title : 'N/A';
-          await sendProjectAssignedEmail(req.user.email, req.user.name, majorProject.title, 'MAJOR', courseName, new Date(), calculatedDueDate, 30, majorProject.description, majorProject.projectPdf);
-        } catch (e) {
-          logger.error('Failed to send auto-assigned major project email', e);
-        }
-      }
-    }
+    // Auto-assignment logic is now handled authoritatively by course progression (Minor)
+    // and project submission (Major).
+    // The lazy assignment logic has been removed.
 
     // Prepare response data with dummy locked projects if applicable
     const responseData = [];
@@ -189,6 +121,51 @@ export const submitProject = async (req: any, res: Response) => {
     project.status = 'SUBMITTED';
     project.submissionId = newSubmission._id as any;
     await project.save();
+
+    // Auto-assign Major Project if this is a Minor Project submission
+    if (project.projectType === 'MINOR') {
+      try {
+        const config = await CourseProjectConfig.findOne({ courseId: project.courseId });
+        if (config && config.majorProject && config.majorProject.isActive) {
+          const existingMajorProject = await ProjectAssignment.findOne({
+            studentId: req.user._id,
+            courseId: project.courseId,
+            projectType: 'MAJOR'
+          });
+
+          if (!existingMajorProject) {
+            let calculatedDueDate = new Date();
+            calculatedDueDate.setDate(calculatedDueDate.getDate() + 30);
+
+            const course = await Course.findById(project.courseId);
+            const courseName = course ? course.title : 'N/A';
+
+            const majorProject = new ProjectAssignment({
+              studentId: req.user._id,
+              courseId: project.courseId,
+              title: config.majorProject.title,
+              description: config.majorProject.description,
+              instructions: config.majorProject.instructions,
+              projectPdf: config.majorProject.projectPdf,
+              requirements: config.majorProject.requirements,
+              projectType: 'MAJOR',
+              assignedBy: req.user._id, // System assigned
+              dueDate: calculatedDueDate,
+              status: 'ASSIGNED'
+            });
+            await majorProject.save();
+
+            try {
+              await sendProjectAssignedEmail(req.user.email, req.user.name, majorProject.title, 'MAJOR', courseName, new Date(), calculatedDueDate, 30, majorProject.description, majorProject.projectPdf);
+            } catch (e) {
+              logger.error('Failed to send auto-assigned major project email', e);
+            }
+          }
+        }
+      } catch (err) {
+        logger.error('Failed to auto-assign major project:', err);
+      }
+    }
 
     res.status(200).json({ success: true, data: newSubmission });
   } catch (error: any) {
