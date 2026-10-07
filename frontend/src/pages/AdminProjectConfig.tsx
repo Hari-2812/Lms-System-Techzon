@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { PageHeader, Card, Button, Input, LoadingState } from '../components/ui';
-import { Save, ChevronLeft, Plus, X } from 'lucide-react';
+import { Save, ChevronLeft, Plus, X, UploadCloud, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const AdminProjectConfig: React.FC = () => {
@@ -10,6 +10,7 @@ const AdminProjectConfig: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState<'minor' | 'major' | null>(null);
 
   const [minorProject, setMinorProject] = useState<any>({
     title: '', description: '', instructions: '', projectPdf: '', isActive: true, requirements: []
@@ -55,6 +56,30 @@ const AdminProjectConfig: React.FC = () => {
   const updateProject = (type: 'minor' | 'major', field: string, value: any) => {
     if (type === 'minor') setMinorProject({ ...minorProject, [field]: value });
     else setMajorProject({ ...majorProject, [field]: value });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'minor' | 'major') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPdf(type);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        updateProject(type, 'projectPdf', res.data.url);
+        toast.success('PDF uploaded successfully');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to upload PDF');
+    } finally {
+      setUploadingPdf(null);
+    }
   };
 
   const addRequirement = (type: 'minor' | 'major') => {
@@ -132,12 +157,45 @@ const AdminProjectConfig: React.FC = () => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Project PDF Link (Optional)</label>
-          <Input 
-            value={project.projectPdf} 
-            onChange={(e) => updateProject(type, 'projectPdf', e.target.value)} 
-            placeholder="https://..." 
-          />
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Project PDF File</label>
+          {project.projectPdf ? (
+            <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg">
+              <a href={project.projectPdf} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline flex-1 truncate text-sm">
+                {project.projectPdf.split('/').pop() || 'View PDF'}
+              </a>
+              <button 
+                onClick={() => updateProject(type, 'projectPdf', '')}
+                className="p-1.5 text-slate-400 hover:text-red-500 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                title="Remove PDF"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input 
+                type="file" 
+                accept=".pdf"
+                onChange={(e) => handleFileUpload(e, type)}
+                disabled={uploadingPdf === type}
+                className="hidden"
+                id={`pdf-upload-${type}`}
+              />
+              <label 
+                htmlFor={`pdf-upload-${type}`}
+                className={`flex items-center justify-center gap-2 w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg cursor-pointer hover:border-accent dark:hover:border-accent hover:bg-accent/5 transition-colors ${uploadingPdf === type ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {uploadingPdf === type ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                ) : (
+                  <UploadCloud className="w-5 h-5 text-slate-400" />
+                )}
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                  {uploadingPdf === type ? 'Uploading...' : 'Click to upload PDF file'}
+                </span>
+              </label>
+            </div>
+          )}
         </div>
       </div>
 

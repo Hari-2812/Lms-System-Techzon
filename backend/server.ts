@@ -48,7 +48,8 @@ connectDB().then(async () => {
 });
 
 // Middleware Stack
-app.use(helmet());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(helmet({ crossOriginResourcePolicy: false }));
 const allowedOrigins = [
   "http://localhost:5173",
   "https://lms-system-techzon.vercel.app"

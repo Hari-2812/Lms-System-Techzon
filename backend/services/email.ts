@@ -362,44 +362,44 @@ export const sendProjectAssignedEmail = async (
   const formattedDeadlineDate = deadlineDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const typeDisplay = projectType === 'MAJOR' ? 'Major Project' : 'Minor Project';
 
-  const projectPdfSection = projectPdfUrl ? `
-<p><strong>Project PDF:</strong> <a href="${projectPdfUrl}" style="color: #F57C20; text-decoration: none;">Download / View PDF</a></p>
-` : '';
+  const subject = projectType === 'MAJOR' 
+    ? `Your Major Project Is Now Available – Techzon Wide`
+    : `Your Minor Project Has Been Assigned – Techzon Wide`;
+
+  let openingLines = '';
+  if (projectType === 'MAJOR') {
+    openingLines = `
+  <p style="color: #333333; font-size: 16px;">Dear ${studentName},</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your Minor Project has been successfully submitted.</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your Major Project is now available in the Techzon Wide LMS.</p>`;
+  } else {
+    openingLines = `
+  <p style="color: #333333; font-size: 16px;">Dear ${studentName},</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Congratulations on completing your course requirements!</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Your Minor Project has now been assigned to you in the Techzon Wide LMS.</p>`;
+  }
 
   const html = `
 <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff;">
-  <p style="color: #333333; font-size: 16px;">Dear ${studentName},</p>
-  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Greetings from Techzon Wide!</p>
-  <p style="color: #555555; font-size: 15px; line-height: 1.5;">A new project has been assigned to you through the Techzon Wide Learning Management System. Please review the project details below and complete the work within the specified deadline.</p>
+  ${openingLines}
   
-  <h3 style="color: #241252; margin-top: 25px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Project Details</h3>
-  <p><strong>Project Name:</strong> ${projectName}</p>
-  <p><strong>Project Type:</strong> ${typeDisplay}</p>
+  <h3 style="color: #241252; margin-top: 25px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Project Details:</h3>
   <p><strong>Course:</strong> ${courseName}</p>
+  <p><strong>Project:</strong> ${projectName}</p>
+  <p><strong>Project Type:</strong> ${typeDisplay}</p>
   <p><strong>Assigned Date:</strong> ${formattedAssignedDate}</p>
   <p><strong>Submission Deadline:</strong> ${formattedDeadlineDate}</p>
-  <p><strong>Time Available:</strong> ${deadlineDays} days</p>
-  <p><strong>Project Instructions:</strong> ${projectDescription}</p>
-  ${projectPdfSection}
+  <p><strong>Time Available:</strong> ${deadlineDays} Days</p>
   
-  <h3 style="color: #241252; margin-top: 25px; border-bottom: 1px solid #eee; padding-bottom: 10px;">What You Need to Do</h3>
-  <ul style="color: #555555; font-size: 15px; line-height: 1.6;">
-    <li>Log in to your Techzon Wide LMS account.</li>
-    <li>Open the Projects or Final Project section.</li>
-    <li>Review the project description, instructions, and attached PDF, if provided.</li>
-    <li>Complete the project before the submission deadline.</li>
-    <li>Submit the required deliverables through the LMS, including the GitHub repository, live project URL, source code, and screenshots where applicable.</li>
-  </ul>
-  
-  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Please plan your work carefully and submit your completed project before the deadline.</p>
-  <p style="color: #555555; font-size: 15px; line-height: 1.5;">If you have any questions, please contact the Techzon Wide team through the appropriate support channel.</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">Please log in to the LMS, review the project instructions and complete the project before the deadline.</p>
+  <p style="color: #555555; font-size: 15px; line-height: 1.5;">LMS:<br/><a href="${lmsUrl}" style="color: #F57C20;">${lmsUrl}</a></p>
   
   <br/>
-  <p style="color: #888; font-size: 14px;">Best regards,<br/>Techzon Wide Team<br/>Learning Management System</p>
-  <p style="color: #888; font-size: 14px;">LMS Portal: <a href="${lmsUrl}" style="color: #F57C20;">${lmsUrl}</a></p>
+  <p style="color: #888; font-size: 14px;">Regards,<br/>Techzon Wide Team</p>
 </div>
-`;
-  return await sendEmail({ email, subject: `New ${typeDisplay} Assigned – Techzon Wide LMS`, html });
+  `;
+
+  return await sendEmail({ email, subject, html });
 };
 
 export const sendCertificateIssuedEmail = async (

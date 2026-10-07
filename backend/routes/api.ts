@@ -100,7 +100,7 @@ import {
 import { protect, authorize, checkPlanFeature } from '../middleware/auth';
 import notificationRoutes from './notificationRoutes';
 import emailCampaignRoutes from './emailCampaignRoutes';
-import { assignProject, getProjects, approveProject, requestChanges, getCourseProjectConfig, updateCourseProjectConfig, reconcileProjects } from '../controllers/projectAdminController';
+import { assignProject, getProjects, approveProject, requestChanges, getCourseProjectConfig, updateCourseProjectConfig, reconcileProjects, getAllCourseProjectConfigs } from '../controllers/projectAdminController';
 import { getMyProject, submitProject } from '../controllers/projectStudentController';
 
 const router = Router();
@@ -255,6 +255,7 @@ router.get('/admin/projects', getProjects);
 router.post('/admin/projects/:id/approve', approveProject);
 router.post('/admin/projects/:id/request-changes', requestChanges);
 
+router.get('/admin/course-project-config', getAllCourseProjectConfigs);
 router.get('/admin/course-project-config/:courseId', getCourseProjectConfig);
 router.post('/admin/course-project-config/:courseId', updateCourseProjectConfig);
 
@@ -298,6 +299,14 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 const upload = multer({ dest: uploadDir });
+
+router.post('/upload', protect, authorize('SuperAdmin', 'Admin'), upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded' });
+  }
+  const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${req.file.filename}`;
+  res.json({ success: true, url: fileUrl, name: req.file.originalname });
+});
 
 // Course Management CRUDs
 router.post('/courses/sync-bunny', protect, authorize('SuperAdmin', 'Admin'), syncBunnyLibrary);

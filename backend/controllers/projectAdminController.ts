@@ -214,6 +214,14 @@ export const getCourseProjectConfig = async (req: any, res: Response) => {
   }
 };
 
+export const getAllCourseProjectConfigs = async (req: any, res: Response) => {
+  try {
+    const configs = await CourseProjectConfig.find();
+    res.status(200).json({ success: true, data: configs });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 export const updateCourseProjectConfig = async (req: any, res: Response) => {
   try {
     const { courseId } = req.params;

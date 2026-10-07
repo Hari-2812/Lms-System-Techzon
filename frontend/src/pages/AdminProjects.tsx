@@ -96,7 +96,7 @@ const AdminProjects: React.FC = () => {
           description="Manage minor and major projects, configure requirements, and assign them to students."
         />
         <div className="flex gap-3">
-          <Button variant="secondary" onClick={() => navigate('/admin/courses')} className="hidden md:flex">
+          <Button variant="secondary" onClick={() => navigate('/admin/projects/courses')} className="hidden md:flex">
             Configure Courses
           </Button>
           <Button variant="accent" onClick={handleReconcile} disabled={reconciling}>
