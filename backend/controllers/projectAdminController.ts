@@ -8,7 +8,7 @@ import Course from '../models/Course';
 import { sendProjectAssignedEmail, sendCertificateIssuedEmail } from '../services/email';
 import logger from '../config/logger';
 import CourseProjectConfig from '../models/CourseProjectConfig';
-
+import Lesson from '../models/Lesson';
 
 export const assignProject = async (req: any, res: Response) => {
   try {
