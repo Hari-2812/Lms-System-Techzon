@@ -254,32 +254,43 @@ export const reconcileProjects = async (req: any, res: Response) => {
       const courseId = config.courseId;
       const course = await Course.findById(courseId);
       const courseName = course ? course.title : 'N/A';
+      logger.info(`[RECONCILE] Processing config for course: ${courseName} (${courseId})`);
 
       // Reconcile Minor Projects
       if (config.minorProject && config.minorProject.isActive) {
+        logger.info(`[RECONCILE] Minor project active for ${courseName}`);
         const nonLegacyLessonsCount = await Lesson.countDocuments({ courseId, legacy: { $ne: true } });
+        logger.info(`[RECONCILE] Non-legacy lessons count: ${nonLegacyLessonsCount}`);
         
         const allEnrollments = await Enrollment.find({ courseId }).populate('studentId', 'name email');
+        logger.info(`[RECONCILE] Found ${allEnrollments.length} enrollments for ${courseName}`);
+        
+        const allLessons = await Lesson.find({ courseId, legacy: { $ne: true } }).lean();
+        const validLessonIds = allLessons.map(l => l._id.toString());
         
         const eligibleEnrollments = allEnrollments.filter(enrollment => {
-          // A student is eligible if their database percentComplete is 100, 
-          // or if their completedLessons array length is >= the total non-legacy lessons.
-          return enrollment.progress.percentComplete >= 100 || 
-                 (nonLegacyLessonsCount > 0 && enrollment.progress.completedLessons.length >= nonLegacyLessonsCount);
+          const validCompleted = enrollment.progress.completedLessons.filter((id: any) => validLessonIds.includes(id.toString()));
+          const isEligible = enrollment.progress.percentComplete >= 100 || 
+                 (nonLegacyLessonsCount > 0 && validCompleted.length >= nonLegacyLessonsCount);
+          if (isEligible) {
+             logger.info(`[RECONCILE] Enrollment ${enrollment._id} is eligible. Percent: ${enrollment.progress.percentComplete}, Valid Completed: ${validCompleted.length}/${nonLegacyLessonsCount}`);
+          }
+          return isEligible;
         });
 
         for (const enrollment of eligibleEnrollments) {
           const student: any = enrollment.studentId;
           if (!student) continue;
 
-          const existingMinor = await ProjectAssignment.findOne({
-            studentId: student._id,
-            courseId,
-            projectType: 'MINOR'
-          });
+            const existingMinor = await ProjectAssignment.findOne({
+              studentId: student._id,
+              courseId,
+              projectType: 'MINOR'
+            });
 
-          if (!existingMinor) {
-            try {
+            if (!existingMinor) {
+              logger.info(`[RECONCILE] Creating minor project for student ${student.email}`);
+              try {
               let calculatedDueDate = new Date();
               calculatedDueDate.setDate(calculatedDueDate.getDate() + 10);
 

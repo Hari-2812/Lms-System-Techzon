@@ -478,6 +478,12 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     updatedEnrollment.progress.completedLessons = validCompletedLessons;
     updatedEnrollment.progress.percentComplete = newPercent;
     console.log(`[DEBUG] Course Progress Calculated: ${newPercent}%`);
+    logger.info(`[PROJECT-AUTO] Lesson completion received`);
+    logger.info(`[PROJECT-AUTO] Enrollment: ${enrollment._id}`);
+    logger.info(`[PROJECT-AUTO] Course: ${objCourseId}`);
+    logger.info(`[PROJECT-AUTO] Completed lessons: ${completedCount}`);
+    logger.info(`[PROJECT-AUTO] Required lessons: ${totalLessons}`);
+    logger.info(`[PROJECT-AUTO] Completion: ${newPercent}%`);
     
     // Auto-issue certificate if 100%
     if (newPercent === 100 && !updatedEnrollment.certificateIssued) {
@@ -492,49 +498,67 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
 
     // Auto-assign Minor Project if 100%
     if (newPercent === 100) {
+      logger.info(`[PROJECT-AUTO] Eligible for Minor Project: true`);
       try {
+        logger.info(`[PROJECT-AUTO] Looking for Minor Project configuration`);
         const config = await CourseProjectConfig.findOne({ courseId: objCourseId });
-        if (config && config.minorProject && config.minorProject.isActive) {
-          const existingMinorProject = await ProjectAssignment.findOne({
-            studentId: req.user._id,
-            courseId: objCourseId,
-            projectType: 'MINOR'
-          });
-
-          if (!existingMinorProject) {
-            let calculatedDueDate = new Date();
-            calculatedDueDate.setDate(calculatedDueDate.getDate() + 10);
-
-            const course = await Course.findById(courseId);
-            const courseName = course ? course.title : 'N/A';
-
-            const minorProject = new ProjectAssignment({
+        
+        if (config) {
+          logger.info(`[PROJECT-AUTO] Configuration found: true`);
+          if (config.minorProject && config.minorProject.isActive) {
+            const existingMinorProject = await ProjectAssignment.findOne({
               studentId: req.user._id,
               courseId: objCourseId,
-              title: config.minorProject.title,
-              description: config.minorProject.description,
-              instructions: config.minorProject.instructions,
-              projectPdf: config.minorProject.projectPdf,
-              requirements: config.minorProject.requirements,
-              projectType: 'MINOR',
-              assignedBy: req.user._id, // System assigned
-              dueDate: calculatedDueDate,
-              status: 'ASSIGNED'
+              projectType: 'MINOR'
             });
-            await minorProject.save();
 
-            try {
-              await sendProjectAssignedEmail(req.user.email, req.user.name, minorProject.title, 'MINOR', courseName, new Date(), calculatedDueDate, 10, minorProject.description, minorProject.projectPdf);
-            } catch (e) {
-              logger.error('Failed to send auto-assigned minor project email', e);
+            logger.info(`[PROJECT-AUTO] Existing Minor assignment: ${!!existingMinorProject}`);
+
+            if (!existingMinorProject) {
+              logger.info(`[PROJECT-AUTO] Creating Minor assignment`);
+              let calculatedDueDate = new Date();
+              calculatedDueDate.setDate(calculatedDueDate.getDate() + 10);
+
+              const course = await Course.findById(courseId);
+              const courseName = course ? course.title : 'N/A';
+
+              const minorProject = new ProjectAssignment({
+                studentId: req.user._id,
+                courseId: objCourseId,
+                title: config.minorProject.title,
+                description: config.minorProject.description,
+                instructions: config.minorProject.instructions,
+                projectPdf: config.minorProject.projectPdf,
+                requirements: config.minorProject.requirements,
+                projectType: 'MINOR',
+                assignedBy: req.user._id, // System assigned
+                dueDate: calculatedDueDate,
+                status: 'ASSIGNED'
+              });
+              await minorProject.save();
+              logger.info(`[PROJECT-AUTO] Minor assignment created: ${minorProject._id}`);
+
+              try {
+                logger.info(`[PROJECT-AUTO] Sending notification`);
+                await sendProjectAssignedEmail(req.user.email, req.user.name, minorProject.title, 'MINOR', courseName, new Date(), calculatedDueDate, 10, minorProject.description, minorProject.projectPdf);
+                logger.info(`[PROJECT-AUTO] Notification processed`);
+              } catch (e) {
+                logger.error(`[PROJECT-AUTO] FAILED: Email sending error - ${e}`);
+              }
+            } else {
+              logger.info(`[PROJECT-AUTO] SKIPPED: Minor assignment already exists`);
             }
+          } else {
+            logger.info(`[PROJECT-AUTO] SKIPPED: Minor Project configuration is inactive`);
           }
-        } else if (!config || (config && !config.minorProject.isActive)) {
-          logger.info(`No active minor project configuration found for course ${objCourseId}`);
+        } else {
+          logger.info(`[PROJECT-AUTO] SKIPPED: Minor Project configuration not found for course ${objCourseId}`);
         }
       } catch (err) {
-        logger.error('Failed to auto-assign minor project:', err);
+        logger.error(`[PROJECT-AUTO] FAILED: assignment creation error - ${err}`);
       }
+    } else {
+      logger.info(`[PROJECT-AUTO] Eligible for Minor Project: false`);
     }
 
     if (newPercent === 100) {
