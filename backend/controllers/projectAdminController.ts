@@ -257,10 +257,16 @@ export const reconcileProjects = async (req: any, res: Response) => {
 
       // Reconcile Minor Projects
       if (config.minorProject && config.minorProject.isActive) {
-        const eligibleEnrollments = await Enrollment.find({
-          courseId,
-          'progress.percentComplete': { $gte: 100 }
-        }).populate('studentId', 'name email');
+        const nonLegacyLessonsCount = await Lesson.countDocuments({ courseId, legacy: { $ne: true } });
+        
+        const allEnrollments = await Enrollment.find({ courseId }).populate('studentId', 'name email');
+        
+        const eligibleEnrollments = allEnrollments.filter(enrollment => {
+          // A student is eligible if their database percentComplete is 100, 
+          // or if their completedLessons array length is >= the total non-legacy lessons.
+          return enrollment.progress.percentComplete >= 100 || 
+                 (nonLegacyLessonsCount > 0 && enrollment.progress.completedLessons.length >= nonLegacyLessonsCount);
+        });
 
         for (const enrollment of eligibleEnrollments) {
           const student: any = enrollment.studentId;

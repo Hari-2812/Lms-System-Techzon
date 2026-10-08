@@ -400,8 +400,8 @@ export const trackLessonProgress = async (req: any, res: Response): Promise<void
     console.log(`Enrollment ID: ${enrollment._id}`);
     console.log(`Enrollment Found`);
 
-    // 2. Fetch all lessons sorted by order to validate sequence
-    const allLessons = await Lesson.find({ courseId: objCourseId }).sort('order').lean();
+    // 2. Fetch all non-legacy lessons sorted by order to validate sequence and calculate total
+    const allLessons = await Lesson.find({ courseId: objCourseId, legacy: { $ne: true } }).sort('order').lean();
     console.log(`[DEBUG] Lesson Order Retrieved`);
     const currentLessonIndex = allLessons.findIndex(l => l._id.toString() === lessonId);
     
