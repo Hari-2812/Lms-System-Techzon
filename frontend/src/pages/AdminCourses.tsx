@@ -28,6 +28,7 @@ const AdminCourses: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Published'>('All');
   const [availabilityFilter, setAvailabilityFilter] = useState<'All' | 'Available' | 'Missing' | 'Duplicate'>('All');
+  const [projectFilter, setProjectFilter] = useState<'All' | 'Both Configured' | 'Minor Missing' | 'Major Missing' | 'Both Missing'>('All');
 
   // Deletion Modal states
   const [courseToDelete, setCourseToDelete] = useState<any | null>(null);
@@ -44,8 +45,24 @@ const AdminCourses: React.FC = () => {
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/courses');
-      setCourses(res.data.data || []);
+      const [coursesRes, summaryRes] = await Promise.all([
+        api.get('/courses'),
+        api.get('/admin/projects/course-summary').catch(() => ({ data: { data: [] } }))
+      ]);
+      
+      const coursesData = coursesRes.data.data || [];
+      const summaries = summaryRes.data.data || [];
+      const summaryMap = new Map(summaries.map((s: any) => [s.courseId, s]));
+
+      const merged = coursesData.map((c: any) => {
+        const s = summaryMap.get(c._id);
+        return {
+          ...c,
+          projectSummary: s || null
+        };
+      });
+
+      setCourses(merged);
     } catch (error) {
       console.error(error);
     } finally {
@@ -133,12 +150,25 @@ const AdminCourses: React.FC = () => {
     const courseAvailability = course.availabilityStatus || 'Available';
     const matchesAvailability = availabilityFilter === 'All' || courseAvailability === availabilityFilter;
     
-    return matchesSearch && matchesStatus && matchesAvailability;
+    const minConf = course.projectSummary?.minorProject?.configured;
+    const majConf = course.projectSummary?.majorProject?.configured;
+    let matchesProject = true;
+    if (projectFilter === 'Both Configured') matchesProject = minConf && majConf;
+    if (projectFilter === 'Minor Missing') matchesProject = !minConf;
+    if (projectFilter === 'Major Missing') matchesProject = !majConf;
+    if (projectFilter === 'Both Missing') matchesProject = !minConf && !majConf;
+
+    return matchesSearch && matchesStatus && matchesAvailability && matchesProject;
   });
 
   const availableCount = courses.filter(c => (c.availabilityStatus || 'Available') === 'Available').length;
   const missingCount = courses.filter(c => c.availabilityStatus === 'Missing').length;
   const duplicateCount = courses.filter(c => c.availabilityStatus === 'Duplicate').length;
+
+  const totalMinorConfigured = courses.filter(c => c.projectSummary?.minorProject?.configured).length;
+  const totalMajorConfigured = courses.filter(c => c.projectSummary?.majorProject?.configured).length;
+  const totalActiveAssignments = courses.reduce((acc, c) => acc + (c.projectSummary?.assignments?.minor || 0) + (c.projectSummary?.assignments?.major || 0), 0);
+  const totalPendingSubmissions = courses.reduce((acc, c) => acc + (c.projectSummary?.submissions?.pending || 0), 0);
 
   return (
     <div className="space-y-6 animate-fade-in font-poppins relative">
@@ -177,6 +207,26 @@ const AdminCourses: React.FC = () => {
         </div>
       </div>
 
+      {/* Project Dashboard Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+          <p className="text-xs text-slate-500 font-bold mb-1">Minor Projects Configured</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{totalMinorConfigured} <span className="text-sm font-medium text-slate-400">/ {courses.length}</span></p>
+        </div>
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+          <p className="text-xs text-slate-500 font-bold mb-1">Major Projects Configured</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{totalMajorConfigured} <span className="text-sm font-medium text-slate-400">/ {courses.length}</span></p>
+        </div>
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">Total Active Assignments</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{totalActiveAssignments}</p>
+        </div>
+        <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-orange-200 dark:border-orange-900/50 shadow-sm bg-orange-50/50 dark:bg-orange-500/5">
+          <p className="text-xs text-orange-600 dark:text-orange-400 font-bold mb-1">Pending Submissions</p>
+          <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{totalPendingSubmissions}</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Column: Course List (Enhanced Grid) */}
         <div className="xl:col-span-5 space-y-4">
@@ -189,8 +239,8 @@ const AdminCourses: React.FC = () => {
             </div>
 
             {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+            <div className="flex flex-col md:flex-row flex-wrap gap-3">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
@@ -213,7 +263,22 @@ const AdminCourses: React.FC = () => {
                   <option value="Duplicate">Duplicate</option>
                 </select>
               </div>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value as any)}
+                  className="w-full sm:w-auto pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-border-dark rounded-lg text-xs focus:ring-2 focus:ring-accent outline-none text-slate-800 dark:text-white appearance-none cursor-pointer"
+                >
+                  <option value="All">All Projects</option>
+                  <option value="Both Configured">Both Configured</option>
+                  <option value="Minor Missing">Minor Missing</option>
+                  <option value="Major Missing">Major Missing</option>
+                  <option value="Both Missing">Both Missing</option>
+                </select>
+              </div>
             </div>
+
 
             {loading && !courses.length ? (
               <div className="flex flex-col items-center justify-center p-12 space-y-3">
@@ -263,6 +328,29 @@ const AdminCourses: React.FC = () => {
                             {isCheckingDeps && courseToDelete?._id === course._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                           </button>
                         </div>
+                        <div className="flex flex-col gap-1.5 mt-2 bg-slate-50 dark:bg-slate-800/30 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Project Configuration</div>
+                          <div className="flex items-center gap-2">
+                            {course.projectSummary?.minorProject?.configured 
+                              ? <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded font-bold">MINOR ✓</span>
+                              : <span className="text-[10px] bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> MINOR</span>
+                            }
+                            {course.projectSummary?.majorProject?.configured
+                              ? <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded font-bold">MAJOR ✓</span>
+                              : <span className="text-[10px] bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-0.5 rounded font-bold flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> MAJOR</span>
+                            }
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-800/30 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Assignments</div>
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400">
+                            <div>Minor Assigned: <span className="font-bold text-slate-800 dark:text-slate-200">{course.projectSummary?.assignments?.minor || 0}</span></div>
+                            <div>Major Assigned: <span className="font-bold text-slate-800 dark:text-slate-200">{course.projectSummary?.assignments?.major || 0}</span></div>
+                            <div className="text-orange-600 dark:text-orange-400">Pending: <span className="font-bold">{course.projectSummary?.submissions?.pending || 0}</span></div>
+                            <div className="text-green-600 dark:text-green-400">Submitted: <span className="font-bold">{course.projectSummary?.submissions?.submitted || 0}</span></div>
+                          </div>
+                        </div>
                         
                         <div className="flex justify-between items-center mt-auto pt-2 border-t border-slate-100 dark:border-slate-800/60">
                           <div className="flex gap-2 items-center">
@@ -285,9 +373,12 @@ const AdminCourses: React.FC = () => {
                             )}
                           </div>
                           
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            ID: {course._id.substring(course._id.length - 6)}
-                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/admin/projects/config/${course._id}`); }}
+                            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-md text-[10px] font-bold transition flex items-center gap-1.5"
+                          >
+                            <BookOpen className="w-3 h-3" /> Manage Projects
+                          </button>
                         </div>
                       </div>
                     );
@@ -319,6 +410,36 @@ const AdminCourses: React.FC = () => {
                   </button>
                 </div>
               </div>
+              
+              {/* Project Stats in Right Panel */}
+              {selectedCourse.projectSummary && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900/30 p-4 rounded-xl border border-slate-200 dark:border-border-dark">
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Minor Config</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      {selectedCourse.projectSummary.minorProject?.configured ? 'Yes ✓' : 'No ⚠'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Major Config</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      {selectedCourse.projectSummary.majorProject?.configured ? 'Yes ✓' : 'No ⚠'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Assigned</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      {(selectedCourse.projectSummary.assignments?.minor || 0) + (selectedCourse.projectSummary.assignments?.major || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-orange-500 font-bold uppercase mb-1">Pending Review</p>
+                    <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                      {selectedCourse.projectSummary.submissions?.pending || 0}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 stylish-scrollbar">
                 {modules.length === 0 ? (

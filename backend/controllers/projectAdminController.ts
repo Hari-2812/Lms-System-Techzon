@@ -365,3 +365,111 @@ export const reconcileProjects = async (req: any, res: Response) => {
     res.status(500).json({ success: false, message: 'Reconciliation failed', error: error.message });
   }
 };
+
+export const getCourseProjectSummary = async (req: any, res: Response) => {
+  try {
+    // 1. Get all courses with minimal fields to join against
+    const courses = await Course.find().select('_id title status');
+    
+    // 2. Get all project configurations
+    const configs = await CourseProjectConfig.find();
+    const configMap = new Map();
+    configs.forEach(c => {
+      configMap.set(c.courseId.toString(), c);
+    });
+
+    // 3. Aggregate project assignments (counts by courseId and projectType)
+    // We want to count total assignments, pending submissions (SUBMITTED, UNDER_REVIEW, CHANGES_REQUESTED), and fully submitted/completed
+    // Actually, "Pending" in the admin view usually means "Student has SUBMITTED, Admin needs to review". 
+    // And "Submitted" could mean "Total submitted ever" or "Approved". Let's clarify:
+    // Submitted: status === 'SUBMITTED' or 'UNDER_REVIEW' or 'CHANGES_REQUESTED' or 'APPROVED'
+    // Pending: status === 'SUBMITTED' or 'UNDER_REVIEW'
+    const assignmentStats = await ProjectAssignment.aggregate([
+      {
+        $group: {
+          _id: { courseId: "$courseId", projectType: "$projectType" },
+          totalAssigned: { $sum: 1 },
+          totalSubmitted: {
+            $sum: {
+              $cond: [{ $in: ["$status", ["SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED", "APPROVED", "REJECTED"]] }, 1, 0]
+            }
+          },
+          totalPendingReview: {
+            $sum: {
+              $cond: [{ $in: ["$status", ["SUBMITTED", "UNDER_REVIEW"]] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const statMap = new Map();
+    assignmentStats.forEach(stat => {
+      const courseIdStr = stat._id.courseId.toString();
+      if (!statMap.has(courseIdStr)) {
+        statMap.set(courseIdStr, {
+          minor: { assigned: 0, submitted: 0, pending: 0 },
+          major: { assigned: 0, submitted: 0, pending: 0 }
+        });
+      }
+      const type = stat._id.projectType === 'MINOR' ? 'minor' : 'major';
+      statMap.get(courseIdStr)[type] = {
+        assigned: stat.totalAssigned,
+        submitted: stat.totalSubmitted,
+        pending: stat.totalPendingReview
+      };
+    });
+
+    // 4. Combine data
+    const summaries = courses.map(course => {
+      const courseId = course._id.toString();
+      const config = configMap.get(courseId);
+      const stats = statMap.get(courseId) || {
+        minor: { assigned: 0, submitted: 0, pending: 0 },
+        major: { assigned: 0, submitted: 0, pending: 0 }
+      };
+
+      const isMinorConfigured = config ? config.minorProject?.isActive && !!config.minorProject?.title : false;
+      const isMajorConfigured = config ? config.majorProject?.isActive && !!config.majorProject?.title : false;
+
+      return {
+        courseId: courseId,
+        courseName: course.title,
+        courseStatus: course.status,
+        minorProject: {
+          configured: isMinorConfigured,
+          title: config?.minorProject?.title || '',
+          isActive: config?.minorProject?.isActive || false,
+          pdf: config?.minorProject?.projectPdf || null
+        },
+        majorProject: {
+          configured: isMajorConfigured,
+          title: config?.majorProject?.title || '',
+          isActive: config?.majorProject?.isActive || false,
+          pdf: config?.majorProject?.projectPdf || null
+        },
+        assignments: {
+          minor: stats.minor.assigned,
+          major: stats.major.assigned
+        },
+        submissions: {
+          minorPending: stats.minor.pending,
+          minorSubmitted: stats.minor.submitted,
+          majorPending: stats.major.pending,
+          majorSubmitted: stats.major.submitted,
+          // Aggregate for backwards compatibility or general display
+          pending: stats.minor.pending + stats.major.pending,
+          submitted: stats.minor.submitted + stats.major.submitted
+        }
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: summaries
+    });
+  } catch (error: any) {
+    logger.error(`getCourseProjectSummary Error: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Failed to get course project summary', error: error.message });
+  }
+};

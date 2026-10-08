@@ -100,7 +100,7 @@ import {
 import { protect, authorize, checkPlanFeature } from '../middleware/auth';
 import notificationRoutes from './notificationRoutes';
 import emailCampaignRoutes from './emailCampaignRoutes';
-import { assignProject, getProjects, approveProject, requestChanges, getCourseProjectConfig, updateCourseProjectConfig, reconcileProjects, getAllCourseProjectConfigs } from '../controllers/projectAdminController';
+import { assignProject, getProjects, approveProject, requestChanges, getCourseProjectConfig, updateCourseProjectConfig, reconcileProjects, getAllCourseProjectConfigs, getCourseProjectSummary } from '../controllers/projectAdminController';
 import { getMyProject, submitProject } from '../controllers/projectStudentController';
 
 const router = Router();
@@ -255,6 +255,7 @@ router.get('/admin/projects', getProjects);
 router.post('/admin/projects/:id/approve', approveProject);
 router.post('/admin/projects/:id/request-changes', requestChanges);
 
+router.get('/admin/projects/course-summary', protect, authorize('SuperAdmin', 'Admin'), getCourseProjectSummary);
 router.get('/admin/course-project-config', getAllCourseProjectConfigs);
 router.get('/admin/course-project-config/:courseId', getCourseProjectConfig);
 router.post('/admin/course-project-config/:courseId', updateCourseProjectConfig);
